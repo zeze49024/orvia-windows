@@ -1,6 +1,6 @@
 {
   "name": "orvia-windows",
-  "version": "0.1.0-beta2",
+  "version": "0.1.0-beta3",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,7 +9,7 @@
     "tauri": "tauri",
     "test": "vitest run",
     "desktop": "node scripts/desktop.mjs dev",
-    "package": "node scripts/desktop.mjs build",
+    "package": "node scripts/desktop.mjs build && node scripts/verify-exe-icons.mjs",
     "test:native": "node scripts/desktop.mjs test",
     "release:prepare": "node scripts/release-manifest.mjs"
   },

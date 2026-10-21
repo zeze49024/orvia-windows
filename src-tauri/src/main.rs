@@ -191,6 +191,15 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .setup(|app| {
+            // Explicit RGBA window icon avoids relying on Shell's cached icon or
+            // a resource decoder's alpha/mask conversion for the running window.
+            if let Some(window) = app.get_webview_window("main") {
+                window.set_icon(tauri::image::Image::new_owned(
+                    include_bytes!("../icons/window-icon.rgba").to_vec(),
+                    256,
+                    256,
+                ))?;
+            }
             let root = app.path().app_local_data_dir()?;
             let connection = open_db(&root).map_err(std::io::Error::other)?;
             app.manage(Storage {

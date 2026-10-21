@@ -1,6 +1,6 @@
 # 开发与发布
 
-版本：v0.1.0-beta2。确认的更新日志：优化应用图标，新增所见即所得 Markdown 编辑体验。
+版本：v0.1.0-beta3。确认的更新日志：修复 Windows 应用图标白色背景问题。
 
 ## 启动
 
@@ -60,3 +60,13 @@ Tauri updater 校验 Ed25519 签名后才运行安装包。更新签名不等同
 底层正文仍为 Markdown，沿用原 SQLite、备份与更新机制，无数据库迁移。打开文档不触发正文重写。原文与编辑器序列化结果通过 Markdown 语义树比较：HTML、脚注或其他无法等价转换的内容自动保留源码编辑；可在源码和实时编辑间切换。编辑后允许规范化列表标记、表格对齐和空白排版。此版并非完整复刻 Typora 的全部语法与交互。
 
 图标由原 SVG 生成透明 PNG 与 16/24/32/48/64/128/256 像素 ICO，LOGO 约占画布 82%，应用内同步缩小。品牌原 SVG 保留不改。
+
+## Beta3 Windows 图标
+
+图标资产在 `scripts/icon-assets.mjs` 统一生成：16–128px 使用含 alpha 与 AND 透明遮罩的 32 位 BGRA DIB，256px 使用透明 PNG，512px PNG 继续供其他图标读取。resvg 的预乘 RGBA 像素先还原为直通 alpha，避免半透明边缘变暗。运行窗口显式使用生成的 256px RGBA 图标，安装器通过 SHChangeNotify 通知 Shell 更新缓存，不删除缓存文件或重启 Explorer。
+
+`node scripts/verify-exe-icons.mjs` 检查实际可执行文件的 7 个 RT_ICON 资源与预期像素资产一致，并检查显式窗口图标已嵌入。
+
+诊断时已读取用户已安装 Beta2 的 PE 图标，7 档资源均有透明 alpha；截图中任务栏按钮外层圆角浅色底板属于 Windows 的运行/选中状态效果。本版不承诺去掉系统自身的按钮底板，也不修改全局任务栏外观。
+
+参考：[Microsoft 图标资源说明](https://learn.microsoft.com/en-us/windows/win32/menurc/about-icons)、[SHChangeNotify](https://learn.microsoft.com/en-us/windows/win32/api/shlobj_core/nf-shlobj_core-shchangenotify)。
