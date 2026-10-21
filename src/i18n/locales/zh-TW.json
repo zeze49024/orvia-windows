@@ -155,5 +155,8 @@
   "linkHint": "為選取的文字設定連結。應用程式不會自動開啟外部連結。",
   "linkUrl": "連結網址",
   "removeLink": "移除連結",
-  "editorLimit": "內文已達最大長度，本次輸入未儲存。"
+  "editorLimit": "內文已達最大長度，本次輸入未儲存。",
+  "paragraph": "內文",
+  "outlineEmpty": "尚無標題",
+  "untitledHeading": "無標題"
 }

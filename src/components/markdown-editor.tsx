@@ -9,7 +9,6 @@ import {
 import {
   Bold,
   Italic,
-  Heading2,
   ListTodo,
   Link,
   Code2,
@@ -22,12 +21,18 @@ import {
   Table,
   CodeSquare,
 } from "lucide-react";
-import { editorExtensions, SafeImage, canEditRichly } from "@/core/editor";
+import {
+  editorExtensions,
+  SafeImage,
+  canEditRichly,
+  setSourceHeading,
+} from "@/core/editor";
 import { translator, type MessageKey } from "@/i18n";
 import type { Locale } from "@/core/model";
 import { LocalImage } from "./local-image";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+import { HeadingMenu } from "./ui/heading-menu";
 import {
   Dialog,
   DialogContent,
@@ -69,6 +74,7 @@ export function MarkdownEditor({
   latest.current = { value, onChange, notify, t };
   const [source, setSource] = useState(false),
     [guarded, setGuarded] = useState(false);
+  const [sourceLevel, setSourceLevel] = useState(0);
   const [linkOpen, setLinkOpen] = useState(false),
     [href, setHref] = useState("");
   const [, refresh] = useState(0),
@@ -201,15 +207,41 @@ export function MarkdownEditor({
         role="toolbar"
         aria-label={t("formatToolbar")}
       >
-        {command(
-          "heading",
-          ["## ", ""],
-          () => {
-            editor?.chain().focus().toggleHeading({ level: 2 }).run();
-          },
-          editor?.isActive("heading") ?? false,
-          Heading2,
-        )}
+        <HeadingMenu
+          value={
+            source
+              ? sourceLevel
+              : editor?.isActive("heading")
+                ? editor.getAttributes("heading").level
+                : 0
+          }
+          label={t("heading")}
+          paragraph={t("paragraph")}
+          onChange={(level) => {
+            if (source && textarea.current) {
+              const el = textarea.current;
+              const result = setSourceHeading(
+                value,
+                el.selectionStart,
+                el.selectionEnd,
+                level,
+              );
+              if (result.value.length > 5_000_000) return;
+              setSourceLevel(level);
+              onChange(result.value);
+              requestAnimationFrame(() => {
+                el.focus();
+                el.setSelectionRange(result.from, result.to);
+              });
+            } else if (level)
+              editor
+                ?.chain()
+                .focus()
+                .setHeading({ level: level as 1 | 2 | 3 | 4 | 5 | 6 })
+                .run();
+            else editor?.chain().focus().setParagraph().run();
+          }}
+        />
         {command(
           "bold",
           ["**", "**"],
@@ -349,7 +381,6 @@ export function MarkdownEditor({
           {t("sourcePreserved")}
         </p>
       )}
-      <p className="editor-hint">{t(source ? "sourceHint" : "liveHint")}</p>
       {source ? (
         <textarea
           ref={textarea}
@@ -359,6 +390,16 @@ export function MarkdownEditor({
           value={value}
           placeholder={t("write")}
           onChange={(e) => onChange(e.target.value)}
+          onSelect={(e) => {
+            const el = e.currentTarget,
+              start = el.selectionStart;
+            const from = start ? el.value.lastIndexOf("\n", start - 1) + 1 : 0;
+            setSourceLevel(
+              /^ {0,3}(#{1,6})(?:[\t ]+|$)/.exec(
+                el.value.slice(from).split("\n")[0],
+              )?.[1].length ?? 0,
+            );
+          }}
           spellCheck={false}
         />
       ) : (

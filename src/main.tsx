@@ -81,6 +81,7 @@ import {
 import type { Update } from "@tauri-apps/plugin-updater";
 import { LocalImage } from "@/components/local-image";
 import { MarkdownEditor } from "@/components/markdown-editor";
+import { DocumentOutline } from "@/components/document-outline";
 import "./styles.css";
 import "./workspace.css";
 import "./application.css";
@@ -106,6 +107,7 @@ function App() {
     [update, setUpdate] = useState<Update | null>(null),
     [progress, setProgress] = useState(0),
     [updateMessage, setUpdateMessage] = useState("");
+  const paper = useRef<HTMLElement>(null);
   const cancelRef = useRef<AbortController | null>(null),
     toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined),
     busyRef = useRef(false);
@@ -626,18 +628,6 @@ function App() {
               ))}
             </div>
             <div className="sidebar-bottom">
-              <div className="local-card">
-                <div>
-                  <ShieldCheck size={16} />
-                  <b>{t("localTitle")}</b>
-                  <span className="green-dot" />
-                </div>
-                <p>{t("localHint")}</p>
-                <small>
-                  {sizeLabel}
-                  <span>{t("local")}</span>
-                </small>
-              </div>
               <button
                 className={`nav-row ${page === "trash" ? "active" : ""}`}
                 onClick={() => navigate("trash")}
@@ -751,7 +741,7 @@ function App() {
                   iconButton(X, t("purge"), () => setModal("purge"))}
               </div>
               <div className="editor-layout">
-                <article className="editor-paper">
+                <article className="editor-paper" ref={paper}>
                   <div className="eyebrow">
                     <span className={`dot ${library?.color}`} />
                     {library?.name}
@@ -825,68 +815,11 @@ function App() {
                     />
                   )}
                 </article>
-                <aside className="document-aside">
-                  <div className="aside-label">{t("info")}</div>
-                  <dl>
-                    <dt>{t("belongs")}</dt>
-                    <dd>
-                      <select
-                        aria-label={t("belongs")}
-                        value={active.libraryId}
-                        disabled={!!active.deletedAt}
-                        onChange={(e) =>
-                          patch(active.id, { libraryId: e.target.value })
-                        }
-                      >
-                        {data.libraries.map((l) => (
-                          <option value={l.id} key={l.id}>
-                            {l.name}
-                          </option>
-                        ))}
-                      </select>
-                    </dd>
-                    <dt>{t("format")}</dt>
-                    <dd>Markdown</dd>
-                    <dt>{t("state")}</dt>
-                    <dd>{saveLabel}</dd>
-                    <dt>{t("tags")}</dt>
-                    <dd>
-                      <input
-                        key={active.id}
-                        defaultValue={active.tags.join(", ")}
-                        aria-label={t("tags")}
-                        placeholder={t("tagHint")}
-                        maxLength={800}
-                        disabled={!!active.deletedAt}
-                        onBlur={(e) =>
-                          patch(active.id, {
-                            tags: Array.from(
-                              new Set(
-                                e.target.value
-                                  .split(/[,，]/)
-                                  .map((tag) => tag.trim().slice(0, 40))
-                                  .filter(Boolean),
-                              ),
-                            ).slice(0, 20),
-                          })
-                        }
-                      />
-                    </dd>
-                  </dl>
-                  <div className="aside-label">{t("outline")}</div>
-                  {active.body
-                    .split("\n")
-                    .filter((line) => /^#{1,6} /.test(line))
-                    .map((line, i) => (
-                      <div className="outline-item" key={i}>
-                        {line.replace(/^#+ /, "")}
-                      </div>
-                    ))}
-                  <div className="aside-tip">
-                    <ShieldCheck size={18} />
-                    <p>{t("localHint")}</p>
-                  </div>
-                </aside>
+                <DocumentOutline
+                  body={active.body}
+                  locale={locale}
+                  paper={paper}
+                />
               </div>
             </>
           ) : (

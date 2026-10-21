@@ -155,5 +155,8 @@
   "linkHint": "为选中的文字设置链接。应用不会自动打开外部链接。",
   "linkUrl": "链接地址",
   "removeLink": "移除链接",
-  "editorLimit": "正文已达到最大长度，本次输入未保存。"
+  "editorLimit": "正文已达到最大长度，本次输入未保存。",
+  "paragraph": "正文",
+  "outlineEmpty": "暂无标题",
+  "untitledHeading": "无标题"
 }

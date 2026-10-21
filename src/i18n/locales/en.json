@@ -155,5 +155,8 @@
   "linkHint": "Set a link for the selected text. External links do not open automatically.",
   "linkUrl": "Link URL",
   "removeLink": "Remove link",
-  "editorLimit": "The document has reached its maximum length. This input was not saved."
+  "editorLimit": "The document has reached its maximum length. This input was not saved.",
+  "paragraph": "Paragraph",
+  "outlineEmpty": "No headings yet",
+  "untitledHeading": "Untitled heading"
 }

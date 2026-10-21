@@ -1,6 +1,6 @@
 # 开发与发布
 
-版本：v0.1.0-beta3。确认的更新日志：修复 Windows 应用图标白色背景问题。
+版本：v0.1.0-beta4。确认的更新日志：精简编辑界面，支持 H1–H6 标题选择，优化文档大纲。
 
 ## 启动
 
@@ -70,3 +70,9 @@ Tauri updater 校验 Ed25519 签名后才运行安装包。更新签名不等同
 诊断时已读取用户已安装 Beta2 的 PE 图标，7 档资源均有透明 alpha；截图中任务栏按钮外层圆角浅色底板属于 Windows 的运行/选中状态效果。本版不承诺去掉系统自身的按钮底板，也不修改全局任务栏外观。
 
 参考：[Microsoft 图标资源说明](https://learn.microsoft.com/en-us/windows/win32/menurc/about-icons)、[SHChangeNotify](https://learn.microsoft.com/en-us/windows/win32/api/shlobj_core/nf-shlobj_core-shchangenotify)。
+
+## Beta4 编辑界面
+
+移除编辑区域操作提示、左下角本地存储卡片；右侧仅保留文档大纲与无标题时的空状态，不再显示知识库选择、格式、保存状态、标签或隐私提示。保存状态仍显示在上方工具栏。
+
+标题菜单使用 Radix/shadcn 风格组件，支持正文、H1–H6；富文本转换实际节点，源码模式替换整行已有标题标记。大纲由 Markdown 语法树生成，包含 Setext 标题、忽略代码块中的伪标题，并按层级缩进；点击可定位正文标题。

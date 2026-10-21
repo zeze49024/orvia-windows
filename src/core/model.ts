@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { localeCodes } from "../i18n/registry";
-export const APP_VERSION = "0.1.0-beta3";
-export const RELEASE_NOTE = "修复 Windows 应用图标白色背景问题";
+export const APP_VERSION = "0.1.0-beta4";
+export const RELEASE_NOTE = "精简编辑界面，支持 H1–H6 标题选择，优化文档大纲";
 export const colors = ["blue", "orange", "green", "purple", "rose"] as const;
 const librarySchema = z.object({
   id: z.string().uuid(),

@@ -1,6 +1,6 @@
 # Orvia for Windows
 
-Orvia 是完全本地运行的 Markdown 个人知识库。当前版本 **v0.1.0-beta3**。
+Orvia 是完全本地运行的 Markdown 个人知识库。当前版本 **v0.1.0-beta4**。
 
 采用 React、TypeScript、Vite、shadcn/ui、Tailwind CSS、Tauri 2 和 SQLite，沿用确认的黑白灰界面与 A v2 图形标志。
 内置简体中文、繁体中文和英文，无需账号，不接入云存储或同步，不上传文档内容。

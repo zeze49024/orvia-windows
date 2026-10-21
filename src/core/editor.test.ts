@@ -1,7 +1,12 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach } from "vitest";
 import { Editor } from "@tiptap/core";
-import { editorExtensions, canEditRichly } from "./editor";
+import {
+  editorExtensions,
+  canEditRichly,
+  documentOutline,
+  setSourceHeading,
+} from "./editor";
 const editors: Editor[] = [];
 function create(content = "") {
   const editor = new Editor({
@@ -16,6 +21,39 @@ function create(content = "") {
 afterEach(() => editors.splice(0).forEach((editor) => editor.destroy()));
 
 describe("live Markdown editing", () => {
+  it("applies every heading level and returns to a normal paragraph", () => {
+    const editor = create("标题文字");
+    for (const level of [1, 2, 3, 4, 5, 6] as const) {
+      editor.commands.setHeading({ level });
+      expect(editor.getMarkdown().trimEnd()).toBe("#".repeat(level) + " 标题文字");
+      expect(editor.getHTML()).toContain(`<h${level}>标题文字</h${level}>`);
+    }
+    editor.commands.setParagraph();
+    expect(editor.getMarkdown().trimEnd()).toBe("标题文字");
+  });
+  it("sets whole source lines rather than stacking Markdown heading markers", () => {
+    const original = "前文\n## 小节 ##\n末尾";
+    expect(setSourceHeading(original, 7, 7, 1).value).toBe(
+      "前文\n# 小节\n末尾",
+    );
+    expect(setSourceHeading(original, 7, 7, 0).value).toBe("前文\n小节\n末尾");
+    expect(setSourceHeading("一\n二\n三", 0, 4, 6).value).toBe(
+      "###### 一\n###### 二\n三",
+    );
+    expect(setSourceHeading("", 0, 0, 3).value).toBe("### ");
+  });
+  it("builds a hierarchical outline without treating code as headings", () => {
+    const markdown =
+      "# **一级**\n\n```md\n# 代码示例\n```\n\n### [三级](https://example.com)\n\n二级标题\n---\n\n# 一级";
+    const outline = documentOutline(markdown);
+    expect(outline.map(({ level, text }) => [level, text])).toEqual([
+      [1, "一级"],
+      [3, "三级"],
+      [2, "二级标题"],
+      [1, "一级"],
+    ]);
+    expect(outline[1].offset).toBe(markdown.indexOf("###"));
+  });
   it("round trips existing headings, marks, lists, tasks, tables, quotes, code and asset IDs", () => {
     const original =
       "# 标题\n\n中文 **加粗** 和 *斜体*，`code` [链接](https://example.com)\n\n- 项目\n  - 子项\n\n1. 第一项\n2. 第二项\n\n- [ ] 待办\n- [x] 完成\n\n> 引用\n\n```ts\nconst n = 1\n```\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n\n![图](asset:" +
