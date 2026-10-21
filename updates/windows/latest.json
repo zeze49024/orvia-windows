@@ -1,0 +1,11 @@
+{
+  "version": "0.1.0-beta1",
+  "notes": "完成Orvia应用初版构建",
+  "pub_date": "2026-10-21T03:22:01.065Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRTWVLTkMxVzBkTlQrS2t3U21WQ2tPcWk3c2RNVi96cXpzWnFtK0JzNWFpZnlOYXJaWGN6cXFVc3BvcWRvM0xiQzRZbzJNcnRWVmpXRzFheCtqeWphM1F4aWh5NmdiL1FVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNTUyOTAyCWZpbGU6T3J2aWFfMC4xLjAtYmV0YTFfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMS4wLWJldGExCkxjdmxRUS9KVFZjWDV0QlVpcEZQbWVtb0k1bUtFTUFmYU9qUFg1MlVBQWhqS3pGSlVTREJ3NnNyZUU0a1ZhNTMvN3Rpb3V4WXRLNkoyWVdXcjc1YkRBPT0K",
+      "url": "https://github.com/zeze49024/orvia-windows/releases/download/v0.1.0-beta1/Orvia_0.1.0-beta1_x64-setup.exe"
+    }
+  }
+}
