@@ -20,7 +20,7 @@ permissions:
   contents: read
 jobs:
   upgrade:
-    runs-on: windows-latest
+    runs-on: windows-2022
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
@@ -54,7 +54,7 @@ jobs:
           gh release download v0.1.0-beta5 --pattern '*setup.exe' --dir $previousDir
           $previous = (Get-ChildItem (Join-Path $previousDir '*setup.exe')).FullName
           $install = Join-Path $env:RUNNER_TEMP 'Orvia-Acceptance'
-          $env:WEBVIEW2_USER_DATA_FOLDER = Join-Path $env:RUNNER_TEMP 'Orvia-WebView2'
+          $env:WEBVIEW2_USER_DATA_FOLDER = Join-Path $env:LOCALAPPDATA 'Orvia-Acceptance-WebView2'
           $process = Start-Process $previous -ArgumentList "/S /NS /D=$install" -PassThru -Wait -WindowStyle Hidden
           if ($process.ExitCode -ne 0) { throw "beta5 installer failed" }
           $executable = Join-Path $install 'orvia.exe'
@@ -63,9 +63,14 @@ jobs:
             Get-ChildItem -LiteralPath $install -ErrorAction SilentlyContinue
             throw "Installer did not create the expected executable"
           }
-          $app = Start-Process $executable -PassThru -WindowStyle Hidden
+          $app = Start-Process $executable -PassThru -WindowStyle Hidden -RedirectStandardError native-startup.txt
           node scripts/native-smoke.mjs seed
-          if ($LASTEXITCODE -ne 0) { throw "beta5 seed failed" }
+          if ($LASTEXITCODE -ne 0) {
+            Get-Content native-startup.txt -ErrorAction SilentlyContinue
+            Get-CimInstance Win32_Process -Filter "Name='orvia.exe' OR Name='msedgewebview2.exe'" | Select-Object Name,ProcessId,CommandLine | Format-List
+            Get-ChildItem -LiteralPath $env:WEBVIEW2_USER_DATA_FOLDER -ErrorAction SilentlyContinue
+            throw "beta5 seed failed"
+          }
           if ($env:USE_UPDATER -eq 'true') {
             node scripts/native-smoke.mjs update
             if ($LASTEXITCODE -ne 0) { throw "Signed in-app updater failed" }
@@ -97,5 +102,6 @@ jobs:
           path: |
             native-validation.json
             native-upgrade.png
+            native-startup.txt
             playwright-report/
             test-results/

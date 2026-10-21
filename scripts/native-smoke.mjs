@@ -5,15 +5,17 @@ const phase = process.argv[2];
 if (!process.env.CI || !["seed", "verify", "update"].includes(phase))
   throw new Error("Disposable CI environment required");
 let browser;
+let connectionError;
 for (let attempt = 0; attempt < 40; attempt++) {
   try {
     browser = await chromium.connectOverCDP("http://127.0.0.1:9226");
     break;
-  } catch {
+  } catch (error) {
+    connectionError=error;
     await new Promise((r) => setTimeout(r, 500));
   }
 }
-if (!browser) throw new Error("Native WebView2 did not start");
+if (!browser) throw new Error("Native WebView2 did not start",{cause:connectionError});
 const page = browser.contexts()[0].pages()[0];
 await page.waitForSelector(".app-shell");
 await page
