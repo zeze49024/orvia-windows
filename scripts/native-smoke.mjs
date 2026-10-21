@@ -1,8 +1,8 @@
 // Runs ONLY against a disposable CI installation with WebView2 debugging enabled.
 import { chromium } from "@playwright/test";
-import { writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 const phase = process.argv[2];
-if (!process.env.CI || !["seed", "verify"].includes(phase))
+if (!process.env.CI || !["seed", "verify", "update"].includes(phase))
   throw new Error("Disposable CI environment required");
 let browser;
 for (let attempt = 0; attempt < 40; attempt++) {
@@ -43,6 +43,35 @@ if (phase === "seed") {
     deletedAt: null,
   });
   await invoke("save_workspace", { data, expectedRevision: loaded.revision });
+} else if (phase === "update") {
+  await page.reload();
+  await page.waitForSelector(".app-shell");
+  const loaded = await invoke("load_workspace");
+  const strings = JSON.parse(
+    await readFile(
+      new URL(
+        `../src/i18n/locales/${loaded.data.settings.locale}.json`,
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
+  await page
+    .getByRole("button", { name: strings.settings + " Ctrl ,", exact: true })
+    .click();
+  await page.getByRole("tab", { name: strings.version, exact: true }).click();
+  await page
+    .getByRole("button", { name: strings.checkUpdates, exact: true })
+    .click();
+  await page
+    .getByRole("dialog")
+    .getByText("v0.1.0-beta5 → v0.1.0-beta6", { exact: true })
+    .waitFor({ timeout: 60000 });
+  const closed = page.waitForEvent("close", { timeout: 120000 });
+  await page
+    .getByRole("button", { name: strings.updateInstall, exact: true })
+    .click();
+  await closed;
 } else {
   const loaded = await invoke("load_workspace");
   const doc = loaded.data.documents.find(
@@ -86,6 +115,7 @@ if (phase === "seed") {
         previous: "0.1.0-beta5",
         current: "0.1.0-beta6",
         installerUpgrade: true,
+        signedGithubUpdater: process.env.USE_UPDATER === "true",
         sqlitePreserved: true,
         deltaSave: true,
         history: true,
@@ -97,4 +127,4 @@ if (phase === "seed") {
   );
   await page.screenshot({ path: "native-upgrade.png" });
 }
-await browser.close();
+await browser.close().catch(() => {});

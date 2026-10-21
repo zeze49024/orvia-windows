@@ -1,6 +1,6 @@
 # 开发与发布
 
-版本：v0.1.0-beta5。确认的更新日志：优化文档名称显示与 Markdown 导出，新增浅色、深色主题及主题扩展接口。
+版本：v0.1.0-beta6。确认的更新日志：完善图文导入导出与文档管理，新增增量保存和历史恢复，优化编辑与首页体验，重构代码并加强安装升级验证。
 
 ## 启动
 
@@ -23,8 +23,8 @@ Windows 数据目录为 `%LOCALAPPDATA%/space.zeze49024.orvia`，使用 `orvia.s
 关闭前等待保存；写入失败时不会假报成功。请定期导出完整备份到其他介质。
 
 备份为 `.orvia` ZIP：`manifest.json`、`workspace.json` 和 `assets/<sha256>`；导入校验格式版本、哈希、引用、大小与压缩包路径，然后复制为独立知识库，原有数据和设置保留。
-本版有 128 MB 压缩包、256 MB 解压总量与单个文件 32 MB 的恢复上限；图片单个 20 MB，导入源文件单个 25 MB，PDF 200 页。
-本版不实现自动历史快照或后台周期备份。取消或失败的图片导入可能留下未引用的应用内资产，不会删除用户原文件。
+本版有 128 MB 压缩包、256 MB 解压总量与单个文件 32 MB 的恢复上限；图片单个 20 MB，普通导入源文件单个 25 MB，嵌图 Markdown 单个 128 MB（解析后正文最多 5,000,000 字符，图片单个 20 MB、独立图片总量最多 96 MB），PDF 200 页。
+本版自动历史每篇最多 20 个、20 MB，每分钟一个检查点；恢复前强制保留当前内容。完整备份包含当前文档与图片，不包含历史列表；不实现后台周期备份。取消或失败的图片导入可能留下未引用的应用内资产，不会删除用户原文件。
 
 ## 导入与安全边界
 
@@ -86,3 +86,13 @@ Tauri updater 校验 Ed25519 签名后才运行安装包。更新签名不等同
 主题 ID 保存于 SQLite 工作空间设置 `settings.theme`，旧数据通过默认值 light 兼容，未知未来 ID 暂以浅色显示且不破坏其设置。localStorage 只缓存主题 ID，用于启动时绘制主题；SQLite 为权威来源，备份恢复沿用当前用户的主题设置。
 
 文档名称改为小字号的“文件名”输入栏，不作为正文 H1 或导出内容。所有 Markdown 导出入口均导出选定文档的单个 `.md`，不创建目录或 ZIP，也不插入文件名作为额外标题。Markdown 语法树中的本地图片引用转换为 data URI 嵌入，代码里的资产字面量不变；部分第三方 Markdown 阅读器可能限制 data URI 图片。完整 `.orvia` 备份格式保留，用于工作空间恢复。
+
+## Beta6 质量与验收
+
+`npm run test:e2e` 运行三个端到端工作流；首次运行需 `npx playwright install chromium`。安装升级验证由 `.github/workflows/installer-smoke.yml` 在一次性 Windows runner 中执行，执行 beta5 安装与 beta6 覆盖升级，并通过真实 WebView2 → IPC → SQLite 验证数据保留。不得将此脚本用于用户的日常安装。
+
+用于隔离调试时，编译后的程序支持 `--validation-root <绝对目录>`，目录必须预先含 `.orvia-validation` 文件；同时将进程环境 `WEBVIEW2_USER_DATA_FOLDER` 指向该目录下的独立 WebView2 文件夹。该模式使用独立数据库且不加入日常实例锁，普通启动行为不变。测试需要调试端口时仅在该测试进程设置 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9226`；正式启动不配置调试端口。
+
+界面协调位于 `src/app.tsx`，编辑工作区、首页、设置和文档选项位于独立组件；异步作业生命周期由 `src/hooks/use-job-runner.ts` 管理。`src/core/delta.ts` 生成差异，`src-tauri/src/persistence.rs` 执行事务与有界历史检查点。现有数据库只新增历史表和索引，不重写既有文档。新导入的 data URI 图片经过格式识别与哈希保存后才显示。
+
+详见 [Beta6 验收记录](BETA6-VALIDATION.md)。

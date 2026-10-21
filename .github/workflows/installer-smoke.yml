@@ -2,7 +2,20 @@ name: Installer upgrade acceptance
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - "updates/**"
+      - ".github/workflows/installer-smoke.yml"
   workflow_dispatch:
+    inputs:
+      candidateTag:
+        description: Existing release installer to validate (empty builds source)
+        type: string
+        default: ""
+      useUpdater:
+        description: Exercise beta5 GitHub check and signed in-app update
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -15,37 +28,68 @@ jobs:
         with:
           node-version: 24
           cache: npm
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - if: inputs.candidateTag == ''
+        uses: dtolnay/rust-toolchain@stable
+      - if: inputs.candidateTag == ''
+        uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
       - run: npm ci
-      - run: npx playwright install chromium
-      - run: npx playwright test
+      - if: inputs.candidateTag == ''
+        run: npx playwright install chromium
+      - if: inputs.candidateTag == ''
+        run: npx playwright test
       - name: Build disposable candidate installer
+        if: inputs.candidateTag == ''
         run: npx tauri build --config '{"bundle":{"createUpdaterArtifacts":false}}'
       - name: Install beta5, seed local notes, upgrade and verify beta6
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
           WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: --remote-debugging-port=9226
+          CANDIDATE_TAG: ${{ inputs.candidateTag }}
+          USE_UPDATER: ${{ inputs.useUpdater }}
         run: |
-          gh release download v0.1.0-beta5 --pattern '*setup.exe' --dir "$env:RUNNER_TEMP/previous"
-          $previous = (Get-ChildItem "$env:RUNNER_TEMP/previous/*setup.exe").FullName
-          $install = "$env:RUNNER_TEMP/Orvia-Acceptance"
+          $previousDir = Join-Path $env:RUNNER_TEMP 'previous'
+          gh release download v0.1.0-beta5 --pattern '*setup.exe' --dir $previousDir
+          $previous = (Get-ChildItem (Join-Path $previousDir '*setup.exe')).FullName
+          $install = Join-Path $env:RUNNER_TEMP 'Orvia-Acceptance'
+          $env:WEBVIEW2_USER_DATA_FOLDER = Join-Path $env:RUNNER_TEMP 'Orvia-WebView2'
           $process = Start-Process $previous -ArgumentList "/S /NS /D=$install" -PassThru -Wait -WindowStyle Hidden
           if ($process.ExitCode -ne 0) { throw "beta5 installer failed" }
-          $app = Start-Process "$install/orvia.exe" -PassThru -WindowStyle Hidden
+          $executable = Join-Path $install 'orvia.exe'
+          if (!(Test-Path -LiteralPath $executable)) {
+            Get-ItemProperty 'HKCU:/Software/Microsoft/Windows/CurrentVersion/Uninstall/Orvia' -ErrorAction SilentlyContinue | Format-List
+            Get-ChildItem -LiteralPath $install -ErrorAction SilentlyContinue
+            throw "Installer did not create the expected executable"
+          }
+          $app = Start-Process $executable -PassThru -WindowStyle Hidden
           node scripts/native-smoke.mjs seed
           if ($LASTEXITCODE -ne 0) { throw "beta5 seed failed" }
-          Stop-Process -Id $app.Id -Force
-          $candidate = (Get-ChildItem src-tauri/target/release/bundle/nsis/*setup.exe).FullName
-          $process = Start-Process $candidate -ArgumentList "/S /NS /UPDATE /D=$install" -PassThru -Wait -WindowStyle Hidden
-          if ($process.ExitCode -ne 0) { throw "beta6 installer failed" }
-          $app = Start-Process "$install/orvia.exe" -PassThru -WindowStyle Hidden
+          if ($env:USE_UPDATER -eq 'true') {
+            node scripts/native-smoke.mjs update
+            if ($LASTEXITCODE -ne 0) { throw "Signed in-app updater failed" }
+            for ($i=0; $i -lt 120; $i++) {
+              if ((Get-Item $executable).VersionInfo.ProductVersion -eq '0.1.0-beta6') { break }
+              Start-Sleep -Seconds 1
+            }
+            if ((Get-Item $executable).VersionInfo.ProductVersion -ne '0.1.0-beta6') { throw 'Updater did not replace executable' }
+          } else {
+            Stop-Process -Id $app.Id -Force
+            if ($env:CANDIDATE_TAG) {
+              $candidateDir = Join-Path $env:RUNNER_TEMP 'candidate'
+              gh release download $env:CANDIDATE_TAG --pattern '*setup.exe' --dir $candidateDir
+              if ($LASTEXITCODE -ne 0) { throw 'Candidate download failed' }
+              $candidate = (Get-ChildItem (Join-Path $candidateDir '*setup.exe')).FullName
+            } else {
+              $candidate = (Get-ChildItem src-tauri/target/release/bundle/nsis/*setup.exe).FullName
+            }
+            $process = Start-Process $candidate -ArgumentList "/S /NS /UPDATE /D=$install" -PassThru -Wait -WindowStyle Hidden
+            if ($process.ExitCode -ne 0) { throw "beta6 installer failed" }
+          }
+          Start-Process $executable -WindowStyle Hidden
           node scripts/native-smoke.mjs verify
           if ($LASTEXITCODE -ne 0) { throw "beta6 upgrade validation failed" }
-          Stop-Process -Id $app.Id -Force
       - uses: actions/upload-artifact@v4
         if: always()
         with:
