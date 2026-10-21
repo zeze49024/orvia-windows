@@ -4,31 +4,31 @@ import { putAsset } from "./storage";
 import { safeUnzip } from "./backup";
 import type { Asset } from "./model";
 import type { LocalFile } from "./files";
-export function imageMime(bytes: Uint8Array): Asset["mime"] {
-  if (bytes[0] === 137 && bytes[1] === 80 && bytes[2] === 78 && bytes[3] === 71)
-    return "image/png";
-  if (bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255)
-    return "image/jpeg";
-  if (strFromU8(bytes.slice(0, 6)).startsWith("GIF8")) return "image/gif";
-  if (
-    strFromU8(bytes.slice(0, 4)) === "RIFF" &&
-    strFromU8(bytes.slice(8, 12)) === "WEBP"
-  )
-    return "image/webp";
-  throw new Error("UNSUPPORTED_IMAGE");
-}
+import { imageMime } from "./image-mime";
+export { imageMime } from "./image-mime";
+import { importMarkdownImages } from "./markdown-import";
 export async function convertFile(
   file: LocalFile,
   signal: AbortSignal,
 ): Promise<{ title: string; body: string; assets: Asset[] }> {
-  if (file.bytes.length > 25 * 1024 * 1024) throw new Error("FILE_TOO_LARGE");
   signal.throwIfAborted();
   const ext = file.name.split(".").pop()?.toLowerCase();
+  if (
+    file.bytes.length >
+    (["md", "markdown"].includes(ext ?? "") ? 128 : 25) * 1024 * 1024
+  )
+    throw new Error("FILE_TOO_LARGE");
   const title = file.name.replace(/\.[^.]+$/, "");
   let body = "";
   const assets: Asset[] = [];
-  if (ext === "md" || ext === "markdown" || ext === "txt")
-    body = strFromU8(file.bytes).replace(/^\uFEFF/, "");
+  if (ext === "md" || ext === "markdown") {
+    const imported = await importMarkdownImages(
+      strFromU8(file.bytes).replace(/^\uFEFF/, ""),
+      signal,
+    );
+    body = imported.body;
+    assets.push(...imported.assets);
+  } else if (ext === "txt") body = strFromU8(file.bytes).replace(/^\uFEFF/, "");
   else if (["png", "jpg", "jpeg", "gif", "webp"].includes(ext ?? "")) {
     const a = await putAsset(file.bytes, imageMime(file.bytes));
     assets.push(a);

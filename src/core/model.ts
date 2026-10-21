@@ -1,15 +1,15 @@
 import { z } from "zod";
 import { localeCodes } from "../i18n/registry";
-export const APP_VERSION = "0.1.0-beta5";
+export const APP_VERSION = "0.1.0-beta6";
 export const RELEASE_NOTE =
-  "优化文档名称显示与 Markdown 导出，新增浅色、深色主题及主题扩展接口";
+  "完善图文导入导出与文档管理，新增增量保存和历史恢复，优化编辑与首页体验，重构代码并加强安装升级验证";
 export const colors = ["blue", "orange", "green", "purple", "rose"] as const;
-const librarySchema = z.object({
+export const librarySchema = z.object({
   id: z.string().uuid(),
   name: z.string().min(1).max(100),
   color: z.enum(colors),
 });
-const assetSchema = z.object({
+export const assetSchema = z.object({
   id: z.string().regex(/^[a-f0-9]{64}$/),
   mime: z.enum(["image/png", "image/jpeg", "image/webp", "image/gif"]),
   size: z
@@ -18,7 +18,7 @@ const assetSchema = z.object({
     .positive()
     .max(20 * 1024 * 1024),
 });
-const docSchema = z.object({
+export const docSchema = z.object({
   id: z.string().uuid(),
   libraryId: z.string().uuid(),
   title: z.string().max(300),

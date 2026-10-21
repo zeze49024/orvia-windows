@@ -65,7 +65,7 @@ export function MarkdownEditor({
   value: string;
   onChange: (value: string) => void;
   locale: Locale;
-  onImage: () => void;
+  onImage: (insert: (markdown: string) => void) => void;
   busy: boolean;
   notify: (message: string) => void;
 }) {
@@ -144,6 +144,7 @@ export function MarkdownEditor({
       });
       lastEmitted.current = value;
     }
+    if (value === lastEmitted.current && editor.isFocused) return;
     const safe = canEditRichly(value, editor.getMarkdown());
     setGuarded(!safe);
     if (!safe) setSource(true);
@@ -342,7 +343,31 @@ export function MarkdownEditor({
           title={t("image")}
           disabled={busy}
           onMouseDown={(e) => e.preventDefault()}
-          onClick={onImage}
+          onClick={() => {
+            const from = textarea.current?.selectionStart ?? 0,
+              to = textarea.current?.selectionEnd ?? from;
+            const bookmark = editor?.state.selection.getBookmark();
+            onImage((markdown) => {
+              if (source) {
+                const current = latest.current.value;
+                latest.current.onChange(
+                  current.slice(0, from) +
+                    "\n" +
+                    markdown +
+                    "\n" +
+                    current.slice(to),
+                );
+              } else if (editor && bookmark) {
+                const selection = bookmark.resolve(editor.state.doc);
+                editor
+                  .chain()
+                  .focus()
+                  .setTextSelection({ from: selection.from, to: selection.to })
+                  .insertContent(markdown, { contentType: "markdown" })
+                  .run();
+              }
+            });
+          }}
         >
           <ImagePlus size={16} />
         </button>

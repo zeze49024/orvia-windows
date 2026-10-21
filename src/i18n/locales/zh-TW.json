@@ -161,5 +161,15 @@
   "untitledHeading": "無標題",
   "theme": "切換主題",
   "filename": "檔案名稱",
-  "chooseDocument": "選擇要匯出的文件"
+  "chooseDocument": "選擇要匯出的文件",
+  "manageDocument": "文件選項",
+  "history": "歷史版本",
+  "historyHint": "自動保留最近 20 個檢查點（每分鐘一個，最多 20 MB）。還原前會保留目前內容；永久刪除文件也會清除歷史。",
+  "historyEmpty": "暫無歷史版本，修改並儲存後會自動保留。",
+  "restoreVersion": "還原此版本",
+  "historyRestored": "已還原歷史版本，還原前內容已保留",
+  "editMetadata": "移動與標籤",
+  "tagsHint": "用逗號分隔，最多 20 個",
+  "recentHint": "從上次停下的地方繼續",
+  "overview": "知識庫概覽"
 }

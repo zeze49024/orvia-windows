@@ -1,6 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-use rusqlite::{params, Connection, OptionalExtension};
-use serde::{Deserialize, Serialize};
+use rusqlite::{Connection, OptionalExtension};
+mod persistence;
+use persistence::{apply_delta, open_db, save, validate_asset_id, Delta};
+use serde::Serialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::{fs, path::PathBuf, sync::Mutex};
@@ -15,21 +17,6 @@ struct Loaded {
     revision: i64,
     data: Option<Value>,
     path: String,
-}
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct Workspace {
-    schema_version: u32,
-    libraries: Vec<Value>,
-    documents: Vec<Value>,
-    assets: Vec<Value>,
-    settings: Value,
-}
-fn open_db(root: &std::path::Path) -> Result<Connection, String> {
-    fs::create_dir_all(root.join("assets")).map_err(|_| "STORAGE_DIRECTORY")?;
-    let c = Connection::open(root.join("orvia.sqlite3")).map_err(|_| "DATABASE_OPEN")?;
-    c.execute_batch("PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON; CREATE TABLE IF NOT EXISTS workspace(id INTEGER PRIMARY KEY CHECK(id=1), revision INTEGER NOT NULL, settings TEXT NOT NULL, schema_version INTEGER NOT NULL); CREATE TABLE IF NOT EXISTS libraries(id TEXT PRIMARY KEY,payload TEXT NOT NULL); CREATE TABLE IF NOT EXISTS documents(id TEXT PRIMARY KEY,library_id TEXT NOT NULL REFERENCES libraries(id),payload TEXT NOT NULL); CREATE TABLE IF NOT EXISTS assets(id TEXT PRIMARY KEY,payload TEXT NOT NULL);").map_err(|_|"DATABASE_SCHEMA")?;
-    Ok(c)
 }
 #[tauri::command]
 fn load_workspace(storage: State<Storage>) -> Result<Loaded, String> {
@@ -75,64 +62,6 @@ fn load_workspace(storage: State<Storage>) -> Result<Loaded, String> {
         path: storage.root.display().to_string(),
     })
 }
-fn save(c: &mut Connection, data: Value, expected: i64) -> Result<i64, String> {
-    let parsed: Workspace = serde_json::from_value(data).map_err(|_| "INVALID_DATA")?;
-    if parsed.schema_version != 1
-        || parsed.libraries.is_empty()
-        || parsed.libraries.len() > 200
-        || parsed.documents.len() > 20000
-        || parsed.assets.len() > 10000
-    {
-        return Err("INVALID_DATA".into());
-    }
-    let tx = c.transaction().map_err(|_| "DATABASE_WRITE")?;
-    let revision: i64 = tx
-        .query_row("SELECT revision FROM workspace WHERE id=1", [], |r| {
-            r.get(0)
-        })
-        .optional()
-        .map_err(|_| "DATABASE_READ")?
-        .unwrap_or(0);
-    if revision != expected {
-        return Err("CONFLICT".into());
-    }
-    tx.execute("DELETE FROM documents", [])
-        .map_err(|_| "DATABASE_WRITE")?;
-    tx.execute("DELETE FROM libraries", [])
-        .map_err(|_| "DATABASE_WRITE")?;
-    tx.execute("DELETE FROM assets", [])
-        .map_err(|_| "DATABASE_WRITE")?;
-    for l in parsed.libraries {
-        let id = l["id"].as_str().ok_or("INVALID_LIBRARY")?;
-        tx.execute(
-            "INSERT INTO libraries VALUES(?1,?2)",
-            params![id, l.to_string()],
-        )
-        .map_err(|_| "INVALID_LIBRARY")?;
-    }
-    for d in parsed.documents {
-        let id = d["id"].as_str().ok_or("INVALID_DOCUMENT")?;
-        let library = d["libraryId"].as_str().ok_or("INVALID_DOCUMENT")?;
-        tx.execute(
-            "INSERT INTO documents VALUES(?1,?2,?3)",
-            params![id, library, d.to_string()],
-        )
-        .map_err(|_| "INVALID_DOCUMENT")?;
-    }
-    for a in parsed.assets {
-        let id = a["id"].as_str().ok_or("INVALID_ASSET")?;
-        validate_asset_id(id)?;
-        tx.execute(
-            "INSERT INTO assets VALUES(?1,?2)",
-            params![id, a.to_string()],
-        )
-        .map_err(|_| "INVALID_ASSET")?;
-    }
-    let next = revision + 1;
-    tx.execute("INSERT INTO workspace VALUES(1,?1,?2,1) ON CONFLICT(id) DO UPDATE SET revision=excluded.revision,settings=excluded.settings",params![next,parsed.settings.to_string()]).map_err(|_|"DATABASE_WRITE")?;
-    tx.commit().map_err(|_| "DATABASE_COMMIT")?;
-    Ok(next)
-}
 #[tauri::command]
 fn save_workspace(
     storage: State<Storage>,
@@ -142,16 +71,38 @@ fn save_workspace(
     let mut c = storage.connection.lock().map_err(|_| "STORAGE_LOCK")?;
     save(&mut c, data, expected_revision)
 }
-fn validate_asset_id(id: &str) -> Result<(), String> {
-    if id.len() == 64
-        && id
-            .bytes()
-            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
-    {
-        Ok(())
-    } else {
-        Err("INVALID_ASSET_ID".into())
+#[tauri::command]
+fn save_delta(
+    storage: State<Storage>,
+    delta: Delta,
+    expected_revision: i64,
+    force_history: Vec<String>,
+) -> Result<i64, String> {
+    let mut connection = storage.connection.lock().map_err(|_| "STORAGE_LOCK")?;
+    apply_delta(&mut connection, delta, expected_revision, &force_history)
+}
+#[tauri::command]
+fn document_history(storage: State<Storage>, id: String) -> Result<Vec<Value>, String> {
+    let c = storage.connection.lock().map_err(|_| "STORAGE_LOCK")?;
+    let mut statement=c.prepare("SELECT id,saved_at,payload FROM document_history WHERE document_id=?1 ORDER BY id DESC").map_err(|_|"DATABASE_READ")?;
+    let rows = statement
+        .query_map([id], |r| {
+            Ok((
+                r.get::<_, i64>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, String>(2)?,
+            ))
+        })
+        .map_err(|_| "DATABASE_READ")?;
+    let mut result = vec![];
+    for row in rows {
+        let (id, date, payload) = row.map_err(|_| "DATABASE_READ")?;
+        let mut value: Value = serde_json::from_str(&payload).map_err(|_| "INVALID_DATA")?;
+        value["id"] = id.into();
+        value["savedAt"] = date.into();
+        result.push(value);
     }
+    Ok(result)
 }
 #[tauri::command]
 fn put_asset(storage: State<Storage>, bytes: Vec<u8>, mime: String) -> Result<String, String> {
@@ -179,18 +130,36 @@ fn read_asset(storage: State<Storage>, id: String) -> Result<Vec<u8>, String> {
     }
     Ok(bytes)
 }
+// Explicit, marker-gated validation mode never reads the normal user profile.
+fn validation_root() -> Option<PathBuf> {
+    let args: Vec<_> = std::env::args_os().collect();
+    if args.get(1).is_some_and(|v| v == "--validation-root") {
+        let root = PathBuf::from(args.get(2).expect("validation directory required"));
+        assert!(
+            root.is_absolute() && root.join(".orvia-validation").is_file(),
+            "validation marker missing"
+        );
+        Some(root)
+    } else {
+        None
+    }
+}
 fn main() {
-    tauri::Builder::default()
-        .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_single_instance::init(|app, _, _| {
+    let validation = validation_root();
+    let mut builder = tauri::Builder::default();
+    if validation.is_none() {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, _, _| {
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.unminimize();
                 let _ = window.set_focus();
             }
-        }))
+        }));
+    }
+    builder
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
-        .setup(|app| {
+        .setup(move |app| {
             // Explicit RGBA window icon avoids relying on Shell's cached icon or
             // a resource decoder's alpha/mask conversion for the running window.
             if let Some(window) = app.get_webview_window("main") {
@@ -200,7 +169,9 @@ fn main() {
                     256,
                 ))?;
             }
-            let root = app.path().app_local_data_dir()?;
+            let root = validation
+                .clone()
+                .unwrap_or(app.path().app_local_data_dir()?);
             let connection = open_db(&root).map_err(std::io::Error::other)?;
             app.manage(Storage {
                 connection: Mutex::new(connection),
@@ -211,6 +182,8 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             load_workspace,
             save_workspace,
+            save_delta,
+            document_history,
             put_asset,
             read_asset
         ])
@@ -250,8 +223,56 @@ mod tests {
         assert!(save(&mut c, invalid, 1).is_err());
         drop(c);
         let reopened = open_db(dir.path()).unwrap();
-        let payload: String = reopened.query_row("SELECT payload FROM documents WHERE id='doc'", [], |r| r.get(0)).unwrap();
-        assert_eq!(serde_json::from_str::<Value>(&payload).unwrap()["body"], "persistent text");
-        assert_eq!(reopened.query_row("SELECT revision FROM workspace", [], |r| r.get::<_,i64>(0)).unwrap(), 1);
+        let payload: String = reopened
+            .query_row("SELECT payload FROM documents WHERE id='doc'", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(
+            serde_json::from_str::<Value>(&payload).unwrap()["body"],
+            "persistent text"
+        );
+        assert_eq!(
+            reopened
+                .query_row("SELECT revision FROM workspace", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            1
+        );
+    }
+    #[test]
+    fn delta_updates_one_row_and_history_survives_rollback_and_reopen() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut c = open_db(dir.path()).unwrap();
+        let docs:Vec<Value>=(0..1000).map(|i|serde_json::json!({"id":format!("doc{i}"),"libraryId":"one","title":"Note","body":"original"})).collect();
+        save(&mut c,serde_json::json!({"schemaVersion":1,"libraries":[{"id":"one"}],"documents":docs,"assets":[],"settings":{}}),0).unwrap();
+        let before = c.total_changes();
+        let delta:Delta=serde_json::from_value(serde_json::json!({"libraries":{"upsert":[],"remove":[]},"documents":{"upsert":[{"id":"doc5","libraryId":"one","title":"Note","body":"changed"}],"remove":[]},"assets":{"upsert":[],"remove":[]},"settings":null})).unwrap();
+        apply_delta(&mut c, delta, 1, &[]).unwrap();
+        assert_eq!(c.total_changes() - before, 3); // note, history, revision; no full-table rewrite
+        let old: String = c
+            .query_row("SELECT payload FROM document_history", [], |r| r.get(0))
+            .unwrap();
+        assert!(old.contains("original"));
+        let invalid:Delta=serde_json::from_value(serde_json::json!({"libraries":{"upsert":[],"remove":[]},"documents":{"upsert":[{"id":"doc5","libraryId":"missing","body":"bad"}],"remove":[]},"assets":{"upsert":[],"remove":[]},"settings":null})).unwrap();
+        assert!(apply_delta(&mut c, invalid, 2, &["doc5".into()]).is_err());
+        drop(c);
+        let c = open_db(dir.path()).unwrap();
+        assert_eq!(
+            c.query_row("SELECT count(*) FROM documents", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            1000
+        );
+        assert_eq!(
+            c.query_row("SELECT count(*) FROM document_history", [], |r| r
+                .get::<_, i64>(0))
+                .unwrap(),
+            1
+        );
+        assert!(c
+            .query_row("SELECT payload FROM documents WHERE id='doc5'", [], |r| {
+                r.get::<_, String>(0)
+            })
+            .unwrap()
+            .contains("changed"));
     }
 }

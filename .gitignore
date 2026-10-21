@@ -37,3 +37,8 @@ Orvia_DepDocs/
 $null
 /public/pdf/
 /public/third-party-notices.txt
+
+/test-results/
+/playwright-report/
+/native-validation.json
+/native-upgrade.png

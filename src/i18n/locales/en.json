@@ -161,5 +161,15 @@
   "untitledHeading": "Untitled heading",
   "theme": "Switch theme",
   "filename": "File name",
-  "chooseDocument": "Choose a document to export"
+  "chooseDocument": "Choose a document to export",
+  "manageDocument": "Document options",
+  "history": "Version history",
+  "historyHint": "Up to 20 automatic checkpoints, one per minute, capped at 20 MB per note. Restoring preserves your current content. Permanently deleting a note also removes its history.",
+  "historyEmpty": "No history yet. Editing and saving creates a checkpoint.",
+  "restoreVersion": "Restore this version",
+  "historyRestored": "Version restored; previous content preserved",
+  "editMetadata": "Move and tags",
+  "tagsHint": "Comma separated, up to 20 tags",
+  "recentHint": "Pick up where you left off",
+  "overview": "Library overview"
 }

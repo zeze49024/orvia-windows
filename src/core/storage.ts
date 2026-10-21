@@ -1,3 +1,5 @@
+import { workspaceDelta, type WorkspaceDelta } from "./delta";
+import { snapshot, type HistoryEntry } from "./history";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import {
   emptyWorkspace,
@@ -11,10 +13,18 @@ type Stored = { revision: number; data: Workspace | null; path?: string };
 let dbPromise: Promise<IDBDatabase> | undefined;
 function db() {
   return (dbPromise ??= new Promise((resolve, reject) => {
-    const req = indexedDB.open("orvia-windows-browser-preview", 1);
+    const req = indexedDB.open("orvia-windows-browser-preview", 3);
     req.onupgradeneeded = () => {
-      req.result.createObjectStore("workspace");
-      req.result.createObjectStore("assets");
+      for (const name of [
+        "workspace",
+        "assets",
+        "documents",
+        "libraries",
+        "metadata",
+        "history",
+      ])
+        if (!req.result.objectStoreNames.contains(name))
+          req.result.createObjectStore(name);
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -23,39 +33,136 @@ function db() {
 async function readPreview(): Promise<Stored> {
   const database = await db();
   return new Promise((resolve, reject) => {
-    const request = database
-      .transaction("workspace")
-      .objectStore("workspace")
-      .get("main");
-    request.onsuccess = () =>
-      resolve(request.result ?? { revision: 0, data: null });
-    request.onerror = () => reject(request.error);
+    const tx = database.transaction([
+      "workspace",
+      "documents",
+      "libraries",
+      "metadata",
+    ]);
+    const main = tx.objectStore("workspace").get("main");
+    const docs = tx.objectStore("documents").getAll(),
+      libs = tx.objectStore("libraries").getAll(),
+      meta = tx.objectStore("metadata").get("main");
+    tx.oncomplete = () =>
+      resolve(
+        meta.result
+          ? {
+              revision: meta.result.revision,
+              data: {
+                ...meta.result.data,
+                documents: docs.result,
+                libraries: libs.result,
+              },
+            }
+          : (main.result ?? { revision: 0, data: null }),
+      );
+    tx.onerror = () => reject(tx.error);
   });
 }
 async function writePreview(
   data: Workspace,
+  delta: WorkspaceDelta,
   expected: number,
+  force: string[],
 ): Promise<number> {
   const database = await db();
   return new Promise((resolve, reject) => {
-    const tx = database.transaction("workspace", "readwrite");
-    const store = tx.objectStore("workspace");
-    let revision = 0;
+    const tx = database.transaction(
+      ["workspace", "documents", "libraries", "metadata", "history"],
+      "readwrite",
+    );
     let conflict = false;
-    const request = store.get("main");
-    request.onsuccess = () => {
-      if ((request.result?.revision ?? 0) !== expected) {
+    const meta = tx.objectStore("metadata").get("main"),
+      legacy = tx.objectStore("workspace").get("main");
+    meta.onsuccess = () => {
+      legacy.onsuccess = commit;
+      if (legacy.readyState === "done") commit();
+    };
+    function commit() {
+      if (
+        (meta.result?.revision ?? legacy.result?.revision ?? 0) !== expected
+      ) {
         conflict = true;
         tx.abort();
         return;
       }
-      revision = expected + 1;
-      store.put({ revision, data }, "main");
-    };
-    tx.oncomplete = () => resolve(revision);
+      const old = legacy.result?.data as Workspace | undefined;
+      if (!meta.result && old) {
+        old.documents.forEach((d) => tx.objectStore("documents").put(d, d.id));
+        old.libraries.forEach((l) => tx.objectStore("libraries").put(l, l.id));
+      }
+      for (const d of delta.documents.upsert) {
+        const req = tx.objectStore("documents").get(d.id);
+        req.onsuccess = () => {
+          const previous = req.result;
+          if (
+            previous &&
+            (previous.body !== d.body || previous.title !== d.title)
+          ) {
+            const history = tx.objectStore("history").get(d.id);
+            history.onsuccess = () => {
+              const entries: HistoryEntry[] = history.result ?? [];
+              if (
+                force.includes(d.id) ||
+                !entries.length ||
+                Date.now() - Date.parse(entries[0].savedAt) >= 60000
+              )
+                entries.unshift(
+                  snapshot(
+                    previous,
+                    meta.result?.data.assets ?? old?.assets ?? [],
+                    Date.now(),
+                  ),
+                );
+              // Bounded by both number and serialized bytes per note.
+              while (
+                entries.length > 20 ||
+                JSON.stringify(entries).length > 20_000_000
+              )
+                entries.pop();
+              tx.objectStore("history").put(entries, d.id);
+            };
+          }
+          tx.objectStore("documents").put(d, d.id);
+        };
+      }
+      delta.documents.remove.forEach((id) => {
+        tx.objectStore("documents").delete(id);
+        tx.objectStore("history").delete(id);
+      });
+      delta.libraries.upsert.forEach((l) =>
+        tx.objectStore("libraries").put(l, l.id),
+      );
+      delta.libraries.remove.forEach((id) =>
+        tx.objectStore("libraries").delete(id),
+      );
+      tx.objectStore("metadata").put(
+        {
+          revision: expected + 1,
+          data: {
+            schemaVersion: 1,
+            settings: data.settings,
+            assets: data.assets,
+          },
+        },
+        "main",
+      );
+      tx.objectStore("workspace").delete("main");
+    }
+    tx.oncomplete = () => resolve(expected + 1);
     tx.onabort = () =>
       reject(new Error(conflict ? "CONFLICT" : String(tx.error)));
     tx.onerror = () => reject(tx.error);
+  });
+}
+export async function documentHistory(id: string): Promise<HistoryEntry[]> {
+  await store.flush();
+  if (native) return invoke("document_history", { id });
+  const database = await db();
+  return new Promise((resolve, reject) => {
+    const req = database.transaction("history").objectStore("history").get(id);
+    req.onsuccess = () => resolve(req.result ?? []);
+    req.onerror = () => reject(req.error);
   });
 }
 export class WorkspaceStore {
@@ -66,6 +173,34 @@ export class WorkspaceStore {
   error = "";
   ready = false;
   private initialized = false;
+  private persisted: Workspace | null = null;
+  private forceHistory = new Set<string>();
+  async restoreHistory(entry: HistoryEntry) {
+    this.forceHistory.add(entry.document.id);
+    this.change((s) => ({
+      ...s,
+      assets: [
+        ...new Map(
+          [...s.assets, ...entry.assets].map((a) => [a.id, a]),
+        ).values(),
+      ],
+      documents: s.documents.map((d) =>
+        d.id === entry.document.id
+          ? {
+              ...entry.document,
+              libraryId: s.libraries.some(
+                (l) => l.id === entry.document.libraryId,
+              )
+                ? entry.document.libraryId
+                : d.libraryId,
+              updatedAt: new Date().toISOString(),
+              deletedAt: d.deletedAt,
+            }
+          : d,
+      ),
+    }));
+    await this.flush();
+  }
   private listeners = new Set<() => void>();
   private timer: ReturnType<typeof setTimeout> | undefined;
   private generation = 0;
@@ -97,6 +232,7 @@ export class WorkspaceStore {
                 ? "zh-TW"
                 : "zh-CN",
           );
+      this.persisted = result.data ? this.data : null;
       this.revision = result.revision;
       this.ready = true;
       this.status = "saved";
@@ -147,17 +283,21 @@ export class WorkspaceStore {
   }
   private async write() {
     const generation = this.generation;
-    const data = structuredClone(this.data);
+    const data = this.data;
+    const forceHistory = [...this.forceHistory];
     this.status = "saving";
     this.emit();
     try {
-      workspaceSchema.parse(data);
+      const delta = workspaceDelta(this.persisted, data);
       this.revision = native
-        ? await invoke<number>("save_workspace", {
-            data,
+        ? await invoke<number>("save_delta", {
+            delta,
+            forceHistory,
             expectedRevision: this.revision,
           })
-        : await writePreview(data, this.revision);
+        : await writePreview(data, delta, this.revision, forceHistory);
+      this.persisted = data;
+      forceHistory.forEach((id) => this.forceHistory.delete(id));
       this.savedGeneration = generation;
       this.error = "";
       this.status = this.dirty ? "saving" : "saved";

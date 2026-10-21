@@ -13,9 +13,10 @@ export async function chooseFiles(
     });
     if (!selected) return [];
     const paths = Array.isArray(selected) ? selected : [selected];
-    const limit = extensions.includes("orvia")
-      ? 128 * 1024 * 1024
-      : 25 * 1024 * 1024;
+    const limit =
+      extensions.includes("orvia") || extensions.includes("md")
+        ? 128 * 1024 * 1024
+        : 25 * 1024 * 1024;
     if (paths.length > 100) throw new Error("TOO_MANY_FILES");
     const sizes = await Promise.all(
       paths.map(async (path) => (await stat(path)).size),
@@ -42,9 +43,10 @@ export async function chooseFiles(
     input.onchange = async () => {
       try {
         const files = Array.from(input.files ?? []);
-        const limit = extensions.includes("orvia")
-          ? 128 * 1024 * 1024
-          : 25 * 1024 * 1024;
+        const limit =
+          extensions.includes("orvia") || extensions.includes("md")
+            ? 128 * 1024 * 1024
+            : 25 * 1024 * 1024;
         if (
           files.length > 100 ||
           files.some((file) => file.size > limit) ||

@@ -161,5 +161,15 @@
   "untitledHeading": "无标题",
   "theme": "切换主题",
   "filename": "文件名",
-  "chooseDocument": "选择要导出的文档"
+  "chooseDocument": "选择要导出的文档",
+  "manageDocument": "文档选项",
+  "history": "历史版本",
+  "historyHint": "自动保留最近 20 个检查点（每分钟一个，最多 20 MB）。恢复前会保留当前内容；永久删除文档也会清除历史。",
+  "historyEmpty": "暂无历史版本，修改并保存后会自动保留。",
+  "restoreVersion": "恢复此版本",
+  "historyRestored": "已恢复历史版本，恢复前内容已保留",
+  "editMetadata": "移动与标签",
+  "tagsHint": "用逗号分隔，最多 20 个",
+  "recentHint": "从上次停下的地方继续",
+  "overview": "知识库概览"
 }

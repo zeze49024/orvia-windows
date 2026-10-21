@@ -1,0 +1,57 @@
+name: Installer upgrade acceptance
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  upgrade:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - run: npx playwright install chromium
+      - run: npx playwright test
+      - name: Build disposable candidate installer
+        run: npx tauri build --config '{"bundle":{"createUpdaterArtifacts":false}}'
+      - name: Install beta5, seed local notes, upgrade and verify beta6
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: --remote-debugging-port=9226
+        run: |
+          gh release download v0.1.0-beta5 --pattern '*setup.exe' --dir "$env:RUNNER_TEMP/previous"
+          $previous = (Get-ChildItem "$env:RUNNER_TEMP/previous/*setup.exe").FullName
+          $install = "$env:RUNNER_TEMP/Orvia-Acceptance"
+          $process = Start-Process $previous -ArgumentList "/S /NS /D=$install" -PassThru -Wait -WindowStyle Hidden
+          if ($process.ExitCode -ne 0) { throw "beta5 installer failed" }
+          $app = Start-Process "$install/orvia.exe" -PassThru -WindowStyle Hidden
+          node scripts/native-smoke.mjs seed
+          if ($LASTEXITCODE -ne 0) { throw "beta5 seed failed" }
+          Stop-Process -Id $app.Id -Force
+          $candidate = (Get-ChildItem src-tauri/target/release/bundle/nsis/*setup.exe).FullName
+          $process = Start-Process $candidate -ArgumentList "/S /NS /UPDATE /D=$install" -PassThru -Wait -WindowStyle Hidden
+          if ($process.ExitCode -ne 0) { throw "beta6 installer failed" }
+          $app = Start-Process "$install/orvia.exe" -PassThru -WindowStyle Hidden
+          node scripts/native-smoke.mjs verify
+          if ($LASTEXITCODE -ne 0) { throw "beta6 upgrade validation failed" }
+          Stop-Process -Id $app.Id -Force
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: installer-acceptance
+          path: |
+            native-validation.json
+            native-upgrade.png
+            playwright-report/
+            test-results/
