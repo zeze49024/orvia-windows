@@ -1,23 +1,33 @@
 # Orvia for Windows
 
-Orvia Windows 桌面端。当前处于仓库准备阶段，尚无应用代码或可运行版本。
+Orvia 是完全本地运行的 Markdown 个人知识库。当前版本 **v0.1.0-beta1**。
 
-计划采用 React、TypeScript、Vite、Tailwind CSS、shadcn/ui、Tauri 2 与 SQLite。
-产品方向为本地个人 Markdown 知识库，内置简体中文、繁体中文和英文；当前不启用账号、云存储或同步。
+采用 React、TypeScript、Vite、shadcn/ui、Tailwind CSS、Tauri 2 和 SQLite，沿用确认的黑白灰界面与 A v2 图形标志。
+内置简体中文、繁体中文和英文，无需账号，不接入云存储或同步，不上传文档内容。
 
-## 目录约定
+## 使用
 
-- `src/`：未来的前端界面与 Windows 应用入口。
-- `src-tauri/`：未来的 Tauri 原生工程、权限和系统适配。
-- `docs/`：仓库公开说明，不包含本地内部技术方案。
+从本仓库 GitHub Releases 下载 Windows x64 安装程序。首次启动创建本地工作空间；可新建文档或添加入门笔记。
+支持知识库管理、Markdown 编辑与预览、标签、星标、搜索、最近打开、自动保存、回收与恢复。
+支持本地 Markdown、图片、DOCX 和文字型 PDF 导入；完整备份导出与校验恢复、通用 Markdown ZIP 导出。
+设置 → 版本与更新，可从 GitHub 检查更新；确认后下载，并校验签名后安装。
 
-上述代码目录在开始开发时创建。本次不生成脚手架或安装依赖。
-Web、Android、iOS 分别维护独立仓库，未来通过独立共享库复用公共能力。
+本 Beta 的 PDF 导入仅提取文字，不提取图片或执行 OCR；不支持旧版 `.doc`、复杂版式无损转换、深色主题、云功能和自动历史快照。
+本地数据没有云端副本，请定期导出完整备份到其他介质。更新签名不等同于 Windows 发布者数字证书。
 
-## 版本管理
+## 开发
 
-默认分支为 `main`。提交记录用于跟踪开发变更；应用版本号、更新日志、标签与安装包在实际发布时另行确定。
-运行数据、密钥、证书、构建产物和内部技术方案不得提交。
+```powershell
+npm ci
+npm run desktop
+```
+
+`npm test`、`npm run test:native`、`npm run build` 验证源码；`npm run package` 构建签名安装包。
+原生构建需要 Rust MSVC、Visual Studio C++ Build Tools、Windows SDK 和 WebView2。
+
+[开发与发布说明](docs/DEVELOPMENT.md) · [更新日志](CHANGELOG.md) · [第三方组件](docs/THIRD_PARTY_NOTICES.md)
+
+Web、Android、iOS 维护独立仓库。内部技术方案不随本仓库上传。
 
 ## 授权
 

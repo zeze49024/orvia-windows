@@ -31,3 +31,9 @@ coverage/
 Thumbs.db
 Desktop.ini
 Orvia_DepDocs/
+*.tsbuildinfo
+/release/
+/src-tauri/gen/
+$null
+/public/pdf/
+/public/third-party-notices.txt
