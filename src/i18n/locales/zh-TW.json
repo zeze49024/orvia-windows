@@ -138,5 +138,22 @@
   "lastOpened": "上次開啟",
   "copyAddress": "複製網址",
   "updateFailed": "檢查或安裝更新失敗，請稍後重試。",
-  "saveFirst": "本機儲存失敗，已保留編輯。請重試或匯出後再關閉。"
+  "saveFirst": "本機儲存失敗，已保留編輯。請重試或匯出後再關閉。",
+  "liveEdit": "即時編輯",
+  "sourceMode": "Markdown 原始碼",
+  "liveHint": "直接編輯排版後的內文 · 輸入 ## 加空格建立標題 · Ctrl+B 粗體 · Ctrl+Z 復原",
+  "sourceHint": "編輯 Markdown 原文 · 支援 Ctrl+Z 復原",
+  "sourcePreserved": "此文件包含即時編輯暫不支援的語法，已保留原始碼編輯，避免改變原有內容。",
+  "formatToolbar": "文件格式",
+  "bulletList": "項目符號清單",
+  "orderedList": "編號清單",
+  "quote": "引言",
+  "codeBlock": "程式碼區塊",
+  "insertTable": "插入表格",
+  "undo": "復原",
+  "redo": "重做",
+  "linkHint": "為選取的文字設定連結。應用程式不會自動開啟外部連結。",
+  "linkUrl": "連結網址",
+  "removeLink": "移除連結",
+  "editorLimit": "內文已達最大長度，本次輸入未儲存。"
 }

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { localeCodes } from "../i18n/registry";
-export const APP_VERSION = "0.1.0-beta1";
-export const RELEASE_NOTE = "完成Orvia应用初版构建";
+export const APP_VERSION = "0.1.0-beta2";
+export const RELEASE_NOTE = "优化应用图标，新增所见即所得 Markdown 编辑体验";
 export const colors = ["blue", "orange", "green", "purple", "rose"] as const;
 const librarySchema = z.object({
   id: z.string().uuid(),

@@ -138,5 +138,22 @@
   "lastOpened": "上次打开",
   "copyAddress": "复制地址",
   "updateFailed": "检查或安装更新失败，请稍后重试。",
-  "saveFirst": "本地保存失败，已保留编辑。请重试或导出后再关闭。"
+  "saveFirst": "本地保存失败，已保留编辑。请重试或导出后再关闭。",
+  "liveEdit": "实时编辑",
+  "sourceMode": "Markdown 源码",
+  "liveHint": "直接编辑排版后的正文 · 输入 ## 加空格创建标题 · Ctrl+B 加粗 · Ctrl+Z 撤销",
+  "sourceHint": "编辑 Markdown 原文 · 支持 Ctrl+Z 撤销",
+  "sourcePreserved": "此文档包含实时编辑暂不支持的语法，已保留源码编辑，避免改变原有内容。",
+  "formatToolbar": "文档格式",
+  "bulletList": "无序列表",
+  "orderedList": "有序列表",
+  "quote": "引用",
+  "codeBlock": "代码块",
+  "insertTable": "插入表格",
+  "undo": "撤销",
+  "redo": "重做",
+  "linkHint": "为选中的文字设置链接。应用不会自动打开外部链接。",
+  "linkUrl": "链接地址",
+  "removeLink": "移除链接",
+  "editorLimit": "正文已达到最大长度，本次输入未保存。"
 }

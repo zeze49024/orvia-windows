@@ -30,12 +30,6 @@ import {
   Square,
   Bell,
   PencilLine,
-  Bold,
-  Italic,
-  Heading2,
-  ListTodo,
-  Link,
-  Code2,
   Eye,
   CircleHelp,
   CheckCircle2,
@@ -67,7 +61,7 @@ import {
   type Asset,
   type Locale,
 } from "@/core/model";
-import { store, native, getAsset } from "@/core/storage";
+import { store, native } from "@/core/storage";
 import { chooseFiles, saveFile } from "@/core/files";
 import { convertFile } from "@/core/import";
 import {
@@ -85,43 +79,12 @@ import {
   type MessageKey,
 } from "@/i18n";
 import type { Update } from "@tauri-apps/plugin-updater";
+import { LocalImage } from "@/components/local-image";
+import { MarkdownEditor } from "@/components/markdown-editor";
 import "./styles.css";
 import "./workspace.css";
 import "./application.css";
 
-function LocalImage({ src, alt }: { src?: string; alt?: string }) {
-  const [url, setUrl] = useState("");
-  useEffect(() => {
-    let current = "",
-      live = true;
-    setUrl("");
-    const id = src?.match(/^asset:([a-f0-9]{64})$/)?.[1],
-      asset = store.data.assets.find((a) => a.id === id);
-    if (asset)
-      void getAsset(asset)
-        .then((bytes) => {
-          if (live) {
-            current = URL.createObjectURL(
-              new Blob([new Uint8Array(bytes).buffer], { type: asset.mime }),
-            );
-            setUrl(current);
-          }
-        })
-        .catch(() => {});
-    return () => {
-      live = false;
-      if (current) URL.revokeObjectURL(current);
-    };
-  }, [src]);
-  return url ? (
-    <img src={url} alt={alt ?? ""} />
-  ) : (
-    <span className="blocked-image">
-      <ImagePlus size={16} />
-      {translator(store.data.settings.locale)("blockedImage")}
-    </span>
-  );
-}
 function App() {
   const [, redraw] = useReducer((n) => n + 1, 0),
     [page, setPage] = useState("all"),
@@ -144,7 +107,6 @@ function App() {
     [progress, setProgress] = useState(0),
     [updateMessage, setUpdateMessage] = useState("");
   const cancelRef = useRef<AbortController | null>(null),
-    editor = useRef<HTMLTextAreaElement>(null),
     toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined),
     busyRef = useRef(false);
   const data = store.data,
@@ -369,25 +331,6 @@ function App() {
     } catch (e) {
       error(e);
     }
-  };
-  const format = (before: string, after = "") => {
-    if (!active || preview || active.deletedAt || !editor.current) return;
-    const element = editor.current,
-      start = element.selectionStart,
-      end = element.selectionEnd,
-      text = active.body;
-    patch(active.id, {
-      body:
-        text.slice(0, start) +
-        before +
-        text.slice(start, end) +
-        after +
-        text.slice(end),
-    });
-    requestAnimationFrame(() => {
-      element.focus();
-      element.setSelectionRange(start + before.length, end + before.length);
-    });
   };
   const exportBackup = () =>
     run(async () => {
@@ -839,36 +782,6 @@ function App() {
                       ))}
                     </div>
                   </div>
-                  {!preview && !active.deletedAt && (
-                    <div className="format-bar">
-                      {[
-                        { icon: Heading2, key: "heading", a: "## ", b: "" },
-                        { icon: Bold, key: "bold", a: "**", b: "**" },
-                        { icon: Italic, key: "italic", a: "*", b: "*" },
-                        { icon: ListTodo, key: "task", a: "- [ ] ", b: "" },
-                        { icon: Link, key: "link", a: "[", b: "](https://)" },
-                        { icon: Code2, key: "code", a: "`", b: "`" },
-                      ].map((item) => (
-                        <button
-                          key={item.key}
-                          aria-label={t(item.key as MessageKey)}
-                          title={t(item.key as MessageKey)}
-                          onClick={() => format(item.a, item.b)}
-                        >
-                          <item.icon size={16} />
-                        </button>
-                      ))}
-                      <button
-                        aria-label={t("image")}
-                        title={t("image")}
-                        disabled={busy}
-                        onClick={() => importFiles(true)}
-                      >
-                        <ImagePlus size={16} />
-                      </button>
-                      <span className="muted">Markdown</span>
-                    </div>
-                  )}
                   {preview || active.deletedAt ? (
                     <div className="reading">
                       <ReactMarkdown
@@ -901,16 +814,14 @@ function App() {
                       </ReactMarkdown>
                     </div>
                   ) : (
-                    <textarea
-                      ref={editor}
-                      className="editor-textarea"
-                      aria-label={t("body")}
-                      maxLength={5_000_000}
+                    <MarkdownEditor
+                      key={active.id}
                       value={active.body}
-                      placeholder={t("write")}
-                      onChange={(e) =>
-                        patch(active.id, { body: e.target.value })
-                      }
+                      locale={locale}
+                      onChange={(body) => patch(active.id, { body })}
+                      onImage={() => importFiles(true)}
+                      busy={busy}
+                      notify={notify}
                     />
                   )}
                 </article>

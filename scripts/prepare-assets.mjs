@@ -2,11 +2,17 @@ import fs from "node:fs";
 import path from "node:path";
 import { Resvg } from "@resvg/resvg-js";
 fs.mkdirSync("src-tauri/icons", { recursive: true });
+// Transparent padding scales the approved symbol to 82% of the icon canvas.
+const iconSvg = fs
+  .readFileSync("public/brand/orvia-symbol.svg", "utf8")
+  .replace(
+    'viewBox="528 148 464 464"',
+    'viewBox="477.073 97.073 565.854 565.854"',
+  );
 fs.writeFileSync(
   "src-tauri/icons/icon.png",
-  new Resvg(fs.readFileSync("public/brand/orvia-symbol.svg", "utf8"), {
+  new Resvg(iconSvg, {
     fitTo: { mode: "width", value: 512 },
-    background: "#ffffff",
   })
     .render()
     .asPng(),
@@ -20,9 +26,8 @@ header.writeUInt16LE(sizes.length, 4);
 let offset = 6 + 16 * sizes.length;
 for (const size of sizes) {
   const png = Buffer.from(
-    new Resvg(fs.readFileSync("public/brand/orvia-symbol.svg", "utf8"), {
+    new Resvg(iconSvg, {
       fitTo: { mode: "width", value: size },
-      background: "#ffffff",
     })
       .render()
       .asPng(),

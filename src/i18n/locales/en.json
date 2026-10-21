@@ -138,5 +138,22 @@
   "lastOpened": "Last opened",
   "copyAddress": "Copy address",
   "updateFailed": "Update check or installation failed. Try again later.",
-  "saveFirst": "Save failed. Edits are retained. Retry or export before closing."
+  "saveFirst": "Save failed. Edits are retained. Retry or export before closing.",
+  "liveEdit": "Live editing",
+  "sourceMode": "Markdown source",
+  "liveHint": "Edit formatted text directly · Type ## and a space for a heading · Ctrl+B bold · Ctrl+Z undo",
+  "sourceHint": "Edit original Markdown · Ctrl+Z to undo",
+  "sourcePreserved": "This document uses syntax not yet supported by live editing. Source mode preserves the original content.",
+  "formatToolbar": "Document formatting",
+  "bulletList": "Bullet list",
+  "orderedList": "Numbered list",
+  "quote": "Blockquote",
+  "codeBlock": "Code block",
+  "insertTable": "Insert table",
+  "undo": "Undo",
+  "redo": "Redo",
+  "linkHint": "Set a link for the selected text. External links do not open automatically.",
+  "linkUrl": "Link URL",
+  "removeLink": "Remove link",
+  "editorLimit": "The document has reached its maximum length. This input was not saved."
 }
