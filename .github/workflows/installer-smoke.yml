@@ -2,10 +2,14 @@ name: Installer upgrade acceptance
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - "**/*.md"
-      - "updates/**"
-      - ".github/workflows/installer-smoke.yml"
+    paths:
+      - "src/**"
+      - "src-tauri/**"
+      - "package*.json"
+      - "tests/**"
+      - "playwright.config.ts"
+      - "scripts/desktop.mjs"
+      - "scripts/prepare-assets.mjs"
   workflow_dispatch:
     inputs:
       candidateTag:

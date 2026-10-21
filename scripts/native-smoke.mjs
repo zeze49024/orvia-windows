@@ -11,12 +11,23 @@ for (let attempt = 0; attempt < 40; attempt++) {
     browser = await chromium.connectOverCDP("http://127.0.0.1:9226");
     break;
   } catch (error) {
-    connectionError=error;
+    connectionError = error;
     await new Promise((r) => setTimeout(r, 500));
   }
 }
-if (!browser) throw new Error("Native WebView2 did not start",{cause:connectionError});
-const page = browser.contexts()[0].pages()[0];
+if (!browser)
+  throw new Error("Native WebView2 did not start", { cause: connectionError });
+// WebView2 may expose its debugging server before creating the first target.
+let page;
+for (let attempt = 0; attempt < 80; attempt++) {
+  page = browser
+    .contexts()
+    .flatMap((context) => context.pages())
+    .find((target) => !target.isClosed());
+  if (page) break;
+  await new Promise((resolve) => setTimeout(resolve, 200));
+}
+if (!page) throw new Error("Native WebView2 did not create a page target");
 await page.waitForSelector(".app-shell");
 await page
   .locator(".statusbar")
