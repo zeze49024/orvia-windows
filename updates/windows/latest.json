@@ -1,11 +1,11 @@
 {
-  "version": "0.1.0-beta5",
-  "notes": "优化文档名称显示与 Markdown 导出，新增浅色、深色主题及主题扩展接口",
-  "pub_date": "2026-10-21T07:44:48.419Z",
+  "version": "0.1.0-beta6",
+  "notes": "完善图文导入导出与文档管理，新增增量保存和历史恢复，优化编辑与首页体验，重构代码并加强安装升级验证",
+  "pub_date": "2026-10-21T08:24:13.058Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRTWVLTkMxVzBkTlZUSGh4SEs5NW5RZk5SbFB0NXpJb1VEUFU1K0lkVXBlMWJYUzFSZXNFNGFiSDR4c2ZTS3lzZFZWcEFDRGZBOVEwU3JxaWZNanZHTGE5ZkFnVmRjaEFnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNTY4NjQ4CWZpbGU6T3J2aWFfMC4xLjAtYmV0YTVfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMS4wLWJldGE1CkRmUGtHMnB3QStXbWpTOFlBMkFQQ1FKeFhQdTFBU05vL0ErampCZEx6bzNKbW1XOXdnT2RlYzRYRDRHeGw3emNQbFFDL1U0b3g2aDVHemkxbzQ3SkJnPT0K",
-      "url": "https://github.com/zeze49024/orvia-windows/releases/download/v0.1.0-beta5/Orvia_0.1.0-beta5_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRTWVLTkMxVzBkTmI1Q09KVHo3WTVSM2ZjNENGZ3VhMEh4ekh3T1l0b3JlVU9GNDhGZThCSU5KNWVuMm5VU0JIRUNsT0pneUVpeUJFODlib01DYjl5QTN5UDZyUWdrZmdvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNTcxMDIzCWZpbGU6T3J2aWFfMC4xLjAtYmV0YTZfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMS4wLWJldGE2CnJMdnp3UHNHdnh0TVJiUTN2ZWdJYktsWksrN1U5emhoQ2xheVJYajNuamNIY3NqMWc2TXJKaFVvVkdweDhyMVVwUVlWblB5czgxdzNLem51Q2lqTURRPT0K",
+      "url": "https://github.com/zeze49024/orvia-windows/releases/download/v0.1.0-beta6/Orvia_0.1.0-beta6_x64-setup.exe"
     }
   }
 }
