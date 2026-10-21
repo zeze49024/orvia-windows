@@ -1,11 +1,11 @@
 {
-  "version": "0.1.0-beta2",
-  "notes": "优化应用图标，新增所见即所得 Markdown 编辑体验",
-  "pub_date": "2026-10-21T06:25:15.444Z",
+  "version": "0.1.0-beta3",
+  "notes": "修复 Windows 应用图标白色背景问题",
+  "pub_date": "2026-10-21T06:45:08.180Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRTWVLTkMxVzBkTlhDcmFwYnpYOHpiUGxubWYvZWVwRGFoOUxMZzA5NjBkVEg1am5tN2FJS1l3WnpScWNKNEhhZ2RSbkhITk5uMHFBTUNTYm9iOTMyWE9POVpaUGNobHdnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNTYzODk2CWZpbGU6T3J2aWFfMC4xLjAtYmV0YTJfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMS4wLWJldGEyCkhmODNXSHE3dFdpMTRoSWN3ZFQwWEpxY0F0bndzQS8rVkRXaTlDZGFQUWlOZVNiNVo2cE83cllwL3hEWnhiRlA1S0Y2Slc1M0hRUlpIRUp0dFlPOUJBPT0K",
-      "url": "https://github.com/zeze49024/orvia-windows/releases/download/v0.1.0-beta2/Orvia_0.1.0-beta2_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRTWVLTkMxVzBkTmF1TDhxR2p1blBxYkhNTVdXbFErM1ZrQmQvMDhENlg5bGsvMVFkc3RJMi9kSmVWdm93NjVDbTdmYWhyT2VnUmZtSG84azFJRmpZY1IzdGxiS0V3YWdRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNTY1MDg0CWZpbGU6T3J2aWFfMC4xLjAtYmV0YTNfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMS4wLWJldGEzCld3SGhaV2JoTzhGMG02WnFPcmdrRjVBVExaa1BCRUVaRnRJUks3dUhVaGUzRnpDUmlpR1BNQm96aUVRS3lNNUJKejFFNGRyeDRxN1pOZVRlRjZMMkNBPT0K",
+      "url": "https://github.com/zeze49024/orvia-windows/releases/download/v0.1.0-beta3/Orvia_0.1.0-beta3_x64-setup.exe"
     }
   }
 }
