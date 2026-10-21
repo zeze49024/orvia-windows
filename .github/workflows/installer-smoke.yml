@@ -94,6 +94,11 @@ jobs:
               if (Test-Path -LiteralPath $defaultExecutable) { (Get-Item $defaultExecutable).VersionInfo | Select-Object FileName,ProductVersion }
               throw 'Updater did not replace executable'
             }
+            # NSIS restarts via the Windows shell without our debugging environment.
+            # Reopen only this disposable fixture with an explicit WebView2 profile.
+            Start-Sleep -Seconds 3
+            $fixtureProcesses = Get-Process -Name orvia -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $executable }
+            foreach ($fixtureProcess in $fixtureProcesses) { Stop-Process -Id $fixtureProcess.Id -Force }
           } else {
             Stop-Process -Id $app.Id -Force
             if ($env:CANDIDATE_TAG) {
