@@ -158,5 +158,8 @@
   "editorLimit": "內文已達最大長度，本次輸入未儲存。",
   "paragraph": "內文",
   "outlineEmpty": "尚無標題",
-  "untitledHeading": "無標題"
+  "untitledHeading": "無標題",
+  "theme": "切換主題",
+  "filename": "檔案名稱",
+  "chooseDocument": "選擇要匯出的文件"
 }

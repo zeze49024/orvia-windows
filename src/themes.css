@@ -1,0 +1,15 @@
+html,body,#root{background:var(--background);color:var(--foreground)}
+::selection{background:var(--blue-bg,#dce8ff);color:var(--foreground)}
+.document-filename{display:flex;align-items:center;gap:9px;margin:15px 0 12px;padding:9px 11px;border:1px solid var(--line,#e8ebef);border-radius:7px;background:var(--surface-alt,#fafbfc);color:var(--text-muted,#969eaa)}
+.document-filename>span{flex-shrink:0;font-size:10px;color:var(--text-muted,#969eaa)}
+.document-filename .document-title{font-size:14px;font-weight:500;letter-spacing:0;line-height:1.7;margin:0;color:var(--text-secondary,#697383);min-width:0}
+.document-filename:focus-within{border-color:var(--blue,#9eb8de)}
+.theme-menu{min-width:190px}.theme-menu-label{padding:7px 10px 9px;color:var(--text-muted,#929ba8);font-size:10px}.theme-menu-item{gap:11px;font-size:12px;min-height:45px}.theme-checked{margin-left:auto;color:var(--blue,#5780bc)}
+.theme-swatch{width:29px;height:25px;display:grid;place-items:center;border:1px solid var(--line,#dfe4ec);border-radius:6px;box-shadow:0 1px 3px #00000008}.theme-swatch:before{content:"Aa";font-size:10px;font-weight:600;grid-area:1/1}.theme-swatch>span{width:4px;height:4px;border-radius:50%;grid-area:1/1;justify-self:end;align-self:end;margin:3px}
+.dark .window-actions button:last-child:hover{background:#bd4e59;color:#fff}
+.dark .document-title::placeholder,.dark input::placeholder,.dark textarea::placeholder{color:var(--text-faint)}
+.dark .reading code{color:var(--text-secondary)}
+.dark .source-editor,.dark .live-editor{caret-color:var(--foreground)}
+.dark .heading-menu,.dark [role=dialog]{box-shadow:0 14px 50px #0006}
+.dark .workspace-avatar{border-color:var(--line)}
+.dark .theme-swatch{border-color:#515c6b}

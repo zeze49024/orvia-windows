@@ -158,5 +158,8 @@
   "editorLimit": "正文已达到最大长度，本次输入未保存。",
   "paragraph": "正文",
   "outlineEmpty": "暂无标题",
-  "untitledHeading": "无标题"
+  "untitledHeading": "无标题",
+  "theme": "切换主题",
+  "filename": "文件名",
+  "chooseDocument": "选择要导出的文档"
 }

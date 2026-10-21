@@ -1,4 +1,10 @@
-import React, { useEffect, useReducer, useRef, useState } from "react";
+import React, {
+  useEffect,
+  useLayoutEffect,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import { createRoot } from "react-dom/client";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -56,7 +62,6 @@ import {
   RELEASE_NOTE,
   colors,
   newDocument,
-  safeFilename,
   type Document,
   type Asset,
   type Locale,
@@ -66,7 +71,6 @@ import { chooseFiles, saveFile } from "@/core/files";
 import { convertFile } from "@/core/import";
 import {
   createBackup,
-  exportMarkdown,
   inspectBackup,
   importBackup,
   mergeAssets,
@@ -82,12 +86,17 @@ import type { Update } from "@tauri-apps/plugin-updater";
 import { LocalImage } from "@/components/local-image";
 import { MarkdownEditor } from "@/components/markdown-editor";
 import { DocumentOutline } from "@/components/document-outline";
+import { ThemePicker } from "@/components/theme-picker";
+import { applyTheme, restoreThemeHint, resolveTheme } from "@/core/themes";
+import { exportMarkdownDocument } from "@/core/markdown-export";
 import "./styles.css";
 import "./workspace.css";
 import "./application.css";
+import "./themes.css";
 
 function App() {
   const [, redraw] = useReducer((n) => n + 1, 0),
+    [exportDocumentId, setExportDocumentId] = useState(""),
     [page, setPage] = useState("all"),
     [query, setQuery] = useState(""),
     [selected, setSelected] = useState<string | null>(null),
@@ -113,6 +122,15 @@ function App() {
     busyRef = useRef(false);
   const data = store.data,
     locale = data.settings.locale,
+    currentTheme = resolveTheme(
+      store.ready
+        ? data.settings.theme
+        : document.documentElement.dataset.theme,
+    ),
+    logoPath =
+      currentTheme.appearance === "dark"
+        ? "/brand/orvia-symbol-dark.svg"
+        : "/brand/orvia-symbol.svg",
     t = translator(locale),
     active = data.documents.find((d) => d.id === selected),
     library = data.libraries.find((l) => l.id === active?.libraryId);
@@ -145,6 +163,9 @@ function App() {
     }
   };
   useEffect(() => store.subscribe(redraw), []);
+  useLayoutEffect(() => {
+    if (store.ready) applyTheme(data.settings.theme);
+  }, [data.settings.theme, store.ready]);
   useEffect(() => {
     document.documentElement.lang = locale;
     document.title = "Orvia v" + APP_VERSION;
@@ -345,17 +366,13 @@ function App() {
       )
         notify(t("exported"));
     });
-  const markdownExport = (id?: string) =>
+  const markdownExport = (id: string) =>
     run(async () => {
-      if (
-        await saveFile(
-          (id ? safeFilename(active?.title ?? "Orvia") : "Orvia") +
-            "-markdown.zip",
-          await exportMarkdown(structuredClone(store.data), id),
-          ["zip"],
-        )
-      )
-        notify(t("exported"));
+      const file = await exportMarkdownDocument(
+        structuredClone(store.data),
+        id,
+      );
+      if (await saveFile(file.name, file.bytes, ["md"])) notify(t("exported"));
     });
   const restoreSelect = () =>
     run(async () => {
@@ -488,7 +505,7 @@ function App() {
   if (store.status === "loading")
     return (
       <div className="startup">
-        <img src="/brand/orvia-symbol.svg" alt="Orvia" />
+        <img src={logoPath} alt="Orvia" />
         <p>{t("loading")}</p>
       </div>
     );
@@ -501,7 +518,7 @@ function App() {
       >
         <div className="title-brand" data-tauri-drag-region>
           <span className="logo small">
-            <img src="/brand/orvia-symbol.svg" alt="" />
+            <img src={logoPath} alt="" />
           </span>
           <b>Orvia</b>
           <span className="title-divider" />
@@ -542,7 +559,7 @@ function App() {
               onClick={() => setModal("backup")}
             >
               <span className="workspace-avatar">
-                <img src="/brand/orvia-symbol.svg" alt="" />
+                <img src={logoPath} alt="" />
                 <span />
               </span>
               <span>
@@ -680,6 +697,13 @@ function App() {
                 {t("offline")}
               </span>
               {iconButton(Bell, t("backup"), () => setModal("backup"))}
+              <ThemePicker
+                value={data.settings.theme}
+                locale={locale}
+                onChange={(theme) =>
+                  change((s) => ({ ...s, settings: { ...s.settings, theme } }))
+                }
+              />
             </div>
           </div>
           {store.status === "error" && (
@@ -748,16 +772,20 @@ function App() {
                     <span>/</span>
                     {t("documents")}
                   </div>
-                  <input
-                    className="document-title"
-                    aria-label={t("title")}
-                    maxLength={300}
-                    readOnly={preview || !!active.deletedAt}
-                    value={active.title}
-                    onChange={(e) =>
-                      patch(active.id, { title: e.target.value })
-                    }
-                  />
+                  <div className="document-filename">
+                    <FileText size={14} />
+                    <span>{t("filename")}</span>
+                    <input
+                      className="document-title"
+                      aria-label={t("title")}
+                      maxLength={300}
+                      readOnly={preview || !!active.deletedAt}
+                      value={active.title}
+                      onChange={(e) =>
+                        patch(active.id, { title: e.target.value })
+                      }
+                    />
+                  </div>
                   <div className="doc-meta">
                     <span>{formatTime(active.updatedAt, locale)}</span>
                     <span>·</span>
@@ -1144,6 +1172,7 @@ function App() {
                     search: "search",
                     import: "import",
                     settings: "settings",
+                    markdownExport: "export",
                     backup: "backup",
                     libraries: editingLibrary ? "renameLibrary" : "newLibrary",
                     about: "about",
@@ -1158,6 +1187,38 @@ function App() {
               {modal === "new" ? t("newHint") : "Orvia · v" + APP_VERSION}
             </DialogDescription>
           </DialogHeader>
+          {modal === "markdownExport" && (
+            <div className="modal-stack">
+              <label>
+                {t("chooseDocument")}
+                <select
+                  className="full-select"
+                  aria-label={t("chooseDocument")}
+                  value={exportDocumentId}
+                  onChange={(e) => setExportDocumentId(e.target.value)}
+                >
+                  <option value="" disabled>
+                    {t("chooseDocument")}
+                  </option>
+                  {data.documents
+                    .filter((d) => !d.deletedAt)
+                    .map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.title || t("untitledHeading")}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <div className="modal-actions">
+                <Button
+                  disabled={busy || !exportDocumentId}
+                  onClick={() => markdownExport(exportDocumentId)}
+                >
+                  {t("export")}
+                </Button>
+              </div>
+            </div>
+          )}
           {modal === "new" && (
             <div className="modal-stack">
               <label>
@@ -1378,7 +1439,9 @@ function App() {
                 </div>
                 <div className="settings-row">
                   <b>{t("appearance")}</b>
-                  <Badge variant="secondary">{t("light")}</Badge>
+                  <Badge variant="secondary">
+                    {currentTheme.names[locale]}
+                  </Badge>
                 </div>
                 <div className="settings-row">
                   <b>{t("showSidebar")}</b>
@@ -1434,7 +1497,14 @@ function App() {
                   <Button
                     variant="outline"
                     disabled={busy}
-                    onClick={() => markdownExport()}
+                    onClick={() => {
+                      setExportDocumentId(
+                        active?.id ??
+                          data.documents.find((d) => !d.deletedAt)?.id ??
+                          "",
+                      );
+                      setModal("markdownExport");
+                    }}
                   >
                     {t("export")}
                   </Button>
@@ -1446,11 +1516,7 @@ function App() {
                     <b>Orvia v{APP_VERSION}</b>
                     <p>{RELEASE_NOTE}</p>
                   </div>
-                  <img
-                    className="about-mark"
-                    src="/brand/orvia-symbol.svg"
-                    alt="Orvia"
-                  />
+                  <img className="about-mark" src={logoPath} alt="Orvia" />
                 </div>
                 <div className="settings-row">
                   <div>
@@ -1579,7 +1645,7 @@ function App() {
           {modal === "about" && (
             <div className="modal-stack">
               <span className="logo">
-                <img src="/brand/orvia-symbol.svg" alt="Orvia" />
+                <img src={logoPath} alt="Orvia" />
               </span>
               <p>Orvia · {t("tagline")}</p>
               <Badge variant="secondary">v{APP_VERSION}</Badge>
@@ -1604,6 +1670,7 @@ function App() {
     </div>
   );
 }
+restoreThemeHint();
 const root = createRoot(document.getElementById("root")!);
 root.render(
   <React.StrictMode>

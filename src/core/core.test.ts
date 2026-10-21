@@ -8,13 +8,7 @@ import {
   safeFilename,
   sha256,
 } from "./model";
-import {
-  createBackup,
-  inspectBackup,
-  importBackup,
-  safeUnzip,
-  exportMarkdown,
-} from "./backup";
+import { createBackup, inspectBackup, importBackup, safeUnzip } from "./backup";
 import { WorkspaceStore } from "./storage";
 import { translator, languageRegistry } from "../i18n";
 
@@ -62,18 +56,6 @@ describe("backup integrity and non-destructive restore", () => {
   it("rejects traversal archives", () => {
     expect(() => safeUnzip(zipSync({ "../outside": strToU8("bad") }))).toThrow(
       "UNSAFE_ARCHIVE",
-    );
-  });
-  it("exports portable UTF-8 Markdown in collision-safe names", async () => {
-    const s = emptyWorkspace();
-    s.documents = [
-      newDocument(s.libraries[0].id, "同名", "first"),
-      newDocument(s.libraries[0].id, "同名", "second"),
-    ];
-    const zip = unzipSync(await exportMarkdown(s));
-    expect(Object.keys(zip)).toHaveLength(2);
-    expect(Object.values(zip).map((bytes) => strFromU8(bytes))).toContain(
-      "first",
     );
   });
 });

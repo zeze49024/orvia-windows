@@ -3,7 +3,6 @@ import { z } from "zod";
 import {
   workspaceSchema,
   sha256,
-  safeFilename,
   APP_VERSION,
   type Workspace,
   type Asset,
@@ -113,44 +112,6 @@ export async function importBackup(current: Workspace, bytes: Uint8Array) {
       ).values(),
     ),
   });
-}
-export async function exportMarkdown(data: Workspace, onlyId?: string) {
-  const entries: Record<string, Uint8Array> = {};
-  const refs = new Set<string>();
-  const assetName = (id: string) => {
-    const asset = data.assets.find((a) => a.id === id);
-    if (!asset) throw new Error("MISSING_ASSET");
-    return (
-      id +
-      "." +
-      (
-        {
-          "image/png": "png",
-          "image/jpeg": "jpg",
-          "image/webp": "webp",
-          "image/gif": "gif",
-        } as const
-      )[asset.mime]
-    );
-  };
-  for (const d of data.documents.filter(
-    (d) => !d.deletedAt && (!onlyId || d.id === onlyId),
-  )) {
-    let body = d.body.replace(/asset:([a-f0-9]{64})/g, (_, id) => {
-      refs.add(id);
-      return "../assets/" + assetName(id);
-    });
-    const lib = data.libraries.find((l) => l.id === d.libraryId)!;
-    entries[
-      `${safeFilename(lib.name)}/${safeFilename(d.title)}-${d.id.slice(0, 8)}.md`
-    ] = strToU8(body);
-  }
-  for (const id of refs) {
-    const asset = data.assets.find((a) => a.id === id);
-    if (!asset) throw new Error("MISSING_ASSET");
-    entries["assets/" + assetName(id)] = await getAsset(asset);
-  }
-  return zipSync(entries, { level: 1 });
 }
 export function mergeAssets(old: Asset[], added: Asset[]) {
   return Array.from(new Map([...old, ...added].map((a) => [a.id, a])).values());

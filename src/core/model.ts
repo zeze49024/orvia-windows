@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { localeCodes } from "../i18n/registry";
-export const APP_VERSION = "0.1.0-beta4";
-export const RELEASE_NOTE = "精简编辑界面，支持 H1–H6 标题选择，优化文档大纲";
+export const APP_VERSION = "0.1.0-beta5";
+export const RELEASE_NOTE =
+  "优化文档名称显示与 Markdown 导出，新增浅色、深色主题及主题扩展接口";
 export const colors = ["blue", "orange", "green", "purple", "rose"] as const;
 const librarySchema = z.object({
   id: z.string().uuid(),
@@ -39,6 +40,10 @@ export const workspaceSchema = z
       locale: z.enum(localeCodes),
       sidebar: z.boolean(),
       layout: z.enum(["grid", "list"]),
+      theme: z
+        .string()
+        .regex(/^[a-z][a-z0-9-]{0,63}$/)
+        .default("light"),
     }),
   })
   .superRefine((s, ctx) => {
@@ -80,7 +85,7 @@ export function emptyWorkspace(locale: Locale = "zh-CN"): Workspace {
     ],
     documents: [],
     assets: [],
-    settings: { locale, sidebar: true, layout: "grid" },
+    settings: { locale, sidebar: true, layout: "grid", theme: "light" },
   };
 }
 export function newDocument(
