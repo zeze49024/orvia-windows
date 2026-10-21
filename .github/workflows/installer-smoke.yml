@@ -61,6 +61,11 @@ jobs:
           $env:WEBVIEW2_USER_DATA_FOLDER = Join-Path $env:LOCALAPPDATA 'Orvia-Acceptance-WebView2'
           $process = Start-Process $previous -ArgumentList "/S /NS /D=$install" -PassThru -Wait -WindowStyle Hidden
           if ($process.ExitCode -ne 0) { throw "beta5 installer failed" }
+          # Silent seeding skips the GUI installer's language page and its registry callback.
+          # Match an English GUI installation before exercising the passive in-app updater.
+          $languageKey = 'HKCU:/Software/zeze49024/Orvia'
+          New-Item -Path $languageKey -Force | Out-Null
+          New-ItemProperty -LiteralPath $languageKey -Name 'Installer Language' -Value '1033' -PropertyType String -Force | Out-Null
           $executable = Join-Path $install 'orvia.exe'
           if (!(Test-Path -LiteralPath $executable)) {
             Get-ItemProperty 'HKCU:/Software/Microsoft/Windows/CurrentVersion/Uninstall/Orvia' -ErrorAction SilentlyContinue | Format-List
@@ -82,7 +87,10 @@ jobs:
               if ((Get-Item $executable).VersionInfo.ProductVersion -eq '0.1.0-beta6') { break }
               Start-Sleep -Seconds 1
             }
-            if ((Get-Item $executable).VersionInfo.ProductVersion -ne '0.1.0-beta6') { throw 'Updater did not replace executable' }
+            if ((Get-Item $executable).VersionInfo.ProductVersion -ne '0.1.0-beta6') {
+              Get-Process | Where-Object { $_.MainWindowTitle -like '*Orvia*' -or $_.MainWindowTitle -like '*Installer*' } | Select-Object Id,ProcessName,MainWindowTitle
+              throw 'Updater did not replace executable'
+            }
           } else {
             Stop-Process -Id $app.Id -Force
             if ($env:CANDIDATE_TAG) {
