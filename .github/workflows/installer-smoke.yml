@@ -64,7 +64,7 @@ jobs:
           # Silent seeding skips the GUI installer's language page and its registry callback.
           # Match an English GUI installation before exercising the passive in-app updater.
           $languageKey = 'HKCU:/Software/zeze49024/Orvia'
-          New-Item -Path $languageKey -Force | Out-Null
+          if (!(Test-Path -LiteralPath $languageKey)) { New-Item -Path $languageKey | Out-Null }
           New-ItemProperty -LiteralPath $languageKey -Name 'Installer Language' -Value '1033' -PropertyType String -Force | Out-Null
           $executable = Join-Path $install 'orvia.exe'
           if (!(Test-Path -LiteralPath $executable)) {
@@ -89,6 +89,9 @@ jobs:
             }
             if ((Get-Item $executable).VersionInfo.ProductVersion -ne '0.1.0-beta6') {
               Get-Process | Where-Object { $_.MainWindowTitle -like '*Orvia*' -or $_.MainWindowTitle -like '*Installer*' } | Select-Object Id,ProcessName,MainWindowTitle
+              Get-ItemProperty -LiteralPath $languageKey | Format-List
+              $defaultExecutable = Join-Path $env:LOCALAPPDATA 'Orvia/orvia.exe'
+              if (Test-Path -LiteralPath $defaultExecutable) { (Get-Item $defaultExecutable).VersionInfo | Select-Object FileName,ProductVersion }
               throw 'Updater did not replace executable'
             }
           } else {
