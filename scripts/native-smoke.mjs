@@ -47,7 +47,7 @@ if (phase === "seed") {
     id: "af485e10-f680-4ff6-8b40-af799171e221",
     libraryId: data.libraries[0].id,
     title: "Upgrade preservation",
-    body: "# Native upgrade fixture\n\n中文内容 retained from beta5",
+    body: "# Native upgrade fixture\n\n中文内容 retained from beta6",
     tags: ["upgrade"],
     starred: true,
     createdAt: now,
@@ -78,7 +78,7 @@ if (phase === "seed") {
     .click();
   await page
     .getByRole("dialog")
-    .getByText("v0.1.0-beta5 → v0.1.0-beta6", { exact: true })
+    .getByText("v0.1.0-beta6 → v0.1.0-beta7", { exact: true })
     .waitFor({ timeout: 60000 });
   const closed = page.waitForEvent("close", { timeout: 120000 });
   await page
@@ -91,12 +91,12 @@ if (phase === "seed") {
     (d) => d.title === "Upgrade preservation",
   );
   if (
-    !doc?.body.includes("中文内容 retained from beta5") ||
+    !doc?.body.includes("中文内容 retained from beta6") ||
     !doc.starred ||
     doc.tags[0] !== "upgrade"
   )
     throw new Error("Upgrade lost data");
-  const changed = { ...doc, body: doc.body + "\n\nSaved by beta6" };
+  const changed = { ...doc, body: doc.body + "\n\nSaved by beta7" };
   const delta = {
     libraries: { upsert: [], remove: [] },
     documents: { upsert: [changed], remove: [] },
@@ -118,15 +118,15 @@ if (phase === "seed") {
     .filter({ hasText: "Upgrade preservation" })
     .click();
   if (
-    !(await page.locator(".live-editor").innerText()).includes("Saved by beta6")
+    !(await page.locator(".live-editor").innerText()).includes("Saved by beta7")
   )
     throw new Error("Native editor reload failed");
   await writeFile(
     "native-validation.json",
     JSON.stringify(
       {
-        previous: "0.1.0-beta5",
-        current: "0.1.0-beta6",
+        previous: "0.1.0-beta6",
+        current: "0.1.0-beta7",
         installerUpgrade: true,
         signedGithubUpdater: process.env.USE_UPDATER === "true",
         sqlitePreserved: true,

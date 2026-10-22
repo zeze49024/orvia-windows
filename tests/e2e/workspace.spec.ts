@@ -79,8 +79,14 @@ test("all headings, source navigation, sticky toolbar and undo preserve editing 
     .click();
   await expect(page.locator(".live-editor h1")).toHaveText("中文输入与撤销");
   for (let level = 2; level <= 6; level++) {
-    await body.click();
-    await body.press("Control+a");
+    // Select the actual heading line, rather than the blank trailing paragraph
+    // that ProseMirror maintains after block nodes.
+    await page
+      .locator(".live-editor")
+      .getByText("中文输入与撤销", { exact: true })
+      .click();
+    await page.keyboard.press("Home");
+    await page.keyboard.press("Shift+End");
     await page.getByRole("button", { name: "标题", exact: true }).click();
     await page
       .getByRole("menuitemradio", {

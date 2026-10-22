@@ -82,7 +82,7 @@
   "supported": "Markdown、图片、Word (.docx)、文字型 PDF",
   "choose": "选择本地文件",
   "importPrivacy": "文档仅在设备本地处理，原文件不会被移动、覆盖或删除。",
-  "importLimits": "每个文件最多 25 MB，PDF 最多 200 页；本版 PDF 仅提取文字，不提取图片或执行 OCR；不支持旧版 .doc。",
+  "importLimits": "Markdown 每文件最多 128 MB，其他格式 25 MB；每次最多 100 篇文档 / 128 MB，单图 20 MB，PDF 200 页。文本支持 UTF-8 和带 BOM 的 UTF-16；PDF 仅提取文字，不支持 OCR 或旧版 .doc。",
   "working": "正在本地处理…",
   "imported": "导入完成",
   "failed": "操作失败",
@@ -171,5 +171,10 @@
   "editMetadata": "移动与标签",
   "tagsHint": "用逗号分隔，最多 20 个",
   "recentHint": "从上次停下的地方继续",
-  "overview": "知识库概览"
+  "overview": "知识库概览",
+  "chooseMarkdownFolder": "导入 Markdown 文件夹",
+  "markdownFolderHint": "同时导入所选文件夹内的 Markdown 及其引用的本地图片（PNG、JPEG、GIF、WebP）。缺失图片会中止导入；不会读取文件夹外的文件。",
+  "longDocumentSource": "长文档使用源码模式，减少编辑延迟。正文与导出内容完整保留。",
+  "textEncoding": "无法识别此文本编码，请在原编辑器中另存为 UTF-8 或带 BOM 的 UTF-16 后重试。",
+  "relativeImageError": "图片缺失、格式不支持或路径超出所选文件夹。请检查 Markdown 图片路径，再重新导入文件夹。"
 }

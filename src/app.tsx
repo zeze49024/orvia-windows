@@ -17,6 +17,7 @@ import {
   mergeAssets,
 } from "@/core/backup";
 import { chooseFiles, saveFile } from "@/core/files";
+import { chooseMarkdownFolder } from "@/core/markdown-folder";
 import { convertFile } from "@/core/import";
 import { exportMarkdownDocument } from "@/core/markdown-export";
 import {
@@ -90,7 +91,9 @@ export function App() {
     [update, setUpdate] = useState<Update | null>(null),
     [progress, setProgress] = useState(0),
     [updateMessage, setUpdateMessage] = useState("");
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
   const data = store.data,
     locale = data.settings.locale,
     currentTheme = resolveTheme(
@@ -113,12 +116,18 @@ export function App() {
   const error = (e: unknown) => {
     const message = String(e);
     notify(
-      (message.includes("CONFLICT") ? t("conflict") : t("failed")) +
+      (message.includes("TEXT_ENCODING_UNSUPPORTED")
+        ? t("textEncoding")
+        : /RELATIVE_IMAGE_NOT_FOUND|IMAGE_OUTSIDE_FOLDER/.test(message)
+          ? t("relativeImageError")
+          : message.includes("CONFLICT")
+            ? t("conflict")
+            : t("failed")) +
         " · " +
         message.replace(/^Error: /, "").slice(0, 140),
     );
   };
-  const {busy,busyRef,job,setJob,cancelRef,run}=useJobRunner(error);
+  const { busy, busyRef, job, setJob, cancelRef, run } = useJobRunner(error);
   useEffect(() => store.subscribe(redraw), []);
   useLayoutEffect(() => {
     if (store.ready) applyTheme(data.settings.theme);
@@ -133,6 +142,7 @@ export function App() {
   }, []);
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (e.isComposing || e.keyCode === 229) return;
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setModal("search");
@@ -233,31 +243,33 @@ export function App() {
     setModal("");
     notify(t("created"));
   };
-  const visible = selected ? [] : data.documents
-    .filter((d) => Boolean(d.deletedAt) === (page === "trash"))
-    .filter((d) =>
-      page === "starred"
-        ? d.starred
-        : page === "recent"
-          ? !!d.openedAt
-          : data.libraries.some((l) => l.id === page)
-            ? d.libraryId === page
-            : true,
-    )
-    .filter((d) =>
-      (d.title + d.body + d.tags.join(" "))
-        .toLocaleLowerCase()
-        .includes(query.toLocaleLowerCase()),
-    )
-    .sort((a, b) =>
-      sort === "az"
-        ? a.title.localeCompare(b.title, locale)
-        : sort === "oldest"
-          ? a.createdAt.localeCompare(b.createdAt)
-          : page === "recent"
-            ? (b.openedAt ?? "").localeCompare(a.openedAt ?? "")
-            : b.updatedAt.localeCompare(a.updatedAt),
-    );
+  const visible = selected
+    ? []
+    : data.documents
+        .filter((d) => Boolean(d.deletedAt) === (page === "trash"))
+        .filter((d) =>
+          page === "starred"
+            ? d.starred
+            : page === "recent"
+              ? !!d.openedAt
+              : data.libraries.some((l) => l.id === page)
+                ? d.libraryId === page
+                : true,
+        )
+        .filter((d) =>
+          (d.title + d.body + d.tags.join(" "))
+            .toLocaleLowerCase()
+            .includes(query.toLocaleLowerCase()),
+        )
+        .sort((a, b) =>
+          sort === "az"
+            ? a.title.localeCompare(b.title, locale)
+            : sort === "oldest"
+              ? a.createdAt.localeCompare(b.createdAt)
+              : page === "recent"
+                ? (b.openedAt ?? "").localeCompare(a.openedAt ?? "")
+                : b.updatedAt.localeCompare(a.updatedAt),
+        );
   const recents = data.documents
       .filter((d) => !d.deletedAt && d.openedAt)
       .sort((a, b) => (b.openedAt ?? "").localeCompare(a.openedAt ?? ""))
@@ -355,26 +367,29 @@ export function App() {
   const importFiles = (
     imagesOnly = false,
     insertAtCaret?: (markdown: string) => void,
+    folder = false,
   ) =>
     run(async () => {
       const controller = new AbortController();
       cancelRef.current = controller;
-      const files = await chooseFiles(
-        imagesOnly
-          ? ["png", "jpg", "jpeg", "webp", "gif"]
-          : [
-              "md",
-              "markdown",
-              "txt",
-              "docx",
-              "pdf",
-              "png",
-              "jpg",
-              "jpeg",
-              "webp",
-              "gif",
-            ],
-      );
+      const files = folder
+        ? await chooseMarkdownFolder()
+        : await chooseFiles(
+            imagesOnly
+              ? ["png", "jpg", "jpeg", "webp", "gif"]
+              : [
+                  "md",
+                  "markdown",
+                  "txt",
+                  "docx",
+                  "pdf",
+                  "png",
+                  "jpg",
+                  "jpeg",
+                  "webp",
+                  "gif",
+                ],
+          );
       if (!files.length) return;
       const documents: Document[] = [],
         assets: Asset[] = [];
@@ -933,6 +948,14 @@ export function App() {
                 <Button disabled={busy} onClick={() => importFiles()}>
                   {t(busy ? "working" : "choose")}
                 </Button>
+                <Button
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => importFiles(false, undefined, true)}
+                >
+                  {t("chooseMarkdownFolder")}
+                </Button>
+                <small className="muted">{t("markdownFolderHint")}</small>
                 {job && <small>{job}</small>}
                 {busy && (
                   <Button

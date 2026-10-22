@@ -1,4 +1,3 @@
-import { strFromU8 } from "fflate";
 import Turndown from "turndown";
 import { putAsset } from "./storage";
 import { safeUnzip } from "./backup";
@@ -7,6 +6,7 @@ import type { LocalFile } from "./files";
 import { imageMime } from "./image-mime";
 export { imageMime } from "./image-mime";
 import { importMarkdownImages } from "./markdown-import";
+import { decodeTextFile } from "./text-file";
 export async function convertFile(
   file: LocalFile,
   signal: AbortSignal,
@@ -23,12 +23,13 @@ export async function convertFile(
   const assets: Asset[] = [];
   if (ext === "md" || ext === "markdown") {
     const imported = await importMarkdownImages(
-      strFromU8(file.bytes).replace(/^\uFEFF/, ""),
+      decodeTextFile(file.bytes),
       signal,
+      file.resolveImage,
     );
     body = imported.body;
     assets.push(...imported.assets);
-  } else if (ext === "txt") body = strFromU8(file.bytes).replace(/^\uFEFF/, "");
+  } else if (ext === "txt") body = decodeTextFile(file.bytes);
   else if (["png", "jpg", "jpeg", "gif", "webp"].includes(ext ?? "")) {
     const a = await putAsset(file.bytes, imageMime(file.bytes));
     assets.push(a);

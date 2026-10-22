@@ -3,6 +3,7 @@ import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
 import { safeFilename, type Workspace } from "./model";
 import { getAsset } from "./storage";
+import { replaceDestination } from "./markdown-destination";
 
 export async function exportMarkdownDocument(data: Workspace, id: string) {
   const doc = data.documents.find((item) => item.id === id && !item.deletedAt);
@@ -49,9 +50,10 @@ export async function exportMarkdownDocument(data: Workspace, id: string) {
   }
   let body = doc.body;
   for (const ref of replacements.sort((a, b) => b.start - a.start)) {
-    const part = body
-      .slice(ref.start, ref.end)
-      .replace(ref.url, urls.get(ref.id)!);
+    const part = replaceDestination(
+      body.slice(ref.start, ref.end),
+      urls.get(ref.id)!,
+    );
     if (body.length + part.length - (ref.end - ref.start) > 128 * 1024 * 1024)
       throw new Error("EXPORT_TOO_LARGE");
     body = body.slice(0, ref.start) + part + body.slice(ref.end);

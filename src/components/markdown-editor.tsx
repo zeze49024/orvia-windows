@@ -33,6 +33,7 @@ import { LocalImage } from "./local-image";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { HeadingMenu } from "./ui/heading-menu";
+import { SourceHistory, type SourceSnapshot } from "@/core/source-history";
 import {
   Dialog,
   DialogContent,
@@ -72,7 +73,7 @@ export function MarkdownEditor({
   const t = translator(locale),
     latest = useRef({ value, onChange, notify, t });
   latest.current = { value, onChange, notify, t };
-  const [source, setSource] = useState(false),
+  const [source, setSource] = useState(value.length > 200_000),
     [guarded, setGuarded] = useState(false);
   const [sourceLevel, setSourceLevel] = useState(0);
   const [linkOpen, setLinkOpen] = useState(false),
@@ -80,18 +81,58 @@ export function MarkdownEditor({
   const [, refresh] = useState(0),
     textarea = useRef<HTMLTextAreaElement>(null);
   const lastEmitted = useRef(value);
+  const sourceValue = useRef(value);
+  const sourceHistory = useRef(new SourceHistory());
+  const composing = useRef(false);
+  const sourceComposition = useRef<SourceSnapshot | null>(null);
+  const sourceSelection = useRef({ from: 0, to: 0 });
   const editor = useEditor({
     extensions: editorExtensions(
       AssetImage,
       (text) => `${latest.current.t("task")}: ${text}`,
     ),
-    content: value,
+    content: value.length > 200_000 ? "" : value,
     contentType: "markdown",
     editorProps: {
       attributes: {
         class: "reading live-editor",
         role: "textbox",
         "aria-multiline": "true",
+      },
+      handleDOMEvents: {
+        blur: () => {
+          const ed = editorRef.current;
+          if (composing.current && ed && !ed.isDestroyed) {
+            composing.current = false;
+            const markdown = ed.getMarkdown();
+            if (markdown.length <= 5_000_000) {
+              lastEmitted.current = markdown;
+              latest.current.onChange(markdown);
+            }
+          }
+          return false;
+        },
+        compositionstart: () => {
+          composing.current = true;
+          return false;
+        },
+        compositionend: () => {
+          composing.current = false;
+          // Let ProseMirror finish its final composition transaction first.
+          setTimeout(() => {
+            const ed = editorRef.current;
+            if (!ed || ed.isDestroyed || composing.current) return;
+            const markdown = ed.getMarkdown();
+            if (
+              markdown !== lastEmitted.current &&
+              markdown.length <= 5_000_000
+            ) {
+              lastEmitted.current = markdown;
+              latest.current.onChange(markdown);
+            }
+          }, 0);
+          return false;
+        },
       },
       handleClick: (_view, _pos, event) => {
         if ((event.target as HTMLElement).closest("a")) {
@@ -108,15 +149,20 @@ export function MarkdownEditor({
         const ed = editorRef.current;
         if (!ed?.markdown) return true;
         event.preventDefault();
+        if (ed.isActive("codeBlock") || ed.isActive("code")) {
+          ed.view.dispatch(ed.state.tr.insertText(text));
+          return true;
+        }
         const parsed = ed.markdown.parse(text);
         if (canEditRichly(text, ed.markdown.serialize(parsed)))
           ed.commands.insertContent(text, { contentType: "markdown" });
-        else ed.commands.insertContent({ type: "text", text });
+        else ed.view.dispatch(ed.state.tr.insertText(text));
         return true;
       },
     },
     onTransaction: () => refresh((n) => n + 1),
     onUpdate: ({ editor: ed }) => {
+      if (composing.current) return;
       const markdown = ed.getMarkdown();
       if (markdown.length > 5_000_000) {
         ed.commands.setContent(latest.current.value, {
@@ -135,25 +181,64 @@ export function MarkdownEditor({
 
   useEffect(() => {
     if (!editor) return;
+    if (source) {
+      // Source keystrokes must not rebuild the hidden rich editor or its undo stack.
+      if (value !== sourceValue.current) sourceHistory.current.reset();
+      sourceValue.current = value;
+      return;
+    }
     // Sync external changes (e.g. image import); do not reset selection/history
     // for our own keystrokes or for metadata/save-status re-renders.
-    if (value !== lastEmitted.current) {
+    const external = value !== lastEmitted.current;
+    if (value.length > 200_000) {
+      sourceValue.current = value;
+      setSource(true);
+      return;
+    }
+    if (external) {
       editor.commands.setContent(value, {
         contentType: "markdown",
         emitUpdate: false,
       });
       lastEmitted.current = value;
     }
-    if (value === lastEmitted.current && editor.isFocused) return;
+    if (!external && editor.isFocused) return;
     const safe = canEditRichly(value, editor.getMarkdown());
     setGuarded(!safe);
-    if (!safe) setSource(true);
-  }, [editor, value]);
+    if (!safe) {
+      sourceValue.current = value;
+      setSource(true);
+    }
+  }, [editor, value, source]);
   useEffect(() => {
     editor?.view.dom.setAttribute("aria-label", t("body"));
     editor?.view.dom.setAttribute("data-placeholder", t("write"));
   }, [editor, locale]);
 
+  const snapshot = (): SourceSnapshot => ({
+    value: latest.current.value,
+    ...sourceSelection.current,
+  });
+  const writeSource = (next: SourceSnapshot, group = false) => {
+    if (next.value.length > 5_000_000) return;
+    sourceHistory.current.record(snapshot(), next, group);
+    sourceSelection.current = { from: next.from, to: next.to };
+    sourceValue.current = next.value;
+    latest.current.onChange(next.value);
+  };
+  const restoreSource = (redo = false) => {
+    const next = redo
+      ? sourceHistory.current.redo(snapshot())
+      : sourceHistory.current.undo(snapshot());
+    if (!next) return;
+    sourceValue.current = next.value;
+    sourceSelection.current = { from: next.from, to: next.to };
+    latest.current.onChange(next.value);
+    requestAnimationFrame(() => {
+      textarea.current?.focus();
+      textarea.current?.setSelectionRange(next.from, next.to);
+    });
+  };
   const sourceFormat = (before: string, after = "") => {
     const el = textarea.current;
     if (!el) return;
@@ -166,16 +251,34 @@ export function MarkdownEditor({
       after +
       value.slice(end);
     if (next.length > 5_000_000) return;
-    onChange(next);
+    writeSource({
+      value: next,
+      from: start + before.length,
+      to: end + before.length,
+    });
     requestAnimationFrame(() => {
       el.focus();
       el.setSelectionRange(start + before.length, end + before.length);
     });
   };
   const toggleSource = () => {
-    if (source && guarded) {
-      notify(t("sourcePreserved"));
-      return;
+    if (composing.current || !editor) return;
+    sourceHistory.current.boundary();
+    if (source) {
+      if (value.length > 200_000) {
+        notify(t("longDocumentSource"));
+        return;
+      }
+      const parsed = editor.markdown!.parse(value);
+      if (!canEditRichly(value, editor.markdown!.serialize(parsed))) {
+        setGuarded(true);
+        notify(t("sourcePreserved"));
+        return;
+      }
+      setGuarded(false);
+    } else {
+      if (sourceValue.current !== value) sourceHistory.current.reset();
+      sourceValue.current = value;
     }
     setSource(!source);
   };
@@ -195,7 +298,11 @@ export function MarkdownEditor({
       aria-pressed={active}
       disabled={disabled}
       onMouseDown={(e) => e.preventDefault()}
-      onClick={() => (source ? sourceFormat(...fallback) : action())}
+      onClick={() =>
+        source && name !== "undo" && name !== "redo"
+          ? sourceFormat(...fallback)
+          : action()
+      }
     >
       <Icon size={16} />
     </button>
@@ -207,6 +314,12 @@ export function MarkdownEditor({
         className="format-bar live-format-bar"
         role="toolbar"
         aria-label={t("formatToolbar")}
+        onClickCapture={(event) => {
+          if (composing.current) {
+            event.preventDefault();
+            event.stopPropagation();
+          }
+        }}
       >
         <HeadingMenu
           value={
@@ -229,7 +342,11 @@ export function MarkdownEditor({
               );
               if (result.value.length > 5_000_000) return;
               setSourceLevel(level);
-              onChange(result.value);
+              writeSource({
+                value: result.value,
+                from: result.from,
+                to: result.to,
+              });
               requestAnimationFrame(() => {
                 el.focus();
                 el.setSelectionRange(result.from, result.to);
@@ -350,13 +467,16 @@ export function MarkdownEditor({
             onImage((markdown) => {
               if (source) {
                 const current = latest.current.value;
-                latest.current.onChange(
-                  current.slice(0, from) +
+                writeSource({
+                  value:
+                    current.slice(0, from) +
                     "\n" +
                     markdown +
                     "\n" +
                     current.slice(to),
-                );
+                  from,
+                  to: from + markdown.length + 2,
+                });
               } else if (editor && bookmark) {
                 const selection = bookmark.resolve(editor.state.doc);
                 editor
@@ -375,21 +495,23 @@ export function MarkdownEditor({
           "undo",
           ["", ""],
           () => {
-            editor?.chain().focus().undo().run();
+            if (source) restoreSource();
+            else editor?.chain().focus().undo().run();
           },
           false,
           Undo2,
-          source || !editor?.can().undo(),
+          source ? !sourceHistory.current.canUndo : !editor?.can().undo(),
         )}
         {command(
           "redo",
           ["", ""],
           () => {
-            editor?.chain().focus().redo().run();
+            if (source) restoreSource(true);
+            else editor?.chain().focus().redo().run();
           },
           false,
           Redo2,
-          source || !editor?.can().redo(),
+          source ? !sourceHistory.current.canRedo : !editor?.can().redo(),
         )}
         <Button
           variant="ghost"
@@ -406,6 +528,11 @@ export function MarkdownEditor({
           {t("sourcePreserved")}
         </p>
       )}
+      {source && value.length > 200_000 && (
+        <p className="editor-notice" role="status">
+          {t("longDocumentSource")}
+        </p>
+      )}
       {source ? (
         <textarea
           ref={textarea}
@@ -414,10 +541,48 @@ export function MarkdownEditor({
           maxLength={5_000_000}
           value={value}
           placeholder={t("write")}
-          onChange={(e) => onChange(e.target.value)}
+          onCompositionStart={() => {
+            composing.current = true;
+            sourceComposition.current = snapshot();
+          }}
+          onCompositionEnd={(e) => {
+            composing.current = false;
+            if (sourceComposition.current) {
+              sourceHistory.current.record(sourceComposition.current, {
+                value: e.currentTarget.value,
+                from: e.currentTarget.selectionStart,
+                to: e.currentTarget.selectionEnd,
+              });
+              sourceComposition.current = null;
+              refresh((n) => n + 1);
+            }
+          }}
+          onKeyDown={(e) => {
+            if (e.nativeEvent.isComposing || composing.current) return;
+            if (
+              (e.ctrlKey || e.metaKey) &&
+              ["z", "y"].includes(e.key.toLowerCase())
+            ) {
+              e.preventDefault();
+              restoreSource(e.key.toLowerCase() === "y" || e.shiftKey);
+            }
+          }}
+          onChange={(e) => {
+            const el = e.currentTarget;
+            const next = {
+              value: el.value,
+              from: el.selectionStart,
+              to: el.selectionEnd,
+            };
+            if (composing.current) {
+              sourceValue.current = next.value;
+              onChange(next.value);
+            } else writeSource(next, true);
+          }}
           onSelect={(e) => {
             const el = e.currentTarget,
               start = el.selectionStart;
+            sourceSelection.current = { from: start, to: el.selectionEnd };
             const from = start ? el.value.lastIndexOf("\n", start - 1) + 1 : 0;
             setSourceLevel(
               /^ {0,3}(#{1,6})(?:[\t ]+|$)/.exec(

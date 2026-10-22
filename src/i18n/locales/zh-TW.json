@@ -82,7 +82,7 @@
   "supported": "Markdown、圖片、Word (.docx)、文字型 PDF",
   "choose": "選擇本機檔案",
   "importPrivacy": "文件僅在裝置本機處理，原始檔不會被移動、覆寫或刪除。",
-  "importLimits": "每個檔案最多 25 MB，PDF 最多 200 頁；本版 PDF 僅擷取文字，不擷取圖片或執行 OCR；不支援舊版 .doc。",
+  "importLimits": "Markdown 每檔案最多 128 MB，其他格式 25 MB；每次最多 100 篇文件 / 128 MB，單圖 20 MB，PDF 200 頁。文字支援 UTF-8 與帶 BOM 的 UTF-16；PDF 僅擷取文字，不支援 OCR 或舊版 .doc。",
   "working": "正在本機處理…",
   "imported": "匯入完成",
   "failed": "操作失敗",
@@ -171,5 +171,10 @@
   "editMetadata": "移動與標籤",
   "tagsHint": "用逗號分隔，最多 20 個",
   "recentHint": "從上次停下的地方繼續",
-  "overview": "知識庫概覽"
+  "overview": "知識庫概覽",
+  "chooseMarkdownFolder": "匯入 Markdown 資料夾",
+  "markdownFolderHint": "同時匯入所選資料夾內的 Markdown 及其參照的本機圖片（PNG、JPEG、GIF、WebP）。缺少圖片會中止匯入；不會讀取資料夾外的檔案。",
+  "longDocumentSource": "長文件使用原始碼模式，減少編輯延遲。正文與匯出內容完整保留。",
+  "textEncoding": "無法識別此文字編碼，請在原編輯器中另存為 UTF-8 或帶 BOM 的 UTF-16 後重試。",
+  "relativeImageError": "圖片缺失、格式不支援或路徑超出所選資料夾。請檢查 Markdown 圖片路徑，再重新匯入資料夾。"
 }

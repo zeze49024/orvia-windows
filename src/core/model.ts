@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { localeCodes } from "../i18n/registry";
-export const APP_VERSION = "0.1.0-beta6";
+export const APP_VERSION = "0.1.0-beta7";
 export const RELEASE_NOTE =
-  "完善图文导入导出与文档管理，新增增量保存和历史恢复，优化编辑与首页体验，重构代码并加强安装升级验证";
+  "优化写作稳定性与 Markdown 文件兼容性，完善编辑与文件往返回归验证";
 export const colors = ["blue", "orange", "green", "purple", "rose"] as const;
 export const librarySchema = z.object({
   id: z.string().uuid(),

@@ -1,5 +1,9 @@
 import { native } from "./storage";
-export type LocalFile = { name: string; bytes: Uint8Array };
+export type LocalFile = {
+  name: string;
+  bytes: Uint8Array;
+  resolveImage?: (url: string) => Promise<Uint8Array>;
+};
 export async function chooseFiles(
   extensions: string[],
   multiple = true,

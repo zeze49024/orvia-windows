@@ -25,6 +25,10 @@ export function DocumentOutline({
     let frame = 0;
     const measure = () => {
       if (!source) return;
+      if (!headings.length) {
+        positions.current = [];
+        return;
+      }
       // A styled mirror measures wrapped lines, tabs and variable-width text exactly.
       const mirror = document.createElement("div"),
         style = getComputedStyle(source);
@@ -60,7 +64,8 @@ export function DocumentOutline({
         markers.push(marker);
         cursor = h.offset;
       });
-      mirror.append(document.createTextNode(body.slice(cursor)));
+      // Only text preceding heading markers affects their positions. Laying out
+      // a long tail after the final heading doubles textarea work on each edit.
       document.body.append(mirror);
       positions.current = markers.map((m) => m.offsetTop);
       mirror.remove();

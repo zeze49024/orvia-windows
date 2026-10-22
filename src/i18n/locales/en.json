@@ -82,7 +82,7 @@
   "supported": "Markdown, images, Word (.docx), text PDFs",
   "choose": "Choose local files",
   "importPrivacy": "Files are processed on your device. Originals are never moved, overwritten or deleted.",
-  "importLimits": "Up to 25 MB per file and 200 PDF pages. PDF import is text only; PDF images, OCR and legacy .doc are not supported in this beta.",
+  "importLimits": "Markdown: 128 MB per file; other formats: 25 MB. Up to 100 documents / 128 MB per import, 20 MB per image and 200 PDF pages. UTF-8 and BOM-marked UTF-16 text. PDF is text only; no OCR or legacy .doc.",
   "working": "Processing locally…",
   "imported": "Import complete",
   "failed": "Operation failed",
@@ -171,5 +171,10 @@
   "editMetadata": "Move and tags",
   "tagsHint": "Comma separated, up to 20 tags",
   "recentHint": "Pick up where you left off",
-  "overview": "Library overview"
+  "overview": "Library overview",
+  "chooseMarkdownFolder": "Import Markdown folder",
+  "markdownFolderHint": "Import Markdown and referenced local PNG, JPEG, GIF and WebP images from the selected folder. Missing images stop the import; files outside this folder are never read.",
+  "longDocumentSource": "Long documents use source mode to reduce editing latency. All content is preserved when editing and exporting.",
+  "textEncoding": "Unrecognized text encoding. Save as UTF-8 or UTF-16 with a BOM in your original editor, then retry.",
+  "relativeImageError": "An image is missing, unsupported or outside the selected folder. Check Markdown image paths and import the folder again."
 }
