@@ -22,3 +22,6 @@
 - 四个 GitHub Release 资产的 SHA-256 与本地一致，公开安装包返回 HTTP 200。
 - [最终安装包覆盖升级](https://github.com/zeze49024/orvia-windows/actions/runs/39912486284)通过：一次性 Windows 2022 环境实际安装 beta8、写入中文笔记，再使用最终 rc1 安装包升级。SQLite 数据、标签、收藏、增量保存、历史和 WebView2 重开正常；新增右键多选/置顶落盘与独立设置页验收通过。
 - 更新清单仅在上述最终安装包验收通过后推送。应用内签名更新结果另行补充。
+
+- [应用内签名更新](https://github.com/zeze49024/orvia-windows/actions/runs/39912698676)通过：实际 beta8 设置页检查 GitHub 更新，下载 rc1 并完成签名校验和安装。重开后中文正文、标签、收藏、历史、置顶落盘及独立设置页验证通过。
+- [源码 Windows 检查](https://github.com/zeze49024/orvia-windows/actions/runs/39912427451)通过。公开 RAW 更新清单版本与签名已复核。
