@@ -25,3 +25,6 @@
 - 四个 GitHub Release 资产的 SHA-256 与本地一致；公开安装包下载返回 HTTP 200。
 - [最终安装包覆盖升级](https://github.com/zeze49024/orvia-windows/actions/runs/39892767433)通过：在一次性 Windows 2022 用户下实际安装 beta7，写入中文正文/标签/星标，再使用最终 beta8 安装包覆盖升级，验证 SQLite、增量保存、持久历史与 WebView2 重开。
 - 验证使用独立测试安装目录，不读取或替换用户正式知识库。
+
+- [应用内签名更新验收](https://github.com/zeze49024/orvia-windows/actions/runs/39892984415)通过：在实际 beta7 设置界面检查更新，下载 beta8，校验签名并完成安装；重开后中文正文、标签、收藏、增量保存与历史记录均正常。
+- [源码 Windows 检查](https://github.com/zeze49024/orvia-windows/actions/runs/39892548619)通过。更新清单在最终安装包覆盖升级验证通过后推送；公开 RAW 版本和签名已复核。
