@@ -96,3 +96,9 @@ Tauri updater 校验 Ed25519 签名后才运行安装包。更新签名不等同
 界面协调位于 `src/app.tsx`，编辑工作区、首页、设置和文档选项位于独立组件；异步作业生命周期由 `src/hooks/use-job-runner.ts` 管理。`src/core/delta.ts` 生成差异，`src-tauri/src/persistence.rs` 执行事务与有界历史检查点。现有数据库只新增历史表和索引，不重写既有文档。新导入的 data URI 图片经过格式识别与哈希保存后才显示。
 
 详见 [Beta6 验收记录](BETA6-VALIDATION.md)。
+
+## RC1 批量管理与设置
+
+`src/core/batch.tsx` 提供批量不可变修改、重名处理和 Markdown/ZIP/HTML 导出；独立文件原生导出仅写入用户通过系统对话框选择的目录，以排他创建避免覆盖。单次导出总量限制 128 MiB。HTML 不执行原始 HTML 和脚本，不自动请求远程图片。
+
+置顶字段默认 false，存储在既有文档 JSON；无需重建 SQLite 表。设置页保留编辑器挂载状态，返回后保持撤销历史。安装升级工作流验证 beta8 → rc1，覆盖真实右键多选/置顶落盘及独立设置页。详见 [RC1 验证记录](RC1-VALIDATION.md)。

@@ -188,6 +188,7 @@ export class WorkspaceStore {
         d.id === entry.document.id
           ? {
               ...entry.document,
+              pinned: d.pinned,
               libraryId: s.libraries.some(
                 (l) => l.id === entry.document.libraryId,
               )

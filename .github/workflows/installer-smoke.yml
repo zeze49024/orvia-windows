@@ -17,7 +17,7 @@ on:
         type: string
         default: ""
       useUpdater:
-        description: Exercise beta7 GitHub check and signed in-app update
+        description: Exercise beta8 GitHub check and signed in-app update
         type: boolean
         default: false
 permissions:
@@ -46,7 +46,7 @@ jobs:
       - name: Build disposable candidate installer
         if: inputs.candidateTag == ''
         run: npx tauri build --config '{"bundle":{"createUpdaterArtifacts":false}}'
-      - name: Install beta7, seed local notes, upgrade and verify beta8
+      - name: Install beta8, seed local notes, upgrade and verify rc1
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -55,12 +55,12 @@ jobs:
           USE_UPDATER: ${{ inputs.useUpdater }}
         run: |
           $previousDir = Join-Path $env:RUNNER_TEMP 'previous'
-          gh release download v0.1.0-beta7 --pattern '*setup.exe' --dir $previousDir
+          gh release download v0.1.0-beta8 --pattern '*setup.exe' --dir $previousDir
           $previous = (Get-ChildItem (Join-Path $previousDir '*setup.exe')).FullName
           $install = Join-Path $env:RUNNER_TEMP 'Orvia-Acceptance'
           $env:WEBVIEW2_USER_DATA_FOLDER = Join-Path $env:LOCALAPPDATA 'Orvia-Acceptance-WebView2'
           $process = Start-Process $previous -ArgumentList "/S /NS /D=$install" -PassThru -Wait -WindowStyle Hidden
-          if ($process.ExitCode -ne 0) { throw "beta7 installer failed" }
+          if ($process.ExitCode -ne 0) { throw "beta8 installer failed" }
           # Silent seeding skips the GUI installer's language page and its registry callback.
           # Match an English GUI installation before exercising the passive in-app updater.
           $languageKey = 'HKCU:/Software/zeze49024/Orvia'
@@ -78,16 +78,16 @@ jobs:
             Get-Content native-startup.txt -ErrorAction SilentlyContinue
             Get-CimInstance Win32_Process -Filter "Name='orvia.exe' OR Name='msedgewebview2.exe'" | Select-Object Name,ProcessId,CommandLine | Format-List
             Get-ChildItem -LiteralPath $env:WEBVIEW2_USER_DATA_FOLDER -ErrorAction SilentlyContinue
-            throw "beta7 seed failed"
+            throw "beta8 seed failed"
           }
           if ($env:USE_UPDATER -eq 'true') {
             node scripts/native-smoke.mjs update
             if ($LASTEXITCODE -ne 0) { throw "Signed in-app updater failed" }
             for ($i=0; $i -lt 120; $i++) {
-              if ((Get-Item $executable).VersionInfo.ProductVersion -eq '0.1.0-beta8') { break }
+              if ((Get-Item $executable).VersionInfo.ProductVersion -eq '0.1.0-rc1') { break }
               Start-Sleep -Seconds 1
             }
-            if ((Get-Item $executable).VersionInfo.ProductVersion -ne '0.1.0-beta8') {
+            if ((Get-Item $executable).VersionInfo.ProductVersion -ne '0.1.0-rc1') {
               Get-Process | Where-Object { $_.MainWindowTitle -like '*Orvia*' -or $_.MainWindowTitle -like '*Installer*' } | Select-Object Id,ProcessName,MainWindowTitle
               Get-ItemProperty -LiteralPath $languageKey | Format-List
               $defaultExecutable = Join-Path $env:LOCALAPPDATA 'Orvia/orvia.exe'
@@ -110,11 +110,11 @@ jobs:
               $candidate = (Get-ChildItem src-tauri/target/release/bundle/nsis/*setup.exe).FullName
             }
             $process = Start-Process $candidate -ArgumentList "/S /NS /UPDATE /D=$install" -PassThru -Wait -WindowStyle Hidden
-            if ($process.ExitCode -ne 0) { throw "beta8 installer failed" }
+            if ($process.ExitCode -ne 0) { throw "rc1 installer failed" }
           }
           Start-Process $executable -WindowStyle Hidden
           node scripts/native-smoke.mjs verify
-          if ($LASTEXITCODE -ne 0) { throw "beta8 upgrade validation failed" }
+          if ($LASTEXITCODE -ne 0) { throw "rc1 upgrade validation failed" }
       - uses: actions/upload-artifact@v4
         if: always()
         with:

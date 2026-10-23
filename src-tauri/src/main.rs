@@ -213,6 +213,26 @@ mod tests {
         assert!(validate_asset_id(&"a".repeat(64)).is_ok());
     }
     #[test]
+    fn bulk_metadata_survives_reopen_and_invalid_batch_rolls_back() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut c = open_db(dir.path()).unwrap();
+        save(&mut c,serde_json::json!({"schemaVersion":1,"libraries":[{"id":"one"},{"id":"two"}],"documents":[{"id":"a","libraryId":"one","title":"A","body":"original","starred":true},{"id":"b","libraryId":"one","title":"B","body":"original","starred":false}],"assets":[],"settings":{}}),0).unwrap();
+        let make_delta = |target: &str| -> Delta { serde_json::from_value(serde_json::json!({"libraries":{"upsert":[],"remove":[]},"documents":{"upsert":[{"id":"a","libraryId":"two","title":"A","body":"original","starred":true,"pinned":true,"deletedAt":"2026-10-23T00:00:00Z"},{"id":"b","libraryId":target,"title":"B","body":"original","starred":false,"pinned":true}],"remove":[]},"assets":{"upsert":[],"remove":[]},"settings":null})).unwrap() };
+        assert!(apply_delta(&mut c, make_delta("missing"), 1, &[]).is_err());
+        let before: String = c.query_row("SELECT payload FROM documents WHERE id='a'",[],|r|r.get(0)).unwrap();
+        assert!(!before.contains("pinned"));
+        apply_delta(&mut c, make_delta("two"), 1, &[]).unwrap();
+        drop(c);
+        let c = open_db(dir.path()).unwrap();
+        for id in ["a", "b"] {
+            let payload:String = c.query_row("SELECT payload FROM documents WHERE id=?1",[id],|r|r.get(0)).unwrap();
+            let doc:Value=serde_json::from_str(&payload).unwrap();
+            assert_eq!(doc["libraryId"],"two"); assert_eq!(doc["pinned"],true);
+            assert_eq!(doc["starred"],id=="a");
+        }
+        assert_eq!(c.query_row("SELECT count(*) FROM document_history",[],|r|r.get::<_,i64>(0)).unwrap(),0);
+    }
+    #[test]
     fn sqlite_reopen_and_failed_transaction_preserve_document() {
         let dir = tempfile::tempdir().unwrap();
         let mut c = open_db(dir.path()).unwrap();

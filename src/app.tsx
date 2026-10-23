@@ -16,7 +16,8 @@ import {
   inspectBackup,
   mergeAssets,
 } from "@/core/backup";
-import { chooseFiles, saveFile } from "@/core/files";
+import { exportDocuments, zipDocuments, shareDocuments } from "@/core/batch";
+import { chooseFiles, saveFile, saveFiles } from "@/core/files";
 import { chooseMarkdownFolder } from "@/core/markdown-folder";
 import { convertFile } from "@/core/import";
 import { exportMarkdownDocument } from "@/core/markdown-export";
@@ -76,6 +77,7 @@ export function App() {
     [page, setPage] = useState("all"),
     [query, setQuery] = useState(""),
     [selected, setSelected] = useState<string | null>(null),
+    [settingsOpen, setSettingsOpen] = useState(false),
     [modal, setModal] = useState(""),
     [toast, setToast] = useState(""),
     [preview, setPreview] = useState(false),
@@ -142,13 +144,16 @@ export function App() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.isComposing || e.keyCode === 229) return;
+      if (e.key === "Escape" && !document.querySelector('[role="dialog"]'))
+        setSettingsOpen(false);
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setModal("search");
       }
       if ((e.ctrlKey || e.metaKey) && e.key === ",") {
         e.preventDefault();
-        setModal("settings");
+        setModal("");
+        setSettingsOpen(true);
       }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
         e.preventDefault();
@@ -212,6 +217,7 @@ export function App() {
       ),
     }));
   const openDoc = (id: string) => {
+    setSettingsOpen(false);
     setSelected(id);
     setPreview(false);
     change((s) => ({
@@ -222,6 +228,7 @@ export function App() {
     }));
   };
   const navigate = (name: string) => {
+    setSettingsOpen(false);
     setPage(name);
     setSelected(null);
     setQuery("");
@@ -242,6 +249,22 @@ export function App() {
     setModal("");
     notify(t("created"));
   };
+  const batchExport = (ids: string[], format: "files" | "zip" | "share") =>
+    void run(async () => {
+      await store.flush();
+      let saved = false;
+      if (format === "share") {
+        const file = await shareDocuments(store.data, ids);
+        saved = await saveFile(file.name, file.bytes, ["html"]);
+      } else {
+        const files = await exportDocuments(store.data, ids);
+        saved =
+          format === "zip"
+            ? await saveFile("Orvia-notes.zip", zipDocuments(files), ["zip"])
+            : await saveFiles(files);
+      }
+      if (saved) notify(t("batchDone"));
+    });
   const visible = selected
     ? []
     : data.documents
@@ -260,14 +283,16 @@ export function App() {
             .toLocaleLowerCase()
             .includes(query.toLocaleLowerCase()),
         )
-        .sort((a, b) =>
-          sort === "az"
-            ? a.title.localeCompare(b.title, locale)
-            : sort === "oldest"
-              ? a.createdAt.localeCompare(b.createdAt)
-              : page === "recent"
-                ? (b.openedAt ?? "").localeCompare(a.openedAt ?? "")
-                : b.updatedAt.localeCompare(a.updatedAt),
+        .sort(
+          (a, b) =>
+            Number(b.pinned) - Number(a.pinned) ||
+            (sort === "az"
+              ? a.title.localeCompare(b.title, locale)
+              : sort === "oldest"
+                ? a.createdAt.localeCompare(b.createdAt)
+                : page === "recent"
+                  ? (b.openedAt ?? "").localeCompare(a.openedAt ?? "")
+                  : b.updatedAt.localeCompare(a.updatedAt)),
         );
   const recents = data.documents
       .filter((d) => !d.deletedAt && d.openedAt)
@@ -530,8 +555,10 @@ export function App() {
           </button>
         </div>
       </header>
-      <div className={`workspace ${data.settings.sidebar ? "" : "collapsed"}`}>
-        {data.settings.sidebar && (
+      <div
+        className={`workspace ${settingsOpen ? "settings-workspace" : data.settings.sidebar ? "" : "collapsed"}`}
+      >
+        {data.settings.sidebar && !settingsOpen && (
           <aside className="sidebar">
             <button
               className="workspace-picker"
@@ -634,7 +661,7 @@ export function App() {
                   {data.documents.filter((d) => d.deletedAt).length}
                 </small>
               </button>
-              <button className="nav-row" onClick={() => setModal("settings")}>
+              <button className="nav-row" onClick={() => setSettingsOpen(true)}>
                 <Settings size={16} />
                 <span>{t("settings")}</span>
                 <span className="shortcut">Ctrl ,</span>
@@ -652,34 +679,39 @@ export function App() {
           </aside>
         )}
         <main className="main">
-          <div className="topbar">
-            <div className="breadcrumbs">
-              {iconButton(PanelLeft, t("sidebar"), () =>
-                change((s) => ({
-                  ...s,
-                  settings: { ...s.settings, sidebar: !s.settings.sidebar },
-                })),
-              )}
-              <span>{t("workspace")}</span>
-              <ChevronRight size={13} />
-              <b>{active ? library?.name : pageName}</b>
-              {active && (
-                <>
-                  <ChevronRight size={13} />
-                  <span className="crumb-doc">{active.title}</span>
-                </>
-              )}
+          {!settingsOpen && (
+            <div className="topbar">
+              <div className="breadcrumbs">
+                {iconButton(PanelLeft, t("sidebar"), () =>
+                  change((s) => ({
+                    ...s,
+                    settings: { ...s.settings, sidebar: !s.settings.sidebar },
+                  })),
+                )}
+                <span>{t("workspace")}</span>
+                <ChevronRight size={13} />
+                <b>{active ? library?.name : pageName}</b>
+                {active && (
+                  <>
+                    <ChevronRight size={13} />
+                    <span className="crumb-doc">{active.title}</span>
+                  </>
+                )}
+              </div>
+              <div className="topbar-right">
+                <ThemePicker
+                  value={data.settings.theme}
+                  locale={locale}
+                  onChange={(theme) =>
+                    change((s) => ({
+                      ...s,
+                      settings: { ...s.settings, theme },
+                    }))
+                  }
+                />
+              </div>
             </div>
-            <div className="topbar-right">
-              <ThemePicker
-                value={data.settings.theme}
-                locale={locale}
-                onChange={(theme) =>
-                  change((s) => ({ ...s, settings: { ...s.settings, theme } }))
-                }
-              />
-            </div>
-          </div>
+          )}
           {store.status === "error" && (
             <div className="save-error" role="alert">
               <AlertCircle size={16} />
@@ -700,49 +732,72 @@ export function App() {
               </Button>
             </div>
           )}
-          {active ? (
-            <EditorWorkspace
-              active={active}
-              data={data}
+          {settingsOpen && (
+            <SettingsPanel
+              onBack={() => setSettingsOpen(false)}
               locale={locale}
-              library={library}
-              saveLabel={saveLabel}
-              preview={preview}
-              setPreview={setPreview}
-              setSelected={setSelected}
-              patch={patch}
-              notify={notify}
-              markdownExport={markdownExport}
-              removed={removed}
-              setModal={setModal}
-              importFiles={importFiles}
-              busy={busy}
-            />
-          ) : (
-            <LibraryHome
               data={data}
-              page={page}
-              pageName={pageName}
-              query={query}
-              setQuery={setQuery}
-              busy={busy}
-              setLibraryId={setLibraryId}
-              setModal={setModal}
-              newDialog={newDialog}
-              docsAlive={docsAlive}
-              thisWeek={thisWeek}
-              recents={recents}
-              openDoc={openDoc}
-              sort={sort}
-              setSort={setSort}
               change={change}
-              visible={visible}
-              patch={patch}
-              removed={removed}
-              locale={locale}
-              setSelected={setSelected}
+              currentTheme={currentTheme}
+              sizeLabel={sizeLabel}
+              busy={busy}
+              exportBackup={exportBackup}
+              restoreSelect={restoreSelect}
+              active={active}
+              setExportDocumentId={setExportDocumentId}
+              setModal={setModal}
+              logoPath={logoPath}
+              checkForUpdates={checkForUpdates}
+              updateMessage={updateMessage}
             />
           )}
+          <div className="workspace-content" hidden={settingsOpen}>
+            {active ? (
+              <EditorWorkspace
+                active={active}
+                data={data}
+                locale={locale}
+                library={library}
+                saveLabel={saveLabel}
+                preview={preview}
+                setPreview={setPreview}
+                setSelected={setSelected}
+                patch={patch}
+                notify={notify}
+                markdownExport={markdownExport}
+                removed={removed}
+                setModal={setModal}
+                importFiles={importFiles}
+                busy={busy}
+              />
+            ) : (
+              <LibraryHome
+                batchExport={batchExport}
+                key={page}
+                data={data}
+                page={page}
+                pageName={pageName}
+                query={query}
+                setQuery={setQuery}
+                busy={busy}
+                setLibraryId={setLibraryId}
+                setModal={setModal}
+                newDialog={newDialog}
+                docsAlive={docsAlive}
+                thisWeek={thisWeek}
+                recents={recents}
+                openDoc={openDoc}
+                sort={sort}
+                setSort={setSort}
+                change={change}
+                visible={visible}
+                patch={patch}
+                removed={removed}
+                locale={locale}
+                setSelected={setSelected}
+              />
+            )}
+          </div>
           <footer className="statusbar">
             <span>
               <span
@@ -1025,24 +1080,6 @@ export function App() {
               )}
             </div>
           )}
-          {modal === "settings" && (
-            <SettingsPanel
-              locale={locale}
-              data={data}
-              change={change}
-              currentTheme={currentTheme}
-              sizeLabel={sizeLabel}
-              busy={busy}
-              exportBackup={exportBackup}
-              restoreSelect={restoreSelect}
-              active={active}
-              setExportDocumentId={setExportDocumentId}
-              setModal={setModal}
-              logoPath={logoPath}
-              checkForUpdates={checkForUpdates}
-              updateMessage={updateMessage}
-            />
-          )}
           {modal === "backup" && (
             <div className="modal-stack">
               <div className="info-box amber">
@@ -1121,7 +1158,8 @@ export function App() {
                   variant="outline"
                   disabled={busy}
                   onClick={() => {
-                    setModal("settings");
+                    setModal("");
+                    setSettingsOpen(true);
                     setUpdate(null);
                   }}
                 >

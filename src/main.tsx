@@ -4,6 +4,7 @@ import "./application.css";
 import "./themes.css";
 import "./beta6.css";
 import "./beta8.css";
+import "./rc1.css";
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./app";

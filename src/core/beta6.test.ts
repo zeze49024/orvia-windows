@@ -83,11 +83,18 @@ it("recovers persisted history after reopen, and preserves the current draft bef
   await reopened.load();
   const history = await documentHistory(doc.id);
   expect(history[0].document.body).toBe("original");
+  reopened.change((w) => ({
+    ...w,
+    documents: w.documents.map((d) =>
+      d.id === doc.id ? { ...d, pinned: true } : d,
+    ),
+  }));
   await reopened.restoreHistory(history[0]);
   const third = new WorkspaceStore();
   await third.load();
   expect(third.data.documents.find((d) => d.id === doc.id)?.body).toBe(
     "original",
   );
+  expect(third.data.documents.find((d) => d.id === doc.id)?.pinned).toBe(true);
   expect((await documentHistory(doc.id))[0].document.body).toBe("new text");
 });

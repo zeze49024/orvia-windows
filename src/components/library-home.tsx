@@ -1,3 +1,23 @@
+import { useEffect, useState } from "react";
+import { ContextMenu } from "radix-ui";
+import {
+  CheckSquare,
+  MoveRight,
+  Pin,
+  PinOff,
+  Trash2,
+  Download,
+  Share2,
+  X,
+} from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "./ui/dialog";
+import { updateDocuments } from "@/core/batch";
 import { Button } from "@/components/ui/button";
 import {
   APP_VERSION,
@@ -43,7 +63,9 @@ export function LibraryHome({
   removed,
   locale,
   setSelected,
+  batchExport,
 }: {
+  batchExport: (ids: string[], format: "files" | "zip" | "share") => void;
   data: Workspace;
   page: string;
   pageName: string;
@@ -67,6 +89,51 @@ export function LibraryHome({
   setSelected: (id: string | null) => void;
 }) {
   const t = translator(locale);
+  const [selection, setSelection] = useState<string[] | null>(null),
+    [action, setAction] = useState("");
+  const visibleIds = new Set(visible.map((d) => d.id));
+  const ids = (selection ?? []).filter((id) => visibleIds.has(id));
+  const selectedIds = new Set(ids);
+  const byId = new Map(data.documents.map((d) => [d.id, d]));
+  useEffect(() => {
+    setSelection(null);
+    setAction("");
+  }, [page, query]);
+  const allPinned = ids.length > 0 && ids.every((id) => byId.get(id)?.pinned);
+  useEffect(() => {
+    if (selection === null) return;
+    const handler = (e: KeyboardEvent) => {
+      if (
+        e.isComposing ||
+        (e.target instanceof Element &&
+          e.target.closest(
+            'input,textarea,[contenteditable="true"],[role="dialog"]',
+          ))
+      )
+        return;
+      if (
+        document.querySelector('[role="dialog"],[role="menu"],.settings-page')
+      )
+        return;
+      if (e.key === "Escape") setSelection(null);
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") {
+        e.preventDefault();
+        setSelection(visible.map((d) => d.id));
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [selection, visible]);
+  const toggle = (id: string) =>
+    setSelection((s) =>
+      s?.includes(id) ? s.filter((v) => v !== id) : [...(s ?? []), id],
+    );
+  const apply = (patch: Parameters<typeof updateDocuments>[2]) => {
+    change((s) => updateDocuments(s, ids, patch));
+    setSelection(null);
+    setAction("");
+  };
+
   return (
     <div className="page-content">
       <div className="page-intro">
@@ -111,7 +178,7 @@ export function LibraryHome({
             />
             <kbd>Ctrl K</kbd>
           </div>
-          {!query && recents.length > 0 && (
+          {!query && selection === null && recents.length > 0 && (
             <>
               <div className="section-heading">
                 <h2>
@@ -139,7 +206,10 @@ export function LibraryHome({
                         <span>·</span>
                         {formatTime(d.updatedAt, locale)}
                       </span>
-                      <h3>{d.title || t("write")}</h3>
+                      <h3>
+                        {d.pinned && <Pin size={14} aria-label={t("pin")} />}{" "}
+                        {d.title || t("write")}
+                      </h3>
                       <p>{d.body.slice(0, 90)}</p>
                     </div>
                     <ArrowUpRight size={17} />
@@ -216,55 +286,250 @@ export function LibraryHome({
             </div>
           </div>
         </div>
+        {selection !== null && (
+          <div className="batch-bar">
+            <label>
+              <input
+                type="checkbox"
+                aria-label={t("selectAll")}
+                checked={visible.length > 0 && ids.length === visible.length}
+                onChange={() =>
+                  setSelection(
+                    ids.length === visible.length
+                      ? []
+                      : visible.map((d) => d.id),
+                  )
+                }
+              />
+              {t("selectedCount")} <b>{ids.length}</b>
+            </label>
+            <div
+              className="editor-capsule batch-capsule"
+              role="group"
+              aria-label={t("multiSelect")}
+            >
+              <Button
+                variant="ghost"
+                disabled={!ids.length || busy}
+                onClick={() => setAction("move")}
+              >
+                <MoveRight />
+                {t("moveTo")}
+              </Button>
+              <Button
+                variant="ghost"
+                disabled={!ids.length || busy}
+                onClick={() => apply({ pinned: !allPinned })}
+              >
+                {allPinned ? <PinOff /> : <Pin />}
+                {t(allPinned ? "unpin" : "pin")}
+              </Button>
+              <Button
+                variant="ghost"
+                className="danger-action"
+                disabled={!ids.length || busy}
+                onClick={() => apply({ deletedAt: new Date().toISOString() })}
+              >
+                <Trash2 />
+                {t("delete")}
+              </Button>
+              <span className="toolbar-divider" />
+              <Button
+                variant="ghost"
+                disabled={!ids.length || busy}
+                onClick={() => setAction("export")}
+              >
+                <Download />
+                {t("export")}
+              </Button>
+              <Button
+                variant="ghost"
+                disabled={!ids.length || busy}
+                onClick={() => setAction("share")}
+              >
+                <Share2 />
+                {t("share")}
+              </Button>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={t("exitSelection")}
+              onClick={() => setSelection(null)}
+            >
+              <X size={17} />
+            </Button>
+          </div>
+        )}
+        <Dialog open={!!action} onOpenChange={(open) => !open && setAction("")}>
+          <DialogContent closeLabel={t("close")}>
+            <DialogHeader>
+              <DialogTitle>
+                {t(
+                  action === "move"
+                    ? "moveTo"
+                    : action === "share"
+                      ? "share"
+                      : "exportChoice",
+                )}
+              </DialogTitle>
+              <DialogDescription>
+                {t("selectedCount")} {ids.length}
+              </DialogDescription>
+            </DialogHeader>
+            {action === "move" ? (
+              <div className="move-targets">
+                {data.libraries.map((l) => (
+                  <Button
+                    key={l.id}
+                    variant="outline"
+                    onClick={() => apply({ libraryId: l.id })}
+                  >
+                    {l.name}
+                  </Button>
+                ))}
+              </div>
+            ) : (
+              <div className="modal-stack">
+                <p>{t(action === "share" ? "shareHint" : "exportFilesHint")}</p>
+                {action === "share" ? (
+                  <Button
+                    disabled={busy}
+                    onClick={() => {
+                      batchExport(ids, "share");
+                      setAction("");
+                    }}
+                  >
+                    {t("downloadFile")}
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      disabled={busy}
+                      onClick={() => {
+                        batchExport(ids, "files");
+                        setAction("");
+                      }}
+                    >
+                      {t("exportFiles")}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() => {
+                        batchExport(ids, "zip");
+                        setAction("");
+                      }}
+                    >
+                      {t("exportZip")}
+                    </Button>
+                  </>
+                )}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
         <div className={`documents ${data.settings.layout}`}>
           {visible.map((d) => {
             const lib = data.libraries.find((l) => l.id === d.libraryId)!;
             return (
-              <div className="document-card" key={d.id}>
-                <button className="card-main" onClick={() => openDoc(d.id)}>
-                  <div className="card-top">
-                    <span className={`file-icon ${lib.color}`}>
-                      <FileText size={19} />
-                    </span>
-                    <span className="card-category">{lib.name}</span>
-                  </div>
-                  <h3>{d.title || t("write")}</h3>
-                  <p>
-                    {d.body.replace(/[#*>`\[\]]/g, "").slice(0, 120) ||
-                      t("write")}
-                  </p>
-                  <div className="tag-row">
-                    {d.tags.map((tag, i) => (
-                      <span
-                        className={`tag ${i === 0 ? lib.color : "gray"}`}
-                        key={tag}
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                </button>
-                <div className="card-footer">
-                  <span>
-                    <Clock3 size={12} />
-                    {formatTime(d.updatedAt, locale)}
-                  </span>
-                  {d.deletedAt ? (
+              <ContextMenu.Root key={d.id}>
+                <ContextMenu.Trigger asChild disabled={!!d.deletedAt}>
+                  <div
+                    className={`document-card ${selectedIds.has(d.id) ? "card-selected" : ""}`}
+                  >
+                    {selection !== null && (
+                      <label className="card-checkbox">
+                        <input
+                          type="checkbox"
+                          aria-label={t("multiSelect") + " " + d.title}
+                          checked={selectedIds.has(d.id)}
+                          onChange={() => toggle(d.id)}
+                        />
+                      </label>
+                    )}
+
                     <button
-                      aria-label={t("restore") + " " + d.title}
-                      onClick={() => removed(d)}
+                      className="card-main"
+                      onClick={() =>
+                        selection !== null ? toggle(d.id) : openDoc(d.id)
+                      }
                     >
-                      {t("restore")}
+                      <div className="card-top">
+                        <span className={`file-icon ${lib.color}`}>
+                          <FileText size={19} />
+                        </span>
+                        <span className="card-category">{lib.name}</span>
+                      </div>
+                      <h3>
+                        {d.pinned && <Pin size={14} aria-label={t("pin")} />}{" "}
+                        {d.title || t("write")}
+                      </h3>
+                      <p>
+                        {d.body.replace(/[#*>`\[\]]/g, "").slice(0, 120) ||
+                          t("write")}
+                      </p>
+                      <div className="tag-row">
+                        {d.tags.map((tag, i) => (
+                          <span
+                            className={`tag ${i === 0 ? lib.color : "gray"}`}
+                            key={tag}
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
                     </button>
-                  ) : (
-                    <FavoriteButton
-                      starred={d.starred}
-                      label={t("star") + " " + d.title}
-                      onClick={() => patch(d.id, { starred: !d.starred })}
-                    />
-                  )}
-                </div>
-              </div>
+                    <div className="card-footer">
+                      <span>
+                        <Clock3 size={12} />
+                        {formatTime(d.updatedAt, locale)}
+                      </span>
+                      {d.deletedAt ? (
+                        <button
+                          aria-label={t("restore") + " " + d.title}
+                          onClick={() => removed(d)}
+                        >
+                          {t("restore")}
+                        </button>
+                      ) : (
+                        <FavoriteButton
+                          starred={d.starred}
+                          label={t("star") + " " + d.title}
+                          onClick={() => patch(d.id, { starred: !d.starred })}
+                        />
+                      )}
+                    </div>
+                  </div>
+                </ContextMenu.Trigger>
+                <ContextMenu.Portal>
+                  <ContextMenu.Content className="heading-menu note-context">
+                    <ContextMenu.Item
+                      className="heading-menu-item"
+                      onSelect={() => setSelection([d.id])}
+                    >
+                      <CheckSquare size={16} />
+                      {t("multiSelect")}
+                    </ContextMenu.Item>
+                    <ContextMenu.Item
+                      className="heading-menu-item danger-action"
+                      onSelect={() => {
+                        change((s) =>
+                          updateDocuments(s, [d.id], {
+                            deletedAt: new Date().toISOString(),
+                          }),
+                        );
+                        setSelection(
+                          (v) => v?.filter((id) => id !== d.id) ?? null,
+                        );
+                      }}
+                    >
+                      <Trash2 size={16} />
+                      {t("delete")}
+                    </ContextMenu.Item>
+                  </ContextMenu.Content>
+                </ContextMenu.Portal>
+              </ContextMenu.Root>
             );
           })}
         </div>

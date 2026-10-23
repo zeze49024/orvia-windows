@@ -47,7 +47,7 @@ if (phase === "seed") {
     id: "af485e10-f680-4ff6-8b40-af799171e221",
     libraryId: data.libraries[0].id,
     title: "Upgrade preservation",
-    body: "# Native upgrade fixture\n\n中文内容 retained from beta7",
+    body: "# Native upgrade fixture\n\n中文内容 retained from beta8",
     tags: ["upgrade"],
     starred: true,
     createdAt: now,
@@ -78,7 +78,7 @@ if (phase === "seed") {
     .click();
   await page
     .getByRole("dialog")
-    .getByText("v0.1.0-beta7 → v0.1.0-beta8", { exact: true })
+    .getByText("v0.1.0-beta8 → v0.1.0-rc1", { exact: true })
     .waitFor({ timeout: 60000 });
   const closed = page.waitForEvent("close", { timeout: 120000 });
   await page
@@ -91,12 +91,12 @@ if (phase === "seed") {
     (d) => d.title === "Upgrade preservation",
   );
   if (
-    !doc?.body.includes("中文内容 retained from beta7") ||
+    !doc?.body.includes("中文内容 retained from beta8") ||
     !doc.starred ||
     doc.tags[0] !== "upgrade"
   )
     throw new Error("Upgrade lost data");
-  const changed = { ...doc, body: doc.body + "\n\nSaved by beta8" };
+  const changed = { ...doc, body: doc.body + "\n\nSaved by rc1" };
   const delta = {
     libraries: { upsert: [], remove: [] },
     documents: { upsert: [changed], remove: [] },
@@ -113,26 +113,68 @@ if (phase === "seed") {
     throw new Error("Native history failed");
   await page.reload();
   await page.waitForSelector(".app-shell");
+  const strings = JSON.parse(
+    await readFile(
+      new URL(
+        `../src/i18n/locales/${loaded.data.settings.locale}.json`,
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
+  await page
+    .locator(".document-card")
+    .filter({ hasText: "Upgrade preservation" })
+    .click({ button: "right" });
+  await page
+    .getByRole("menuitem", { name: strings.multiSelect, exact: true })
+    .click();
+  await page.getByRole("button", { name: strings.pin, exact: true }).click();
+  await page.keyboard.press("Control+s");
+  await page.locator(".statusbar").filter({ hasText: strings.saved }).waitFor();
+  const pinned = (await invoke("load_workspace")).data.documents.find(
+    (d) => d.id === doc.id,
+  );
+  if (!pinned?.pinned || !pinned.starred)
+    throw new Error("Native pin/favorite persistence failed");
   await page
     .locator(".card-main")
     .filter({ hasText: "Upgrade preservation" })
     .click();
   if (
-    !(await page.locator(".live-editor").innerText()).includes("Saved by beta8")
+    !(await page.locator(".live-editor").innerText()).includes("Saved by rc1")
   )
     throw new Error("Native editor reload failed");
+  await page
+    .getByRole("button", { name: strings.settings + " Ctrl ,", exact: true })
+    .click();
+  await page
+    .locator(".settings-nav nav")
+    .getByRole("button", { name: strings.versionUpdates, exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: strings.checkUpdates, exact: true })
+    .waitFor();
+  if (await page.getByRole("dialog").count())
+    throw new Error("Settings is still a modal");
+  await page
+    .getByRole("button", { name: strings.backLibrary, exact: true })
+    .click();
+  await page.locator(".live-editor").waitFor();
   await writeFile(
     "native-validation.json",
     JSON.stringify(
       {
-        previous: "0.1.0-beta7",
-        current: "0.1.0-beta8",
+        previous: "0.1.0-beta8",
+        current: "0.1.0-rc1",
         installerUpgrade: true,
         signedGithubUpdater: process.env.USE_UPDATER === "true",
         sqlitePreserved: true,
         deltaSave: true,
         history: true,
         webviewReload: true,
+        batchManagement: true,
+        settingsPage: true,
       },
       null,
       2,

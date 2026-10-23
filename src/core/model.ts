@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { localeCodes } from "../i18n/registry";
-export const APP_VERSION = "0.1.0-beta8";
+export const APP_VERSION = "0.1.0-rc1";
 export const RELEASE_NOTE =
-  "优化编辑工具栏布局与整体可读性，调整功能图标配色及收藏状态显示";
+  "新增笔记右键菜单与批量管理，支持置顶和分享，重构独立设置页面";
 export const colors = ["blue", "orange", "green", "purple", "rose"] as const;
 export const librarySchema = z.object({
   id: z.string().uuid(),
@@ -25,6 +25,7 @@ export const docSchema = z.object({
   body: z.string().max(5_000_000),
   tags: z.array(z.string().max(40)).max(20),
   starred: z.boolean(),
+  pinned: z.boolean().default(false),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
   openedAt: z.string().datetime().nullable(),
@@ -101,6 +102,7 @@ export function newDocument(
     body,
     tags: [],
     starred: false,
+    pinned: false,
     createdAt: now,
     updatedAt: now,
     openedAt: now,

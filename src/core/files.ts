@@ -1,4 +1,5 @@
 import { native } from "./storage";
+import { uniqueFilename } from "./batch";
 export type LocalFile = {
   name: string;
   bytes: Uint8Array;
@@ -104,5 +105,36 @@ export async function saveFile(
   a.href = url;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return true;
+}
+
+export async function saveFiles(files: { name: string; bytes: Uint8Array }[]) {
+  if (!native) {
+    // Each download is a real independent .md; the user can choose ZIP instead.
+    for (const file of files) await saveFile(file.name, file.bytes, ["md"]);
+    return true;
+  }
+  const { open } = await import("@tauri-apps/plugin-dialog");
+  const { readDir, writeFile } = await import("@tauri-apps/plugin-fs");
+  const { join } = await import("@tauri-apps/api/path");
+  const root = await open({
+    directory: true,
+    multiple: false,
+    recursive: true,
+  });
+  if (!root) return false;
+  const used = new Set(
+    (await readDir(root)).map((f) => f.name.toLocaleLowerCase("en-US")),
+  );
+  let count = 0;
+  try {
+    for (const file of files) {
+      const path = await join(root, uniqueFilename(file.name, used));
+      await writeFile(path, file.bytes, { createNew: true });
+      count++;
+    }
+  } catch (e) {
+    throw new Error(`EXPORT_PARTIAL ${count}/${files.length}: ${String(e)}`);
+  }
   return true;
 }
