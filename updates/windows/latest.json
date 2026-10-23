@@ -1,11 +1,11 @@
 {
-  "version": "0.1.0-beta8",
-  "notes": "优化编辑工具栏布局与整体可读性，调整功能图标配色及收藏状态显示",
-  "pub_date": "2026-10-23T03:00:37.420Z",
+  "version": "0.1.0-rc1",
+  "notes": "新增笔记右键菜单与批量管理，支持置顶和分享，重构独立设置页面",
+  "pub_date": "2026-10-23T06:34:55.689Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRTWVLTkMxVzBkTmZaaTc5S2tpSEJFOW1Ia3ZGMDFHMFp6T05SL1lNdEpKVTFGUzBKS2oxb2VIejhwV0p5aTM3Q1NBRW5ENVkrRVlqWUZhVkp1REovc2tPQ1hYL2hWU1FvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNzI0NDIzCWZpbGU6T3J2aWFfMC4xLjAtYmV0YThfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMS4wLWJldGE4ClZZb3hUdzhWL3F4aGwwSngyb1l3eE4reW5xUzRnQm1vNVB2cHF1dGJXVkhhQzVrc3NXUUhXVnVheVlSN3RnYlEzZUdmQ0lvQ1hoTXZjR1R2Y2hJZUF3PT0K",
-      "url": "https://github.com/zeze49024/orvia-windows/releases/download/v0.1.0-beta8/Orvia_0.1.0-beta8_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRTWVLTkMxVzBkTlZwV3hEaHhHbXE5T0tjL3RtT3J5WEFUcXZLVFBiL1BMUWhUUWt1N2hHRC9MOFkyK0orOU1pNEgyYzJEY1M0K1krQm9YajZ2enlJck1IUmkzaEM3VVFNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNzM3MjgzCWZpbGU6T3J2aWFfMC4xLjAtcmMxX3g2NC1zZXR1cC5leGUJdmVyc2lvbjowLjEuMC1yYzEKOG9DMXpYWTlnWFRPSTVIaTkvVUJKSjVpWlJSTDdPbmRCbFNudGdrS2VHbUtYVEtVbGpFYk9XNXVYYU9jRWhOcWtkb0dCUjhIa3VHUVY1dFArd2FEQkE9PQo=",
+      "url": "https://github.com/zeze49024/orvia-windows/releases/download/v0.1.0-rc1/Orvia_0.1.0-rc1_x64-setup.exe"
     }
   }
 }
