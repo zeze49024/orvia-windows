@@ -7,7 +7,7 @@ const version = pkg.version,
 const bundle = "src-tauri/target/release/bundle/nsis";
 const installer = fs
   .readdirSync(bundle)
-  .find((name) => name.endsWith("-setup.exe") && name.includes(version));
+  .find((name) => name === `Orvia_${version}_x64-setup.exe`);
 if (!installer) throw new Error("Build the installer first.");
 const signature = fs
   .readFileSync(path.join(bundle, installer + ".sig"), "utf8")
