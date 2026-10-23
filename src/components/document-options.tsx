@@ -1,3 +1,4 @@
+import type { Confirm } from "@/hooks/use-confirmation";
 import { useEffect, useState } from "react";
 import { History, MoreHorizontal } from "lucide-react";
 import type { Document, Library, Locale } from "@/core/model";
@@ -16,12 +17,14 @@ import {
 
 export function DocumentOptions({
   doc,
+  confirm,
   libraries,
   locale,
   patch,
   notify,
 }: {
   doc: Document;
+  confirm: Confirm;
   libraries: Library[];
   locale: Locale;
   patch: (id: string, value: Partial<Document>) => void;
@@ -108,7 +111,19 @@ export function DocumentOptions({
                 parsed.some((v) => v.length > 40) ||
                 busy
               }
-              onClick={() => {
+              onClick={async () => {
+                if (
+                  library !== doc.libraryId &&
+                  !(await confirm({
+                    title: t("confirmMove"),
+                    description:
+                      t("moveConfirmHint") +
+                      " " +
+                      libraries.find((l) => l.id === library)?.name,
+                    names: [doc.title],
+                  }))
+                )
+                  return;
                 patch(doc.id, { libraryId: library, tags: parsed });
                 setOpen(false);
                 notify(t("saved"));

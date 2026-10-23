@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { localeCodes } from "../i18n/registry";
-export const APP_VERSION = "0.1.0-rc1";
+export const APP_VERSION = "0.1.0-rc2";
 export const RELEASE_NOTE =
-  "新增笔记右键菜单与批量管理，支持置顶和分享，重构独立设置页面";
+  "新增删除与移动操作二次确认，支持自动检测新版本及首页快捷更新";
 export const colors = ["blue", "orange", "green", "purple", "rose"] as const;
 export const librarySchema = z.object({
   id: z.string().uuid(),
@@ -40,6 +40,7 @@ export const workspaceSchema = z
     settings: z.object({
       locale: z.enum(localeCodes),
       sidebar: z.boolean(),
+      autoUpdate: z.boolean().default(true),
       layout: z.enum(["grid", "list"]),
       theme: z
         .string()
@@ -86,7 +87,13 @@ export function emptyWorkspace(locale: Locale = "zh-CN"): Workspace {
     ],
     documents: [],
     assets: [],
-    settings: { locale, sidebar: true, layout: "grid", theme: "light" },
+    settings: {
+      locale,
+      sidebar: true,
+      layout: "grid",
+      theme: "light",
+      autoUpdate: true,
+    },
   };
 }
 export function newDocument(

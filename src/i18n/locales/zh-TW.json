@@ -128,7 +128,7 @@
   "updateAvailable": "發現新版本",
   "updateInstall": "下載並安裝更新",
   "updateHint": "更新來自 GitHub，安裝前驗證簽章。安裝程式可能關閉應用程式，請先儲存工作。",
-  "networkHint": "僅主動檢查更新時連線，不上傳知識庫內容",
+  "networkHint": "僅檢查與下載更新時連線，不上傳知識庫內容",
   "desktopOnly": "此功能僅在 Windows 應用程式內可用",
   "browserPreview": "瀏覽器預覽 · IndexedDB（與桌面資料獨立）",
   "welcome": "歡迎使用 Orvia",
@@ -203,5 +203,15 @@
   "noSettings": "沒有符合的設定",
   "batchDone": "批次操作已完成",
   "downloadFile": "儲存 HTML 檔案",
-  "delete": "刪除"
+  "delete": "刪除",
+  "confirmDelete": "確認刪除",
+  "confirmMove": "確認移動",
+  "deleteConfirmHint": "所選筆記將移至回收站，可於回收站還原。",
+  "moveConfirmHint": "所選筆記將移動至：",
+  "deleteLibraryConfirm": "刪除此空知識庫後無法還原。",
+  "newVersionBadge": "偵測到新版本",
+  "autoUpdate": "自動偵測新版本",
+  "autoUpdateHint": "啟動後 10 秒及執行期間每 6 小時偵測；失敗不會打斷寫作。",
+  "updating": "正在下載並安裝更新",
+  "updateProgressHint": "更新前會儲存文件，安裝完成後應用程式將重新啟動。"
 }

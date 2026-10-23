@@ -1,3 +1,5 @@
+import { useConfirmation } from "./hooks/use-confirmation";
+import { useUpdateDiscovery } from "./hooks/use-update-discovery";
 import { useJobRunner } from "./hooks/use-job-runner";
 import { ThemePicker } from "@/components/theme-picker";
 import { Badge } from "@/components/ui/badge";
@@ -31,9 +33,9 @@ import {
 } from "@/core/model";
 import { native, store } from "@/core/storage";
 import { applyTheme, resolveTheme } from "@/core/themes";
-import { checkUpdate, installUpdate } from "@/core/updates";
+import { installUpdate } from "@/core/updates";
 import { languageRegistry, translator, type MessageKey } from "@/i18n";
-import type { Update } from "@tauri-apps/plugin-updater";
+
 import {
   AlertCircle,
   ArrowDownToLine,
@@ -89,7 +91,7 @@ export function App() {
     [editingLibrary, setEditingLibrary] = useState<string | null>(null),
     [restoreBytes, setRestoreBytes] = useState<Uint8Array | null>(null),
     [restoreCount, setRestoreCount] = useState(0),
-    [update, setUpdate] = useState<Update | null>(null),
+    [installing, setInstalling] = useState(false),
     [progress, setProgress] = useState(0),
     [updateMessage, setUpdateMessage] = useState("");
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
@@ -129,6 +131,12 @@ export function App() {
     );
   };
   const { busy, busyRef, job, setJob, cancelRef, run } = useJobRunner(error);
+  const { confirm, confirmationDialog } = useConfirmation(locale);
+  const { update, inspect, hold } = useUpdateDiscovery(
+    data.settings.autoUpdate,
+    store.ready,
+    busyRef,
+  );
   useEffect(() => store.subscribe(redraw), []);
   useLayoutEffect(() => {
     if (store.ready) applyTheme(data.settings.theme);
@@ -143,7 +151,13 @@ export function App() {
   }, []);
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.isComposing || e.keyCode === 229) return;
+      if (document.querySelector(".update-progress")) return;
+      if (
+        e.isComposing ||
+        e.keyCode === 229 ||
+        document.querySelector('[role="alertdialog"]')
+      )
+        return;
       if (e.key === "Escape" && !document.querySelector('[role="dialog"]'))
         setSettingsOpen(false);
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
@@ -461,8 +475,7 @@ export function App() {
     run(async () => {
       setUpdateMessage(t("checking"));
       try {
-        const found = await checkUpdate();
-        setUpdate(found);
+        const found = await inspect();
         setUpdateMessage(
           found ? `${t("updateAvailable")} · v${found.version}` : t("upToDate"),
         );
@@ -472,6 +485,24 @@ export function App() {
         throw e;
       }
     });
+  const startUpdate = () => {
+    if (!update || busyRef.current) return;
+    const release = hold();
+    setInstalling(true);
+    setProgress(0);
+    setModal("update");
+    void run(async () => {
+      try {
+        await installUpdate(update, setProgress);
+      } catch (e) {
+        setUpdateMessage(t("updateFailed"));
+        throw e;
+      } finally {
+        release();
+        setInstalling(false);
+      }
+    });
+  };
   const saveLibrary = () => {
     const name = libraryName.trim();
     if (!name) return;
@@ -490,7 +521,17 @@ export function App() {
     setEditingLibrary(null);
     notify(t("saved"));
   };
-  const removed = (doc: Document) => {
+  const removed = async (doc: Document) => {
+    if (
+      !doc.deletedAt &&
+      !(await confirm({
+        title: t("confirmDelete"),
+        description: t("deleteConfirmHint"),
+        names: [doc.title],
+        danger: true,
+      }))
+    )
+      return;
     patch(doc.id, {
       deletedAt: doc.deletedAt ? null : new Date().toISOString(),
     });
@@ -515,6 +556,7 @@ export function App() {
     );
   return (
     <div className="app-shell">
+      {confirmationDialog}
       <header
         className="titlebar"
         data-tauri-drag-region
@@ -531,28 +573,42 @@ export function App() {
         <span className="title-caption" data-tauri-drag-region>
           {t("tagline")}
         </span>
-        <div className="window-actions">
-          <button
-            aria-label={t("minimize")}
-            onClick={() => void windowAction("minimize")}
-            disabled={!native}
-          >
-            <Minus size={13} />
-          </button>
-          <button
-            aria-label={t("maximize")}
-            onClick={() => void windowAction("toggleMaximize")}
-            disabled={!native}
-          >
-            <Square size={11} />
-          </button>
-          <button
-            aria-label={t("close")}
-            onClick={() => void windowAction("close")}
-            disabled={!native}
-          >
-            <X size={15} />
-          </button>
+        <div className="titlebar-right">
+          {update && (
+            <button
+              className="update-badge"
+              disabled={busy}
+              title={"v" + update.version}
+              onDoubleClick={(e) => e.stopPropagation()}
+              onClick={startUpdate}
+            >
+              <ArrowDownToLine size={14} strokeWidth={2} aria-hidden="true" />
+              {t("newVersionBadge")}
+            </button>
+          )}
+          <div className="window-actions">
+            <button
+              aria-label={t("minimize")}
+              onClick={() => void windowAction("minimize")}
+              disabled={!native}
+            >
+              <Minus size={13} />
+            </button>
+            <button
+              aria-label={t("maximize")}
+              onClick={() => void windowAction("toggleMaximize")}
+              disabled={!native}
+            >
+              <Square size={11} />
+            </button>
+            <button
+              aria-label={t("close")}
+              onClick={() => void windowAction("close")}
+              disabled={!native}
+            >
+              <X size={15} />
+            </button>
+          </div>
         </div>
       </header>
       <div
@@ -754,6 +810,7 @@ export function App() {
           <div className="workspace-content" hidden={settingsOpen}>
             {active ? (
               <EditorWorkspace
+                confirm={confirm}
                 active={active}
                 data={data}
                 locale={locale}
@@ -772,6 +829,7 @@ export function App() {
               />
             ) : (
               <LibraryHome
+                confirm={confirm}
                 batchExport={batchExport}
                 key={page}
                 data={data}
@@ -821,7 +879,6 @@ export function App() {
         onOpenChange={(open) => {
           if (!open && !busy) {
             setModal("");
-            setUpdate(null);
           }
         }}
       >
@@ -1057,7 +1114,19 @@ export function App() {
                       data.documents.some((d) => d.libraryId === editingLibrary)
                     }
                     title={t("deleteLibraryHint")}
-                    onClick={() => {
+                    onClick={async () => {
+                      if (
+                        !(await confirm({
+                          title: t("confirmDelete"),
+                          description: t("deleteLibraryConfirm"),
+                          names: [
+                            data.libraries.find((l) => l.id === editingLibrary)
+                              ?.name ?? "",
+                          ],
+                          danger: true,
+                        }))
+                      )
+                        return;
                       change((s) => ({
                         ...s,
                         libraries: s.libraries.filter(
@@ -1122,6 +1191,7 @@ export function App() {
           {modal === "purge" && active && (
             <div className="modal-stack">
               <p>{t("purgeHint")}</p>
+              <strong>{active.title}</strong>
               <div className="modal-actions">
                 <Button variant="outline" onClick={() => setModal("")}>
                   {t("cancel")}
@@ -1152,35 +1222,36 @@ export function App() {
                 <ShieldCheck size={17} />
                 <p>{t("updateHint")}</p>
               </div>
-              {busy && <p>{progress}%</p>}
-              <div className="modal-actions">
-                <Button
-                  variant="outline"
-                  disabled={busy}
-                  onClick={() => {
-                    setModal("");
-                    setSettingsOpen(true);
-                    setUpdate(null);
-                  }}
-                >
-                  {t("cancel")}
-                </Button>
-                <Button
-                  disabled={busy}
-                  onClick={() =>
-                    void run(async () => {
-                      try {
-                        await installUpdate(update, setProgress);
-                      } catch (e) {
-                        setUpdateMessage(t("updateFailed"));
-                        throw e;
-                      }
-                    })
-                  }
-                >
-                  {t("updateInstall")}
-                </Button>
-              </div>
+
+              {installing ? (
+                <div className="update-progress" role="status">
+                  <p>{t("updating")}</p>
+                  <progress
+                    aria-label={t("updating")}
+                    max={100}
+                    value={progress}
+                  />
+                  <p>
+                    {progress}% · {t("updateProgressHint")}
+                  </p>
+                </div>
+              ) : (
+                <div className="modal-actions">
+                  <Button
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => {
+                      setModal("");
+                      setSettingsOpen(true);
+                    }}
+                  >
+                    {t("cancel")}
+                  </Button>
+                  <Button disabled={busy} onClick={startUpdate}>
+                    {t("updateInstall")}
+                  </Button>
+                </div>
+              )}
             </div>
           )}
           {modal === "about" && (

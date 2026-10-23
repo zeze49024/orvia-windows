@@ -1,3 +1,4 @@
+import type { Confirm } from "@/hooks/use-confirmation";
 import { useEffect, useState } from "react";
 import { ContextMenu } from "radix-ui";
 import {
@@ -64,7 +65,9 @@ export function LibraryHome({
   locale,
   setSelected,
   batchExport,
+  confirm,
 }: {
+  confirm: Confirm;
   batchExport: (ids: string[], format: "files" | "zip" | "share") => void;
   data: Workspace;
   page: string;
@@ -112,7 +115,9 @@ export function LibraryHome({
       )
         return;
       if (
-        document.querySelector('[role="dialog"],[role="menu"],.settings-page')
+        document.querySelector(
+          '[role="dialog"],[role="alertdialog"],[role="menu"],.settings-page',
+        )
       )
         return;
       if (e.key === "Escape") setSelection(null);
@@ -128,7 +133,21 @@ export function LibraryHome({
     setSelection((s) =>
       s?.includes(id) ? s.filter((v) => v !== id) : [...(s ?? []), id],
     );
-  const apply = (patch: Parameters<typeof updateDocuments>[2]) => {
+  const apply = async (patch: Parameters<typeof updateDocuments>[2]) => {
+    if (
+      (patch.deletedAt || patch.libraryId) &&
+      !(await confirm({
+        title: t(patch.deletedAt ? "confirmDelete" : "confirmMove"),
+        description: patch.deletedAt
+          ? t("deleteConfirmHint")
+          : t("moveConfirmHint") +
+            " " +
+            data.libraries.find((l) => l.id === patch.libraryId)?.name,
+        names: ids.map((id) => byId.get(id)?.title ?? ""),
+        danger: !!patch.deletedAt,
+      }))
+    )
+      return;
     change((s) => updateDocuments(s, ids, patch));
     setSelection(null);
     setAction("");
@@ -513,7 +532,16 @@ export function LibraryHome({
                     </ContextMenu.Item>
                     <ContextMenu.Item
                       className="heading-menu-item danger-action"
-                      onSelect={() => {
+                      onSelect={async () => {
+                        if (
+                          !(await confirm({
+                            title: t("confirmDelete"),
+                            description: t("deleteConfirmHint"),
+                            names: [d.title],
+                            danger: true,
+                          }))
+                        )
+                          return;
                         change((s) =>
                           updateDocuments(s, [d.id], {
                             deletedAt: new Date().toISOString(),

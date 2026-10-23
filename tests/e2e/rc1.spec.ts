@@ -85,6 +85,10 @@ test("context menus cover all lists, pin/move/delete stay independent and persis
     .getByRole("button", { name: "归档资料", exact: true })
     .click();
   await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "确认", exact: true })
+    .click();
+  await page
     .locator(".sidebar .nav-row")
     .filter({ hasText: "归档资料" })
     .click();
@@ -94,6 +98,10 @@ test("context menus cover all lists, pin/move/delete stay independent and persis
     .filter({ hasText: "B笔记" })
     .click({ button: "right" });
   await page.getByRole("menuitem", { name: "删除", exact: true }).click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "确认", exact: true })
+    .click();
   await expect(page.locator(".document-card")).toHaveCount(1);
   await page.locator(".sidebar .nav-row").filter({ hasText: "回收站" }).click();
   await expect(page.locator(".document-card")).toContainText("B笔记");

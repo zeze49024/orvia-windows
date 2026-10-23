@@ -128,7 +128,7 @@
   "updateAvailable": "发现新版本",
   "updateInstall": "下载并安装更新",
   "updateHint": "更新来自 GitHub，安装前验证签名。安装程序可能关闭应用，请先保存工作。",
-  "networkHint": "仅主动检查更新时联网，不上传知识库内容",
+  "networkHint": "仅检查与下载更新时联网，不上传知识库内容",
   "desktopOnly": "此功能仅在 Windows 应用内可用",
   "browserPreview": "浏览器预览 · IndexedDB（与桌面数据独立）",
   "welcome": "欢迎使用 Orvia",
@@ -203,5 +203,15 @@
   "noSettings": "没有匹配的设置",
   "batchDone": "批量操作已完成",
   "downloadFile": "保存 HTML 文件",
-  "delete": "删除"
+  "delete": "删除",
+  "confirmDelete": "确认删除",
+  "confirmMove": "确认移动",
+  "deleteConfirmHint": "所选笔记将移入回收站，可在回收站恢复。",
+  "moveConfirmHint": "所选笔记将移动到：",
+  "deleteLibraryConfirm": "删除此空知识库后无法恢复。",
+  "newVersionBadge": "检测到新版本",
+  "autoUpdate": "自动检测新版本",
+  "autoUpdateHint": "启动后 10 秒检测一次，运行期间每 6 小时检测；检测失败不打断写作。",
+  "updating": "正在下载并安装更新",
+  "updateProgressHint": "更新前会保存文档，安装完成后应用将重新启动。"
 }

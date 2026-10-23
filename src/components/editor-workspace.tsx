@@ -1,3 +1,4 @@
+import type { Confirm } from "@/hooks/use-confirmation";
 import { DocumentOutline } from "@/components/document-outline";
 import { LocalImage } from "@/components/local-image";
 import { MarkdownEditor } from "@/components/markdown-editor";
@@ -23,6 +24,7 @@ import { FavoriteButton } from "./favorite-button";
 import type { Library, Workspace } from "@/core/model";
 export function EditorWorkspace({
   active,
+  confirm,
   data,
   locale,
   library,
@@ -39,6 +41,7 @@ export function EditorWorkspace({
   busy,
 }: {
   active: Document;
+  confirm: Confirm;
   data: Workspace;
   locale: Locale;
   library: Library | undefined;
@@ -69,6 +72,7 @@ export function EditorWorkspace({
         </span>
         <div className="flex-spacer" />
         <DocumentOptions
+          confirm={confirm}
           doc={active}
           libraries={data.libraries}
           locale={locale}

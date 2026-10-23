@@ -219,6 +219,22 @@ export function SettingsPanel({
           </div>
           <div className="settings-row">
             <div>
+              <b>{t("autoUpdate")}</b>
+              <p>{t("autoUpdateHint")}</p>
+            </div>
+            <Switch
+              aria-label={t("autoUpdate")}
+              checked={data.settings.autoUpdate}
+              onCheckedChange={(autoUpdate) =>
+                change((s) => ({
+                  ...s,
+                  settings: { ...s.settings, autoUpdate },
+                }))
+              }
+            />
+          </div>
+          <div className="settings-row">
+            <div>
               <b>{t("checkUpdates")}</b>
               <p>{t("networkHint")}</p>
             </div>

@@ -1,0 +1,125 @@
+.titlebar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 100%;
+  flex-shrink: 0;
+}
+.titlebar .update-badge {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  height: 25px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 6px;
+  background: #2563eb;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  line-height: 1;
+}
+.titlebar .update-badge svg {
+  color: #fff;
+  flex-shrink: 0;
+}
+.titlebar .update-badge:hover {
+  background: #1d4ed8;
+}
+.titlebar .update-badge:focus-visible {
+  outline: 2px solid #60a5fa;
+  outline-offset: 2px;
+}
+.titlebar .update-badge:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+.confirmation-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: #0006;
+  backdrop-filter: blur(2px);
+}
+.confirmation-dialog {
+  position: fixed;
+  z-index: 101;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(460px, calc(100vw - 40px));
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 26px;
+  box-shadow: 0 20px 70px #0003;
+}
+.confirmation-dialog h2 {
+  font-size: 19px;
+  font-weight: 650;
+  margin-bottom: 14px;
+}
+.confirmation-dialog p {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+.confirmation-dialog ul {
+  margin: 16px 0;
+  padding: 12px 16px;
+  background: var(--surface-alt);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  font-size: 13px;
+  max-height: 200px;
+  overflow: auto;
+}
+.confirmation-dialog li {
+  padding: 4px 0;
+  overflow-wrap: anywhere;
+}
+.confirmation-dialog .modal-actions {
+  margin-top: 22px;
+}
+.update-progress {
+  font-size: 14px;
+  line-height: 1.8;
+}
+.update-progress progress {
+  display: block;
+  width: 100%;
+  height: 9px;
+  margin: 14px 0;
+  accent-color: #2563eb;
+}
+.update-progress p:last-child {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+@media (max-width: 1000px) {
+  .titlebar-right {
+    gap: 10px;
+  }
+  .titlebar .title-caption {
+    max-width: 25vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.titlebar {
+  position: relative;
+}
+.titlebar .title-caption {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
+}

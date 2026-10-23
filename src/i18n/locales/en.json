@@ -128,7 +128,7 @@
   "updateAvailable": "Update available",
   "updateInstall": "Download and install",
   "updateHint": "Updates come from GitHub and are signature verified. Installation may close the app; save your work first.",
-  "networkHint": "Only manual update checks use the network. Library content is never uploaded.",
+  "networkHint": "Network is used only to check and download updates; note content is never uploaded.",
   "desktopOnly": "Available in the Windows desktop app only",
   "browserPreview": "Browser preview · IndexedDB (separate from desktop data)",
   "welcome": "Welcome to Orvia",
@@ -203,5 +203,15 @@
   "noSettings": "No matching settings",
   "batchDone": "Batch operation completed",
   "downloadFile": "Save HTML file",
-  "delete": "Delete"
+  "delete": "Delete",
+  "confirmDelete": "Confirm deletion",
+  "confirmMove": "Confirm move",
+  "deleteConfirmHint": "Selected notes will move to Trash and can be restored.",
+  "moveConfirmHint": "Selected notes will move to:",
+  "deleteLibraryConfirm": "Deleting this empty library cannot be undone.",
+  "newVersionBadge": "New version available",
+  "autoUpdate": "Automatically check for updates",
+  "autoUpdateHint": "Check 10 seconds after startup and every 6 hours. Failures stay quiet.",
+  "updating": "Downloading and installing update",
+  "updateProgressHint": "Your notes are saved before installation. The app will restart after updating."
 }
