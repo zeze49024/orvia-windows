@@ -1,11 +1,11 @@
 {
-  "version": "0.1.0-rc1",
-  "notes": "新增笔记右键菜单与批量管理，支持置顶和分享，重构独立设置页面",
-  "pub_date": "2026-10-23T06:34:55.689Z",
+  "version": "0.1.0-rc2",
+  "notes": "新增删除与移动操作二次确认，支持自动检测新版本及首页快捷更新",
+  "pub_date": "2026-10-23T07:17:24.799Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRTWVLTkMxVzBkTlZwV3hEaHhHbXE5T0tjL3RtT3J5WEFUcXZLVFBiL1BMUWhUUWt1N2hHRC9MOFkyK0orOU1pNEgyYzJEY1M0K1krQm9YajZ2enlJck1IUmkzaEM3VVFNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNzM3MjgzCWZpbGU6T3J2aWFfMC4xLjAtcmMxX3g2NC1zZXR1cC5leGUJdmVyc2lvbjowLjEuMC1yYzEKOG9DMXpYWTlnWFRPSTVIaTkvVUJKSjVpWlJSTDdPbmRCbFNudGdrS2VHbUtYVEtVbGpFYk9XNXVYYU9jRWhOcWtkb0dCUjhIa3VHUVY1dFArd2FEQkE9PQo=",
-      "url": "https://github.com/zeze49024/orvia-windows/releases/download/v0.1.0-rc1/Orvia_0.1.0-rc1_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRTWVLTkMxVzBkTlFBalM2VEVsRXVyUkNDdWNZZ09oREtFa3JhUUJJRElHSkJSdFBUbXlNbGl3M2lkRzBTNUdhTy90YWxMVGJMYjIxNGFGVlBGL0hwRXFTdncwMHJ0b1FVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNzM5ODEzCWZpbGU6T3J2aWFfMC4xLjAtcmMyX3g2NC1zZXR1cC5leGUJdmVyc2lvbjowLjEuMC1yYzIKekJneTNnNlhmUVltY0ZleWJqRmhnRi9Yc0dkdndwMEYzZEswMkJieU8rc1RBb1RqODN2T1NrZHR2TGpzUExPaWZLWFZwakR1aWNrTmNkcWFxaEF1QXc9PQo=",
+      "url": "https://github.com/zeze49024/orvia-windows/releases/download/v0.1.0-rc2/Orvia_0.1.0-rc2_x64-setup.exe"
     }
   }
 }
