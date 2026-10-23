@@ -22,3 +22,6 @@
 - 四个 Release 资产远端 SHA-256 与本地一致，公开安装包 HTTP 200。
 - [最终安装包覆盖升级](https://github.com/zeze49024/orvia-windows/actions/runs/39919025755)通过：一次性 Windows 环境实际安装 rc2、写入中文笔记、使用最终 rc3 安装包升级。SQLite、正文、收藏、置顶、增量保存、历史和设置正常；实际右键单篇移动、二次确认及目标知识库 SQLite 保存通过。
 - 更新清单仅在最终安装包验证通过后推送。
+
+- [应用内签名更新验收](https://github.com/zeze49024/orvia-windows/actions/runs/39919250942)通过：实际 rc2 检查 GitHub 更新、下载最终 rc3、验证签名并安装；升级后正文、标签、收藏、置顶、历史、自动检测设置及右键单篇移动保存均通过。
+- [源码 Windows 检查](https://github.com/zeze49024/orvia-windows/actions/runs/39918983749)通过。公开 RAW 更新清单的 rc3 版本和签名已复核。
