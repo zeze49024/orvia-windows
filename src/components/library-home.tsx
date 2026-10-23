@@ -93,7 +93,8 @@ export function LibraryHome({
 }) {
   const t = translator(locale);
   const [selection, setSelection] = useState<string[] | null>(null),
-    [action, setAction] = useState("");
+    [action, setAction] = useState(""),
+    [movingId, setMovingId] = useState<string | null>(null);
   const visibleIds = new Set(visible.map((d) => d.id));
   const ids = (selection ?? []).filter((id) => visibleIds.has(id));
   const selectedIds = new Set(ids);
@@ -101,6 +102,7 @@ export function LibraryHome({
   useEffect(() => {
     setSelection(null);
     setAction("");
+    setMovingId(null);
   }, [page, query]);
   const allPinned = ids.length > 0 && ids.every((id) => byId.get(id)?.pinned);
   useEffect(() => {
@@ -133,7 +135,11 @@ export function LibraryHome({
     setSelection((s) =>
       s?.includes(id) ? s.filter((v) => v !== id) : [...(s ?? []), id],
     );
-  const apply = async (patch: Parameters<typeof updateDocuments>[2]) => {
+  const moveIds = movingId ? [movingId] : ids;
+  const apply = async (
+    patch: Parameters<typeof updateDocuments>[2],
+    targets = ids,
+  ) => {
     if (
       (patch.deletedAt || patch.libraryId) &&
       !(await confirm({
@@ -143,14 +149,17 @@ export function LibraryHome({
           : t("moveConfirmHint") +
             " " +
             data.libraries.find((l) => l.id === patch.libraryId)?.name,
-        names: ids.map((id) => byId.get(id)?.title ?? ""),
+        names: targets.map((id) => byId.get(id)?.title ?? ""),
         danger: !!patch.deletedAt,
       }))
     )
       return;
-    change((s) => updateDocuments(s, ids, patch));
-    setSelection(null);
+    change((s) => updateDocuments(s, targets, patch));
+    setSelection((s) =>
+      movingId ? (s?.filter((id) => !targets.includes(id)) ?? null) : null,
+    );
     setAction("");
+    setMovingId(null);
   };
 
   return (
@@ -330,7 +339,10 @@ export function LibraryHome({
               <Button
                 variant="ghost"
                 disabled={!ids.length || busy}
-                onClick={() => setAction("move")}
+                onClick={() => {
+                  setMovingId(null);
+                  setAction("move");
+                }}
               >
                 <MoveRight />
                 {t("moveTo")}
@@ -359,7 +371,7 @@ export function LibraryHome({
                 onClick={() => setAction("export")}
               >
                 <Download />
-                {t("export")}
+                {t("exportNotes")}
               </Button>
               <Button
                 variant="ghost"
@@ -380,7 +392,15 @@ export function LibraryHome({
             </Button>
           </div>
         )}
-        <Dialog open={!!action} onOpenChange={(open) => !open && setAction("")}>
+        <Dialog
+          open={!!action}
+          onOpenChange={(open) => {
+            if (!open) {
+              setAction("");
+              setMovingId(null);
+            }
+          }}
+        >
           <DialogContent closeLabel={t("close")}>
             <DialogHeader>
               <DialogTitle>
@@ -393,7 +413,14 @@ export function LibraryHome({
                 )}
               </DialogTitle>
               <DialogDescription>
-                {t("selectedCount")} {ids.length}
+                {t("selectedCount")}{" "}
+                {action === "move" ? moveIds.length : ids.length}
+                {action === "move" && movingId && (
+                  <span className="move-note-name">
+                    {" "}
+                    · {byId.get(movingId)?.title || t("untitledHeading")}
+                  </span>
+                )}
               </DialogDescription>
             </DialogHeader>
             {action === "move" ? (
@@ -402,7 +429,7 @@ export function LibraryHome({
                   <Button
                     key={l.id}
                     variant="outline"
-                    onClick={() => apply({ libraryId: l.id })}
+                    onClick={() => apply({ libraryId: l.id }, moveIds)}
                   >
                     {l.name}
                   </Button>
@@ -523,6 +550,17 @@ export function LibraryHome({
                 </ContextMenu.Trigger>
                 <ContextMenu.Portal>
                   <ContextMenu.Content className="heading-menu note-context">
+                    <ContextMenu.Item
+                      className="heading-menu-item"
+                      disabled={busy}
+                      onSelect={() => {
+                        setMovingId(d.id);
+                        setAction("move");
+                      }}
+                    >
+                      <MoveRight size={16} />
+                      {t("moveTo")}
+                    </ContextMenu.Item>
                     <ContextMenu.Item
                       className="heading-menu-item"
                       onSelect={() => setSelection([d.id])}

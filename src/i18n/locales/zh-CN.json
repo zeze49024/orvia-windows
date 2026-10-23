@@ -213,5 +213,6 @@
   "autoUpdate": "自动检测新版本",
   "autoUpdateHint": "启动后 10 秒检测一次，运行期间每 6 小时检测；检测失败不打断写作。",
   "updating": "正在下载并安装更新",
-  "updateProgressHint": "更新前会保存文档，安装完成后应用将重新启动。"
+  "updateProgressHint": "更新前会保存文档，安装完成后应用将重新启动。",
+  "exportNotes": "导出"
 }

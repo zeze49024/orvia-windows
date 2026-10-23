@@ -213,5 +213,6 @@
   "autoUpdate": "Automatically check for updates",
   "autoUpdateHint": "Check 10 seconds after startup and every 6 hours. Failures stay quiet.",
   "updating": "Downloading and installing update",
-  "updateProgressHint": "Your notes are saved before installation. The app will restart after updating."
+  "updateProgressHint": "Your notes are saved before installation. The app will restart after updating.",
+  "exportNotes": "Export"
 }

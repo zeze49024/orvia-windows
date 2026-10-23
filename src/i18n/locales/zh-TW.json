@@ -213,5 +213,6 @@
   "autoUpdate": "自動偵測新版本",
   "autoUpdateHint": "啟動後 10 秒及執行期間每 6 小時偵測；失敗不會打斷寫作。",
   "updating": "正在下載並安裝更新",
-  "updateProgressHint": "更新前會儲存文件，安裝完成後應用程式將重新啟動。"
+  "updateProgressHint": "更新前會儲存文件，安裝完成後應用程式將重新啟動。",
+  "exportNotes": "匯出"
 }

@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { localeCodes } from "../i18n/registry";
-export const APP_VERSION = "0.1.0-rc2";
+export const APP_VERSION = "0.1.0-rc3";
 export const RELEASE_NOTE =
-  "新增删除与移动操作二次确认，支持自动检测新版本及首页快捷更新";
+  "新增笔记右键移动到功能，支持单篇笔记快捷移动";
 export const colors = ["blue", "orange", "green", "purple", "rose"] as const;
 export const librarySchema = z.object({
   id: z.string().uuid(),

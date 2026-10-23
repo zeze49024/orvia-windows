@@ -120,9 +120,7 @@ test("batch exports independent Markdown, ZIP and offline HTML; settings is sear
   await page.locator(".document-card").first().click({ button: "right" });
   await page.getByRole("menuitem", { name: "多选", exact: true }).click();
   await page.getByRole("checkbox", { name: "全选", exact: true }).check();
-  await page
-    .getByRole("button", { name: "导出 Markdown", exact: true })
-    .click();
+  await page.getByRole("button", { name: "导出", exact: true }).click();
   let pending = page.waitForEvent("download");
   await page.getByRole("button", { name: "ZIP 压缩包", exact: true }).click();
   let file = await pending,
@@ -132,9 +130,7 @@ test("batch exports independent Markdown, ZIP and offline HTML; settings is sear
   expect(new TextDecoder().decode(archive["A笔记.md"])).toContain(
     "data:image/png;base64",
   );
-  await page
-    .getByRole("button", { name: "导出 Markdown", exact: true })
-    .click();
+  await page.getByRole("button", { name: "导出", exact: true }).click();
   const downloads: import("@playwright/test").Download[] = [];
   page.on("download", (d) => downloads.push(d));
   await page

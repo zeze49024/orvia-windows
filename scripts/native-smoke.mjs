@@ -47,7 +47,7 @@ if (phase === "seed") {
     id: "af485e10-f680-4ff6-8b40-af799171e221",
     libraryId: data.libraries[0].id,
     title: "Upgrade preservation",
-    body: "# Native upgrade fixture\n\n中文内容 retained from rc1",
+    body: "# Native upgrade fixture\n\n中文内容 retained from rc2",
     tags: ["upgrade"],
     starred: true,
     createdAt: now,
@@ -81,7 +81,7 @@ if (phase === "seed") {
     .click();
   await page
     .getByRole("dialog")
-    .getByText("v0.1.0-rc1 → v0.1.0-rc2", { exact: true })
+    .getByText("v0.1.0-rc2 → v0.1.0-rc3", { exact: true })
     .waitFor({ timeout: 60000 });
   const closed = page.waitForEvent("close", { timeout: 120000 });
   await page
@@ -94,12 +94,12 @@ if (phase === "seed") {
     (d) => d.title === "Upgrade preservation",
   );
   if (
-    !doc?.body.includes("中文内容 retained from rc1") ||
+    !doc?.body.includes("中文内容 retained from rc2") ||
     !doc.starred ||
     doc.tags[0] !== "upgrade"
   )
     throw new Error("Upgrade lost data");
-  const changed = { ...doc, body: doc.body + "\n\nSaved by rc2" };
+  const changed = { ...doc, body: doc.body + "\n\nSaved by rc3" };
   const delta = {
     libraries: { upsert: [], remove: [] },
     documents: { upsert: [changed], remove: [] },
@@ -156,12 +156,55 @@ if (phase === "seed") {
       ?.deletedAt
   )
     throw new Error("Delete cancellation mutated document");
+  const beforeMove = await invoke("load_workspace"),
+    target = { id: crypto.randomUUID(), name: "Native target", color: "green" };
+  await invoke("save_delta", {
+    expectedRevision: beforeMove.revision,
+    forceHistory: [],
+    delta: {
+      libraries: { upsert: [target], remove: [] },
+      documents: { upsert: [], remove: [] },
+      assets: { upsert: [], remove: [] },
+      settings: null,
+    },
+  });
+  await page.reload();
+  await page.waitForSelector(".app-shell");
+  await page
+    .locator(".document-card")
+    .filter({ hasText: "Upgrade preservation" })
+    .click({ button: "right" });
+  await page
+    .getByRole("menuitem", { name: strings.moveTo, exact: true })
+    .click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: target.name, exact: true })
+    .click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: strings.confirm, exact: true })
+    .click();
+  await page.keyboard.press("Control+s");
+  await page.locator(".statusbar").filter({ hasText: strings.saved }).waitFor();
+  const moved = (await invoke("load_workspace")).data.documents.find(
+    (d) => d.id === doc.id,
+  );
+  if (
+    moved?.libraryId !== target.id ||
+    !moved.starred ||
+    !moved.pinned ||
+    moved.body !== changed.body
+  )
+    throw new Error(
+      "Single context move did not persist or changed note content",
+    );
   await page
     .locator(".card-main")
     .filter({ hasText: "Upgrade preservation" })
     .click();
   if (
-    !(await page.locator(".live-editor").innerText()).includes("Saved by rc2")
+    !(await page.locator(".live-editor").innerText()).includes("Saved by rc3")
   )
     throw new Error("Native editor reload failed");
   await page
@@ -196,8 +239,8 @@ if (phase === "seed") {
     "native-validation.json",
     JSON.stringify(
       {
-        previous: "0.1.0-rc1",
-        current: "0.1.0-rc2",
+        previous: "0.1.0-rc2",
+        current: "0.1.0-rc3",
         installerUpgrade: true,
         signedGithubUpdater: process.env.USE_UPDATER === "true",
         sqlitePreserved: true,
@@ -208,6 +251,7 @@ if (phase === "seed") {
         settingsPage: true,
         deleteConfirmation: true,
         autoUpdateSetting: true,
+        singleContextMove: true,
       },
       null,
       2,
