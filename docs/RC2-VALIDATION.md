@@ -21,3 +21,6 @@
 - 四个 Release 资产远端 SHA-256 与本地一致，公开安装包 HTTP 200。
 - [最终安装包覆盖升级](https://github.com/zeze49024/orvia-windows/actions/runs/39916933521)通过：一次性 Windows 2022 环境实际安装 rc1、写入中文笔记、以最终 rc2 安装包升级，验证 SQLite、标签、收藏、增量保存、历史、置顶与 WebView2 重开正常；原生删除确认取消、自动检测默认启用及关闭落盘通过。
 - 更新清单仅在最终安装包验收通过后推送。应用内签名更新结果另行补充。
+
+- [应用内签名更新验收](https://github.com/zeze49024/orvia-windows/actions/runs/39917356642)：实际 rc1 设置页检查 GitHub 更新，下载并校验最终 rc2 安装包，完成升级。验收 JSON 中 signedGithubUpdater、SQLite、历史、置顶、原生删除取消及自动检测开关保存均为 true。
+- [源码 Windows 检查](https://github.com/zeze49024/orvia-windows/actions/runs/39916865155)通过。公开 RAW 更新清单的 rc2 版本与签名已复核。
