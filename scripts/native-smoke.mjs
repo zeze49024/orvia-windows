@@ -47,7 +47,7 @@ if (phase === "seed") {
     id: "af485e10-f680-4ff6-8b40-af799171e221",
     libraryId: data.libraries[0].id,
     title: "Upgrade preservation",
-    body: "# Native upgrade fixture\n\n中文内容 retained from rc2",
+    body: "# Native upgrade fixture\n\n中文内容 retained from rc3",
     tags: ["upgrade"],
     starred: true,
     createdAt: now,
@@ -81,7 +81,7 @@ if (phase === "seed") {
     .click();
   await page
     .getByRole("dialog")
-    .getByText("v0.1.0-rc2 → v0.1.0-rc3", { exact: true })
+    .getByText("v0.1.0-rc3 → v0.1.0", { exact: true })
     .waitFor({ timeout: 60000 });
   const closed = page.waitForEvent("close", { timeout: 120000 });
   await page
@@ -94,12 +94,12 @@ if (phase === "seed") {
     (d) => d.title === "Upgrade preservation",
   );
   if (
-    !doc?.body.includes("中文内容 retained from rc2") ||
+    !doc?.body.includes("中文内容 retained from rc3") ||
     !doc.starred ||
     doc.tags[0] !== "upgrade"
   )
     throw new Error("Upgrade lost data");
-  const changed = { ...doc, body: doc.body + "\n\nSaved by rc3" };
+  const changed = { ...doc, body: doc.body + "\n\nSaved by v0.1.0" };
   const delta = {
     libraries: { upsert: [], remove: [] },
     documents: { upsert: [changed], remove: [] },
@@ -204,7 +204,7 @@ if (phase === "seed") {
     .filter({ hasText: "Upgrade preservation" })
     .click();
   if (
-    !(await page.locator(".live-editor").innerText()).includes("Saved by rc3")
+    !(await page.locator(".live-editor").innerText()).includes("Saved by v0.1.0")
   )
     throw new Error("Native editor reload failed");
   await page
@@ -239,8 +239,8 @@ if (phase === "seed") {
     "native-validation.json",
     JSON.stringify(
       {
-        previous: "0.1.0-rc2",
-        current: "0.1.0-rc3",
+        previous: "0.1.0-rc3",
+        current: "0.1.0",
         installerUpgrade: true,
         signedGithubUpdater: process.env.USE_UPDATER === "true",
         sqlitePreserved: true,
