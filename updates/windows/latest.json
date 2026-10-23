@@ -1,11 +1,11 @@
 {
-  "version": "0.1.0-beta7",
-  "notes": "优化写作稳定性与 Markdown 文件兼容性，完善编辑与文件往返回归验证",
-  "pub_date": "2026-10-22T02:19:19.758Z",
+  "version": "0.1.0-beta8",
+  "notes": "优化编辑工具栏布局与整体可读性，调整功能图标配色及收藏状态显示",
+  "pub_date": "2026-10-23T03:00:37.420Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRTWVLTkMxVzBkTlZqWi9Md3lPRWo2QUhYa3lKa2Exd0hlVkd3Uk9icGFoakdSN0tLbDBsY0QxUlJpM0FDYVFib1dRMGlnczVKWU5oRHVzSExpV0pQUEdndHdZeG1jdFFVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNjM1NTQ5CWZpbGU6T3J2aWFfMC4xLjAtYmV0YTdfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMS4wLWJldGE3CnFUYm82bmVnOGNzY1VENXErd3NjZy9NM3Q2SmRrcUc0Y2xMRitoQk45N2cxSDFRd0dZKy9FUkIvNTdmNFpzNE9hcGlGMVArK25idUgwTlRlY1BYaERnPT0K",
-      "url": "https://github.com/zeze49024/orvia-windows/releases/download/v0.1.0-beta7/Orvia_0.1.0-beta7_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRTWVLTkMxVzBkTmZaaTc5S2tpSEJFOW1Ia3ZGMDFHMFp6T05SL1lNdEpKVTFGUzBKS2oxb2VIejhwV0p5aTM3Q1NBRW5ENVkrRVlqWUZhVkp1REovc2tPQ1hYL2hWU1FvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNzI0NDIzCWZpbGU6T3J2aWFfMC4xLjAtYmV0YThfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMS4wLWJldGE4ClZZb3hUdzhWL3F4aGwwSngyb1l3eE4reW5xUzRnQm1vNVB2cHF1dGJXVkhhQzVrc3NXUUhXVnVheVlSN3RnYlEzZUdmQ0lvQ1hoTXZjR1R2Y2hJZUF3PT0K",
+      "url": "https://github.com/zeze49024/orvia-windows/releases/download/v0.1.0-beta8/Orvia_0.1.0-beta8_x64-setup.exe"
     }
   }
 }
