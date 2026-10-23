@@ -40,7 +40,7 @@ describe("theme registry and compatibility", () => {
     expect(document.documentElement.classList.contains("dark")).toBe(true);
     applyTheme("light");
     expect(document.documentElement.style.getPropertyValue("--surface")).toBe(
-      "",
+      "#ffffff",
     );
     expect(
       document.documentElement.style.getPropertyValue("--background"),

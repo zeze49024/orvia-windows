@@ -176,5 +176,9 @@
   "markdownFolderHint": "Import Markdown and referenced local PNG, JPEG, GIF and WebP images from the selected folder. Missing images stop the import; files outside this folder are never read.",
   "longDocumentSource": "Long documents use source mode to reduce editing latency. All content is preserved when editing and exporting.",
   "textEncoding": "Unrecognized text encoding. Save as UTF-8 or UTF-16 with a BOM in your original editor, then retry.",
-  "relativeImageError": "An image is missing, unsupported or outside the selected folder. Check Markdown image paths and import the folder again."
+  "relativeImageError": "An image is missing, unsupported or outside the selected folder. Check Markdown image paths and import the folder again.",
+  "formatGroup": "Text formatting",
+  "historyGroup": "Undo and redo",
+  "sourceModeShort": "Source",
+  "liveEditShort": "Live"
 }

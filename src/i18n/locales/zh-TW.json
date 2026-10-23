@@ -176,5 +176,9 @@
   "markdownFolderHint": "同時匯入所選資料夾內的 Markdown 及其參照的本機圖片（PNG、JPEG、GIF、WebP）。缺少圖片會中止匯入；不會讀取資料夾外的檔案。",
   "longDocumentSource": "長文件使用原始碼模式，減少編輯延遲。正文與匯出內容完整保留。",
   "textEncoding": "無法識別此文字編碼，請在原編輯器中另存為 UTF-8 或帶 BOM 的 UTF-16 後重試。",
-  "relativeImageError": "圖片缺失、格式不支援或路徑超出所選資料夾。請檢查 Markdown 圖片路徑，再重新匯入資料夾。"
+  "relativeImageError": "圖片缺失、格式不支援或路徑超出所選資料夾。請檢查 Markdown 圖片路徑，再重新匯入資料夾。",
+  "formatGroup": "文字格式",
+  "historyGroup": "復原與重做",
+  "sourceModeShort": "原始碼",
+  "liveEditShort": "即時"
 }

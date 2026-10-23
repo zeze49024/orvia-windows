@@ -176,5 +176,9 @@
   "markdownFolderHint": "同时导入所选文件夹内的 Markdown 及其引用的本地图片（PNG、JPEG、GIF、WebP）。缺失图片会中止导入；不会读取文件夹外的文件。",
   "longDocumentSource": "长文档使用源码模式，减少编辑延迟。正文与导出内容完整保留。",
   "textEncoding": "无法识别此文本编码，请在原编辑器中另存为 UTF-8 或带 BOM 的 UTF-16 后重试。",
-  "relativeImageError": "图片缺失、格式不支持或路径超出所选文件夹。请检查 Markdown 图片路径，再重新导入文件夹。"
+  "relativeImageError": "图片缺失、格式不支持或路径超出所选文件夹。请检查 Markdown 图片路径，再重新导入文件夹。",
+  "formatGroup": "文本格式",
+  "historyGroup": "撤销与重做",
+  "sourceModeShort": "源码",
+  "liveEditShort": "实时"
 }

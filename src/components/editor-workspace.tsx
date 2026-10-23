@@ -11,15 +11,14 @@ import {
   Download,
   Eye,
   FileText,
-  Search,
-  Star,
   Trash2,
   X,
 } from "lucide-react";
-import React, { useRef } from "react";
+import { useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { DocumentOptions } from "./document-options";
+import { FavoriteButton } from "./favorite-button";
 
 import type { Library, Workspace } from "@/core/model";
 export function EditorWorkspace({
@@ -38,7 +37,6 @@ export function EditorWorkspace({
   setModal,
   importFiles,
   busy,
-  iconButton,
 }: {
   active: Document;
   data: Workspace;
@@ -55,11 +53,6 @@ export function EditorWorkspace({
   setModal: (s: string) => void;
   importFiles: (v?: boolean, insert?: (markdown: string) => void) => void;
   busy: boolean;
-  iconButton: (
-    Icon: typeof Search,
-    label: string,
-    action: () => void,
-  ) => React.ReactNode;
 }) {
   const t = translator(locale),
     paper = useRef<HTMLElement>(null);
@@ -82,9 +75,11 @@ export function EditorWorkspace({
           patch={patch}
           notify={notify}
         />
-        {iconButton(Star, t("star"), () =>
-          patch(active.id, { starred: !active.starred }),
-        )}
+        <FavoriteButton
+          starred={active.starred}
+          label={t("star")}
+          onClick={() => patch(active.id, { starred: !active.starred })}
+        />
         <Button
           variant="outline"
           size="sm"
@@ -93,11 +88,38 @@ export function EditorWorkspace({
           <Eye size={14} />
           {t(preview ? "edit" : "preview")}
         </Button>
-        {iconButton(Download, t("export"), () => markdownExport(active.id))}
-        {iconButton(Trash2, t(active.deletedAt ? "restore" : "remove"), () =>
-          removed(active),
+        <Button
+          variant="ghost"
+          size="icon"
+          className="action-export"
+          aria-label={t("export")}
+          title={t("export")}
+          onClick={() => markdownExport(active.id)}
+        >
+          <Download size={18} />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className={active.deletedAt ? "action-restore" : "action-danger"}
+          aria-label={t(active.deletedAt ? "restore" : "remove")}
+          title={t(active.deletedAt ? "restore" : "remove")}
+          onClick={() => removed(active)}
+        >
+          <Trash2 size={18} />
+        </Button>
+        {active.deletedAt && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="action-danger"
+            aria-label={t("purge")}
+            title={t("purge")}
+            onClick={() => setModal("purge")}
+          >
+            <X size={18} />
+          </Button>
         )}
-        {active.deletedAt && iconButton(X, t("purge"), () => setModal("purge"))}
       </div>
       <div className="editor-layout">
         <article className="editor-paper" ref={paper}>

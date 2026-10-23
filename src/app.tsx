@@ -35,7 +35,6 @@ import { languageRegistry, translator, type MessageKey } from "@/i18n";
 import type { Update } from "@tauri-apps/plugin-updater";
 import {
   AlertCircle,
-  Archive,
   ArrowDownToLine,
   ArrowUpFromLine,
   Check,
@@ -672,11 +671,6 @@ export function App() {
               )}
             </div>
             <div className="topbar-right">
-              <span className="local-status">
-                <span className="green-dot" />
-                {t("offline")}
-              </span>
-              {iconButton(Archive, t("backup"), () => setModal("backup"))}
               <ThemePicker
                 value={data.settings.theme}
                 locale={locale}
@@ -723,7 +717,6 @@ export function App() {
               setModal={setModal}
               importFiles={importFiles}
               busy={busy}
-              iconButton={iconButton}
             />
           ) : (
             <LibraryHome

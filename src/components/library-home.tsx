@@ -17,10 +17,10 @@ import {
   Plus,
   Search,
   ShieldCheck,
-  Star,
 } from "lucide-react";
 
 import type { Workspace } from "@/core/model";
+import { FavoriteButton } from "./favorite-button";
 export function LibraryHome({
   data,
   page,
@@ -257,16 +257,11 @@ export function LibraryHome({
                       {t("restore")}
                     </button>
                   ) : (
-                    <button
-                      aria-label={t("star") + " " + d.title}
+                    <FavoriteButton
+                      starred={d.starred}
+                      label={t("star") + " " + d.title}
                       onClick={() => patch(d.id, { starred: !d.starred })}
-                    >
-                      <Star
-                        size={14}
-                        fill={d.starred ? "#e9af43" : "none"}
-                        color={d.starred ? "#d6a33c" : "#b5b7bf"}
-                      />
-                    </button>
+                    />
                   )}
                 </div>
               </div>

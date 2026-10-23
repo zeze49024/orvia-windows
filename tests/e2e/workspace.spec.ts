@@ -15,6 +15,10 @@ test("write, format, manage, recover, export, import and retain theme across rel
     exact: true,
   });
   await body.fill("原始内容");
+  const favorite = page.locator(".editor-toolbar .favorite-button");
+  await expect(favorite).toHaveAttribute("aria-pressed", "false");
+  await favorite.click();
+  await expect(favorite).toHaveAttribute("aria-pressed", "true");
   await page.keyboard.press("Control+s");
   await expect(page.locator(".editor-save")).toContainText("已保存");
   await body.fill("修改后的内容");
@@ -40,10 +44,15 @@ test("write, format, manage, recover, export, import and retain theme across rel
   await page
     .getByRole("menuitemradio", { name: "深色主题", exact: true })
     .click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.keyboard.press("Control+s");
+  await expect(page.locator(".editor-save")).toContainText("已保存");
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.locator(".card-main").filter({ hasText: "Beta6 验收" }).click();
+  await expect(
+    page.locator(".editor-toolbar .favorite-button"),
+  ).toHaveAttribute("aria-pressed", "true");
   await expect(
     page.getByRole("textbox", { name: "Markdown 正文", exact: true }),
   ).toContainText("修改后的内容");
