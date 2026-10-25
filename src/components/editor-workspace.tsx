@@ -9,6 +9,9 @@ import { formatTime, translator } from "@/i18n";
 import {
   ArrowLeft,
   CheckCircle2,
+  AlertCircle,
+  LoaderCircle,
+  FileDown,
   Download,
   Eye,
   FileText,
@@ -35,6 +38,9 @@ export function EditorWorkspace({
   patch,
   notify,
   markdownExport,
+  pdfExport,
+  saveState,
+  retrySave,
   removed,
   setModal,
   importFiles,
@@ -52,6 +58,9 @@ export function EditorWorkspace({
   patch: (id: string, p: Partial<Document>) => void;
   notify: (s: string) => void;
   markdownExport: (id: string) => void;
+  pdfExport: (id: string) => void;
+  saveState: string;
+  retrySave: () => void;
   removed: (d: Document) => void;
   setModal: (s: string) => void;
   importFiles: (
@@ -72,8 +81,19 @@ export function EditorWorkspace({
           {t("back")}
         </Button>
         <span className="muted editor-save">
-          <CheckCircle2 size={13} />
+          {saveState === "error" ? (
+            <AlertCircle size={14} className="save-error-icon" />
+          ) : saveState === "saving" ? (
+            <LoaderCircle size={14} className="save-spinner" />
+          ) : (
+            <CheckCircle2 size={14} />
+          )}
           {saveLabel}
+          {saveState === "error" && (
+            <button type="button" className="save-retry" onClick={retrySave}>
+              {t("retry")}
+            </button>
+          )}
         </span>
         <div className="flex-spacer" />
         <DocumentOptions
@@ -106,6 +126,18 @@ export function EditorWorkspace({
           onClick={() => markdownExport(active.id)}
         >
           <Download size={18} />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="action-export"
+          aria-label={t("exportPdf")}
+          title={t("exportPdf")}
+          disabled={busy || !!active.deletedAt}
+          onClick={() => pdfExport(active.id)}
+        >
+          <FileDown size={17} />
+          PDF
         </Button>
         <Button
           variant="ghost"

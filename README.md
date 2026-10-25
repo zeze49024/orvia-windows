@@ -38,6 +38,13 @@ Orvia 是一款以本地存储为核心的 Markdown 个人知识库，适合日�
 | 主题与语言 | 内置浅色、深色主题，提供简体中文、繁体中文和英文，并预留主题与语言资源扩展方式。 |
 | 应用更新 | 默认在启动后 10 秒及运行期间每 6 小时检查更新；发现新版本后显示带下载图标的蓝色徽章，点击后保存、下载、校验并安装。 |
 
+## v0.1.1-beta2 预览版
+
+[下载预览版](https://github.com/zeze49024/orvia-windows/releases/tag/v0.1.1-beta2) · [更新日志](docs/RELEASE-v0.1.1-beta2.md)
+
+- 更清楚的保存状态、保存失败重试，以及独立草稿检查点与恢复副本。
+- 编辑页面新增 PDF 导出，保留标题、列表、表格与本地图片，适合打印和分享。
+
 ## v0.1.1-beta1 预览版
 
 [下载预览版](https://github.com/zeze49024/orvia-windows/releases/tag/v0.1.1-beta1) · [完整更新日志](docs/RELEASE-v0.1.1-beta1.md)

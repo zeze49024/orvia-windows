@@ -1,8 +1,12 @@
 // Runs ONLY against a disposable CI installation with WebView2 debugging enabled.
 import { chromium, expect } from "@playwright/test";
+import path from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
 const phase = process.argv[2];
-if (!process.env.CI || !["seed", "verify", "update"].includes(phase))
+if (
+  !process.env.CI ||
+  !["seed", "verify", "update", "crash", "recover"].includes(phase)
+)
   throw new Error("Disposable CI environment required");
 let browser;
 let connectionError;
@@ -47,7 +51,7 @@ if (phase === "seed") {
     id: "af485e10-f680-4ff6-8b40-af799171e221",
     libraryId: data.libraries[0].id,
     title: "Upgrade preservation",
-    body: "# Native upgrade fixture\n\n中文内容 retained from stable",
+    body: "# Native upgrade fixture\n\n中文内容 retained from beta1",
     tags: ["upgrade"],
     starred: true,
     createdAt: now,
@@ -81,25 +85,105 @@ if (phase === "seed") {
     .click();
   await page
     .getByRole("dialog")
-    .getByText("v0.1.0 → v0.1.1-beta1", { exact: true })
+    .getByText("v0.1.1-beta1 → v0.1.1-beta2", { exact: true })
     .waitFor({ timeout: 60000 });
   const closed = page.waitForEvent("close", { timeout: 120000 });
   await page
     .getByRole("button", { name: strings.updateInstall, exact: true })
     .click();
   await closed;
+} else if (phase === "crash") {
+  await page.reload();
+  const loaded = await invoke("load_workspace");
+  const strings = JSON.parse(
+    await readFile(
+      new URL(
+        `../src/i18n/locales/${loaded.data.settings.locale}.json`,
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
+  const doc = loaded.data.documents.find(
+    (d) => d.title === "Upgrade preservation",
+  );
+  await writeFile("native-crash-baseline.json", JSON.stringify(doc));
+  await page.locator(".card-main").filter({ hasText: doc.title }).click();
+  if (!(await page.locator(".source-editor").count()))
+    await page
+      .getByRole("button", { name: strings.sourceMode, exact: true })
+      .click();
+  await page.evaluate(() => {
+    const original = window.__TAURI_INTERNALS__,
+      wrapper = Object.create(original);
+    Object.defineProperty(wrapper, "invoke", {
+      value: (cmd, args, opts) =>
+        cmd === "save_delta"
+          ? Promise.reject(new Error("TEST_DISK_FULL"))
+          : original.invoke(cmd, args, opts),
+    });
+    window.__TAURI_INTERNALS__ = wrapper;
+  });
+  await page
+    .locator(".source-editor")
+    .fill(doc.body + "\n\nCRASH RECOVERY 中文草稿");
+  await page.keyboard.press("Control+s");
+  await expect(page.locator(".save-error")).toContainText(
+    strings.draftProtected,
+  );
+  const journal = await invoke("read_recovery");
+  if (
+    !journal.documents.some(
+      (d) => d.id === doc.id && d.body.includes("CRASH RECOVERY 中文草稿"),
+    )
+  )
+    throw new Error("Draft not protected on disk");
+} else if (phase === "recover") {
+  const baseline = JSON.parse(
+    await readFile("native-crash-baseline.json", "utf8"),
+  );
+  const loaded = await invoke("load_workspace");
+  const strings = JSON.parse(
+    await readFile(
+      new URL(
+        `../src/i18n/locales/${loaded.data.settings.locale}.json`,
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
+  await page
+    .getByRole("button", { name: strings.reviewDrafts, exact: true })
+    .click();
+  await expect(page.getByRole("dialog")).toContainText(baseline.title);
+  await page
+    .getByRole("button", { name: strings.recoverCopies, exact: true })
+    .click();
+  await page.locator(".statusbar").filter({ hasText: strings.saved }).waitFor();
+  const result = (await invoke("load_workspace")).data;
+  if (result.documents.find((d) => d.id === baseline.id).body !== baseline.body)
+    throw new Error("Recovery overwrote original");
+  if (
+    !result.documents.some(
+      (d) => d.id !== baseline.id && d.body.includes("CRASH RECOVERY 中文草稿"),
+    )
+  )
+    throw new Error("Crash draft not restored");
+  const evidence = JSON.parse(await readFile("native-validation.json", "utf8"));
+  evidence.crashRecovery = true;
+  await writeFile("native-validation.json", JSON.stringify(evidence, null, 2));
 } else {
   const loaded = await invoke("load_workspace");
   const doc = loaded.data.documents.find(
     (d) => d.title === "Upgrade preservation",
   );
   if (
-    !doc?.body.includes("中文内容 retained from stable") ||
+    !doc?.body.includes("中文内容 retained from beta1") ||
     !doc.starred ||
     doc.tags[0] !== "upgrade"
   )
     throw new Error("Upgrade lost data");
-  const changed = { ...doc, body: doc.body + "\n\nSaved by v0.1.1-beta1" };
+  const changed = { ...doc, body: doc.body + "\n\nSaved by v0.1.1-beta2" };
   const delta = {
     libraries: { upsert: [], remove: [] },
     documents: { upsert: [changed], remove: [] },
@@ -205,7 +289,7 @@ if (phase === "seed") {
     .click();
   if (
     !(await page.locator(".live-editor").innerText()).includes(
-      "Saved by v0.1.1-beta1",
+      "Saved by v0.1.1-beta2",
     )
   )
     throw new Error("Native editor reload failed");
@@ -260,7 +344,7 @@ if (phase === "seed") {
     .getByRole("button", { name: strings.closeFind, exact: true })
     .click();
   const pixel =
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==";
+    "iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAFUlEQVR4nGP0rrj0nwEJMCFziBMAAKj3ApyajjcEAAAAAElFTkSuQmCC";
   await page.locator(".live-editor").focus();
   await page.keyboard.press("Control+End");
   for (const type of ["paste", "drop"]) {
@@ -353,12 +437,56 @@ if (phase === "seed") {
   await expect
     .poll(() => area.evaluate((el) => [el.selectionStart, el.selectionEnd]))
     .toEqual([3, 5]);
+  // Exercise the actual PDF renderer. Only the save-dialog selection is supplied by this CI fixture.
+  await area.fill(
+    written.body +
+      "\n\n## PDF 中文分页\n\n- 列表一\n- 列表二\n\n| Key | Value |\n| --- | --- |\n| 中文 | 123 |\n\n" +
+      Array.from(
+        { length: 75 },
+        (_, i) => `PDF sample paragraph ${i} 中文内容`,
+      ).join("\n\n"),
+  );
+  await page.keyboard.press("Control+s");
+  await page.locator(".statusbar").filter({ hasText: strings.saved }).waitFor();
+  const pdfPath = path.resolve("native-writing.pdf");
+  await page.evaluate((pdfPath) => {
+    const original = window.__TAURI_INTERNALS__,
+      wrapper = Object.create(original);
+    Object.defineProperty(wrapper, "invoke", {
+      value: (cmd, args, opts) =>
+        cmd === "plugin:dialog|save"
+          ? Promise.resolve(pdfPath)
+          : original.invoke(cmd, args, opts),
+    });
+    window.__TAURI_INTERNALS__ = wrapper;
+  }, pdfPath);
+  await page
+    .getByRole("button", { name: strings.exportPdf, exact: true })
+    .click();
+  await expect
+    .poll(
+      async () => {
+        try {
+          return (await readFile(pdfPath)).subarray(0, 5).toString();
+        } catch {
+          return "";
+        }
+      },
+      { timeout: 60000 },
+    )
+    .toBe("%PDF-");
+  const pdf = (await readFile(pdfPath)).toString("latin1");
+  if (
+    (pdf.match(/\/Type \/Page\b/g) ?? []).length < 2 ||
+    !pdf.includes("/Subtype /Image")
+  )
+    throw new Error("Native PDF lost pages or images");
   await writeFile(
     "native-validation.json",
     JSON.stringify(
       {
-        previous: "0.1.0",
-        current: "0.1.1-beta1",
+        previous: "0.1.1-beta1",
+        current: "0.1.1-beta2",
         installerUpgrade: true,
         signedGithubUpdater: process.env.USE_UPDATER === "true",
         sqlitePreserved: true,
@@ -374,6 +502,7 @@ if (phase === "seed") {
         localImagePasteDrop: true,
         imageOptionsAndPreview: true,
         writingPosition: true,
+        pdfExport: true,
       },
       null,
       2,

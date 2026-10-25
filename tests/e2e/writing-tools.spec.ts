@@ -107,7 +107,7 @@ test("source replacement preserves unsupported syntax and restores selected care
     .toEqual([19, 21]);
 });
 const png =
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==";
+  "iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAFUlEQVR4nGP0rrj0nwEJMCFziBMAAKj3ApyajjcEAAAAAElFTkSuQmCC";
 async function sendImage(
   page: Page,
   type: "paste" | "drop",

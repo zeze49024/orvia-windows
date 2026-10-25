@@ -231,5 +231,20 @@
   "imageSize": "显示宽度",
   "imageOptionsHint": "调整显示宽度，不改变原始图片；导出保留标准 Markdown 图片语法。",
   "imageFileOnly": "仅支持 PNG、JPEG、WebP 和 GIF 本地图片。",
-  "replaceLimit": "实时编辑一次最多替换 5000 项。请缩小查找范围，或切换源码模式进行大批量替换。"
+  "replaceLimit": "实时编辑一次最多替换 5000 项。请缩小查找范围，或切换源码模式进行大批量替换。",
+  "recoveryFound": "发现上次未保存的草稿",
+  "reviewDrafts": "查看恢复草稿",
+  "recoveryHint": "查看草稿后可恢复为新副本，原笔记保持不变。未处理的草稿会保留到下次启动。",
+  "untitled": "未命名笔记",
+  "later": "稍后处理",
+  "discardDrafts": "丢弃草稿",
+  "discardDraftsHint": "丢弃这些未保存草稿后将无法再次恢复。此操作不删除已保存笔记。",
+  "recoveredSuffix": "（恢复副本）",
+  "draftsRecovered": "草稿已恢复为副本",
+  "recoverCopies": "恢复为副本",
+  "draftProtectionError": "草稿保护暂不可用。未保存内容仍在当前窗口，请重试保存或导出备份后再关闭。",
+  "draftProtected": "最近草稿已单独保护",
+  "draftPending": "最近草稿仍在写入，请勿关闭应用",
+  "exportPdf": "导出 PDF",
+  "pdfPrintClosed": "打印窗口已关闭，请确认 PDF 是否已保存。"
 }

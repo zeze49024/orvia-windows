@@ -231,5 +231,20 @@
   "imageSize": "顯示寬度",
   "imageOptionsHint": "調整顯示寬度，不改變原始圖片；匯出保留標準 Markdown 圖片語法。",
   "imageFileOnly": "僅支援 PNG、JPEG、WebP 和 GIF 本機圖片。",
-  "replaceLimit": "即時編輯一次最多取代 5000 項。請縮小尋找範圍，或切換原始碼模式進行大量取代。"
+  "replaceLimit": "即時編輯一次最多取代 5000 項。請縮小尋找範圍，或切換原始碼模式進行大量取代。",
+  "recoveryFound": "發現上次未儲存的草稿",
+  "reviewDrafts": "檢視復原草稿",
+  "recoveryHint": "檢視草稿後可復原為新副本，原筆記保持不變。未處理的草稿會保留到下次啟動。",
+  "untitled": "未命名筆記",
+  "later": "稍後處理",
+  "discardDrafts": "捨棄草稿",
+  "discardDraftsHint": "捨棄這些未儲存草稿後將無法再次復原。此操作不刪除已儲存筆記。",
+  "recoveredSuffix": "（復原副本）",
+  "draftsRecovered": "草稿已復原為副本",
+  "recoverCopies": "復原為副本",
+  "draftProtectionError": "草稿保護暫不可用。未儲存內容仍在目前視窗，請重試儲存或匯出備份後再關閉。",
+  "draftProtected": "最近草稿已單獨保護",
+  "draftPending": "最近草稿仍在寫入，請勿關閉應用程式",
+  "exportPdf": "匯出 PDF",
+  "pdfPrintClosed": "列印視窗已關閉，請確認 PDF 是否已儲存。"
 }

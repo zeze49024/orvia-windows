@@ -1,6 +1,6 @@
 [package]
 name = "orvia"
-version = "0.1.1-beta1"
+version = "0.1.1-beta2"
 description = "Orvia local personal knowledge library"
 authors = ["zeze49024"]
 edition = "2021"
@@ -22,3 +22,7 @@ sha2 = "0.10"
 
 [dev-dependencies]
 tempfile = "3"
+
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.39.1"
+windows = { version = "0.62", features = ["Win32_Foundation"] }

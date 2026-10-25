@@ -1,0 +1,58 @@
+.recovery-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 20px;
+  background: var(--blue-bg);
+  border-bottom: 1px solid var(--line);
+  color: var(--text);
+  font-size: 13px;
+}
+.recovery-dialog {
+  max-width: 760px !important;
+}
+.recovery-list {
+  max-height: 48vh;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.recovery-list details {
+  padding: 12px;
+  border-bottom: 1px solid var(--line);
+}
+.recovery-list summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.recovery-list pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 240px;
+  overflow: auto;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+.save-error-icon {
+  color: #dc3545;
+}
+.save-spinner {
+  animation: save-spin 1s linear infinite;
+}
+.save-retry {
+  color: var(--blue);
+  text-decoration: underline;
+  margin-left: 6px;
+}
+@keyframes save-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .save-spinner {
+    animation: none;
+  }
+}

@@ -1,0 +1,167 @@
+.pdf-export-root {
+  position: fixed;
+  left: -100000px;
+  top: 0;
+  width: 180mm;
+  background: #fff;
+  color: #111;
+  pointer-events: none;
+}
+.pdf-document {
+  font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+  font-size: 11pt;
+  line-height: 1.7;
+  color: #20252b;
+  background: white;
+  overflow-wrap: anywhere;
+}
+.pdf-document .pdf-title {
+  font-size: 24pt;
+  border-bottom: 1px solid #dce1e7;
+  padding-bottom: 12pt;
+  margin: 0 0 22pt;
+}
+.pdf-document h1 {
+  font-size: 21pt;
+}
+.pdf-document h2 {
+  font-size: 17pt;
+}
+.pdf-document h3 {
+  font-size: 14pt;
+}
+.pdf-document h4,
+.pdf-document h5,
+.pdf-document h6 {
+  font-size: 12pt;
+}
+.pdf-document h1,
+.pdf-document h2,
+.pdf-document h3,
+.pdf-document h4,
+.pdf-document h5,
+.pdf-document h6 {
+  line-height: 1.4;
+  margin-top: 20pt;
+  margin-bottom: 8pt;
+  break-after: avoid;
+}
+.pdf-document p {
+  margin: 8pt 0;
+  orphans: 3;
+  widows: 3;
+}
+.pdf-document img {
+  display: block;
+  max-width: 100%;
+  max-height: 240mm;
+  object-fit: contain;
+  margin: 12pt 0;
+  break-inside: avoid;
+}
+.pdf-document pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 10pt;
+  background: #f2f4f7;
+  border: 1px solid #e0e4e9;
+  border-radius: 4pt;
+  font-size: 9pt;
+  line-height: 1.5;
+}
+.pdf-document code {
+  font-family: Consolas, "Microsoft YaHei", monospace;
+  font-size: 9pt;
+}
+.pdf-document table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  margin: 12pt 0;
+  font-size: 10pt;
+}
+.pdf-document th,
+.pdf-document td {
+  border: 1px solid #cbd2da;
+  padding: 6pt 8pt;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+.pdf-document th {
+  background: #f0f3f7;
+  text-align: left;
+}
+.pdf-document thead {
+  display: table-header-group;
+}
+.pdf-document tr {
+  break-inside: avoid;
+}
+.pdf-document blockquote {
+  border-left: 3pt solid #7a9bc5;
+  background: #f6f8fb;
+  margin: 12pt 0;
+  padding: 6pt 12pt;
+}
+.pdf-document li {
+  margin: 4pt 0;
+}
+.pdf-document a {
+  color: #245a96;
+  text-decoration: underline;
+}
+.pdf-document hr {
+  border: 0;
+  border-top: 1px solid #ddd;
+  margin: 16pt 0;
+}
+.pdf-missing-image {
+  color: #666;
+  font-style: italic;
+}
+@media print {
+  @page {
+    size: A4;
+    margin: 16mm;
+  }
+  html,
+  body {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    background: white !important;
+  }
+  body > * {
+    display: none !important;
+  }
+  body > .pdf-export-root {
+    display: block !important;
+    position: static !important;
+    width: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+    pointer-events: auto;
+  }
+  .pdf-document {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+.pdf-document ul {
+  list-style: disc;
+  padding-left: 20pt;
+}
+.pdf-document ol {
+  list-style: decimal;
+  padding-left: 20pt;
+}
+.pdf-document ul ul {
+  list-style: circle;
+}
+.pdf-document li.task-list-item {
+  list-style: none;
+}
+.pdf-document input[type="checkbox"] {
+  margin-right: 6pt;
+}

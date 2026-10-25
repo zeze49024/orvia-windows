@@ -1,3 +1,5 @@
+import { RecoveryNotice } from "./components/recovery-notice";
+import { exportPdf } from "./core/pdf-export";
 import { useConfirmation } from "./hooks/use-confirmation";
 import { useUpdateDiscovery } from "./hooks/use-update-discovery";
 import { useJobRunner } from "./hooks/use-job-runner";
@@ -382,6 +384,11 @@ export function App() {
         id,
       );
       if (await saveFile(file.name, file.bytes, ["md"])) notify(t("exported"));
+    });
+  const pdfExport = (id: string) =>
+    run(async () => {
+      if (await exportPdf(structuredClone(store.data), id))
+        notify(t(native ? "exported" : "pdfPrintClosed"));
     });
   const restoreSelect = () =>
     run(async () => {
@@ -783,13 +790,30 @@ export function App() {
               </div>
             </div>
           )}
-          {store.status === "error" && (
+          <RecoveryNotice
+            locale={locale}
+            notify={notify}
+            confirm={confirm}
+            onOpen={openDoc}
+          />
+          {store.recoveryState === "error" && (
+            <div className="save-error" role="alert">
+              {t("draftProtectionError")}
+            </div>
+          )}
+          {store.error && store.ready && (
             <div className="save-error" role="alert">
               <AlertCircle size={16} />
               <span>
                 {store.error.includes("CONFLICT")
                   ? t("conflict")
                   : t("saveError")}
+                {" · "}
+                {t(
+                  store.recoveryState === "saved"
+                    ? "draftProtected"
+                    : "draftPending",
+                )}
               </span>
               <Button
                 size="sm"
@@ -837,6 +861,9 @@ export function App() {
                 patch={patch}
                 notify={notify}
                 markdownExport={markdownExport}
+                pdfExport={pdfExport}
+                saveState={store.status}
+                retrySave={() => void store.flush().catch(error)}
                 removed={removed}
                 setModal={setModal}
                 importFiles={importFiles}
@@ -876,7 +903,8 @@ export function App() {
               <span
                 className={store.status === "error" ? "error-dot" : "green-dot"}
               />
-              {native ? saveLabel : t("browserPreview")}
+              {saveLabel}
+              {!native && <small> · {t("browserPreview")}</small>}
             </span>
             <span>
               {languageRegistry.find((l) => l.code === locale)?.name}

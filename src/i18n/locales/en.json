@@ -231,5 +231,20 @@
   "imageSize": "Display width",
   "imageOptionsHint": "Change display width without changing the original image. Export retains standard Markdown image syntax.",
   "imageFileOnly": "Only local PNG, JPEG, WebP and GIF images are supported.",
-  "replaceLimit": "Rich editing replaces up to 5,000 matches at once. Narrow your search or switch to source mode for larger replacements."
+  "replaceLimit": "Rich editing replaces up to 5,000 matches at once. Narrow your search or switch to source mode for larger replacements.",
+  "recoveryFound": "Unsaved drafts found",
+  "reviewDrafts": "Review recovered drafts",
+  "recoveryHint": "Review and restore drafts as new copies. Original notes stay unchanged. Deferred drafts remain available on the next launch.",
+  "untitled": "Untitled note",
+  "later": "Later",
+  "discardDrafts": "Discard drafts",
+  "discardDraftsHint": "Discarded drafts cannot be recovered again. Saved notes will not be deleted.",
+  "recoveredSuffix": " (recovered copy)",
+  "draftsRecovered": "Drafts restored as copies",
+  "recoverCopies": "Restore as copies",
+  "draftProtectionError": "Draft protection is unavailable. Unsaved text is still in this window. Retry saving or export a backup before closing.",
+  "draftProtected": "Latest draft independently protected",
+  "draftPending": "Latest draft is still being written; keep the app open",
+  "exportPdf": "Export PDF",
+  "pdfPrintClosed": "Print dialog closed. Please confirm that your PDF was saved."
 }

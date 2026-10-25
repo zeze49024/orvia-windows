@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 use rusqlite::{Connection, OptionalExtension};
 mod persistence;
+mod pdf;
 use persistence::{apply_delta, open_db, save, validate_asset_id, Delta};
 use serde::Serialize;
 use serde_json::Value;
@@ -17,6 +18,25 @@ struct Loaded {
     revision: i64,
     data: Option<Value>,
     path: String,
+}
+#[tauri::command]
+fn read_recovery(storage: State<Storage>) -> Result<Option<Value>,String> {
+ let file=storage.root.join("writing-recovery.json");
+ if !file.exists(){return Ok(None);}
+ if fs::metadata(&file).map_err(|_|"RECOVERY_READ")?.len()>64*1024*1024{return Err("RECOVERY_SIZE".into());}
+ let bytes=fs::read(&file).map_err(|_|"RECOVERY_READ")?;
+ serde_json::from_slice(&bytes).map(Some).map_err(|_|"RECOVERY_INVALID".into())
+}
+#[tauri::command]
+fn write_recovery(storage: State<Storage>,data: Value) -> Result<(),String> {
+ use std::io::Write;
+ let bytes=serde_json::to_vec(&data).map_err(|_|"RECOVERY_INVALID")?;
+ if bytes.len()>64*1024*1024{return Err("RECOVERY_SIZE".into());}
+ let temp=storage.root.join("writing-recovery.tmp");
+ let mut file=fs::File::create(&temp).map_err(|_|"RECOVERY_WRITE")?;
+ file.write_all(&bytes).and_then(|_|file.sync_all()).map_err(|_|"RECOVERY_WRITE")?;
+ drop(file);
+ fs::rename(temp,storage.root.join("writing-recovery.json")).map_err(|_|"RECOVERY_WRITE".into())
 }
 #[tauri::command]
 fn load_workspace(storage: State<Storage>) -> Result<Loaded, String> {
@@ -185,7 +205,10 @@ fn main() {
             save_delta,
             document_history,
             put_asset,
-            read_asset
+            read_asset,
+            read_recovery,
+            write_recovery,
+            pdf::export_pdf
         ])
         .run(tauri::generate_context!())
         .expect("Orvia startup failed");

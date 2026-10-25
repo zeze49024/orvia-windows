@@ -1,3 +1,12 @@
+import {
+  makeRecovery,
+  readBrowserRecovery,
+  writeBrowserRecovery,
+  recoverySchema,
+  recoveryCandidates,
+  recoverCopies,
+  type Recovery,
+} from "./recovery";
 import { workspaceDelta, type WorkspaceDelta } from "./delta";
 import { snapshot, type HistoryEntry } from "./history";
 import { invoke, isTauri } from "@tauri-apps/api/core";
@@ -202,6 +211,62 @@ export class WorkspaceStore {
     }));
     await this.flush();
   }
+  recovery: Recovery | null = null;
+  recoveryState: "saving" | "saved" | "error" = "saved";
+  private recoveryQueue: Promise<void> = Promise.resolve();
+  private recoveryTimer: ReturnType<typeof setTimeout> | undefined;
+  private recoveryTicket = 0;
+  get recoverable() {
+    return recoveryCandidates(this.recovery, this.data);
+  }
+  async flushRecovery() {
+    if (this.recoveryTimer) {
+      clearTimeout(this.recoveryTimer);
+      this.recoveryTimer = undefined;
+      this.checkpoint();
+    }
+    await this.recoveryQueue;
+  }
+  private checkpoint() {
+    const journal = makeRecovery(this.persisted, this.data, this.recovery),
+      ticket = ++this.recoveryTicket;
+    this.recoveryState = "saving";
+    this.recoveryQueue = this.recoveryQueue.then(async () => {
+      try {
+        if (
+          new TextEncoder().encode(JSON.stringify(journal)).length >
+          64 * 1024 * 1024
+        )
+          throw new Error("RECOVERY_SIZE");
+        if (native) await invoke("write_recovery", { data: journal });
+        else await writeBrowserRecovery(journal);
+        if (ticket === this.recoveryTicket) this.recoveryState = "saved";
+      } catch {
+        if (ticket === this.recoveryTicket) this.recoveryState = "error";
+      }
+      this.emit();
+    });
+  }
+  async recoverDrafts(suffix: string) {
+    if (!this.recovery) return [];
+    const restored = recoverCopies(this.data, this.recovery, suffix);
+    this.recovery = null;
+    this.change(() => restored.data);
+    await this.flush();
+    return restored.ids;
+  }
+  async discardDrafts() {
+    const previous = this.recovery;
+    this.recovery = null;
+    this.checkpoint();
+    await this.flushRecovery();
+    if (this.recoveryState === "error") {
+      this.recovery = previous;
+      this.emit();
+      throw new Error("RECOVERY_WRITE");
+    }
+    this.emit();
+  }
   private listeners = new Set<() => void>();
   private timer: ReturnType<typeof setTimeout> | undefined;
   private generation = 0;
@@ -237,6 +302,19 @@ export class WorkspaceStore {
       this.revision = result.revision;
       this.ready = true;
       this.status = "saved";
+      try {
+        const journal = native
+          ? await invoke("read_recovery")
+          : await readBrowserRecovery();
+        this.recovery = journal ? recoverySchema.parse(journal) : null;
+        if (
+          this.recovery &&
+          !recoveryCandidates(this.recovery, this.data).length
+        )
+          this.recovery = null;
+      } catch {
+        this.recoveryState = "error";
+      }
       if (!result.data) {
         this.generation++;
         await this.flush();
@@ -253,7 +331,14 @@ export class WorkspaceStore {
     if (!this.ready) throw new Error("STORAGE_NOT_READY");
     this.data = update(this.data);
     this.generation++;
-    this.status = "saving";
+    this.status = this.error ? "error" : "saving";
+    this.recoveryTicket++;
+    this.recoveryState = "saving";
+    clearTimeout(this.recoveryTimer);
+    this.recoveryTimer = setTimeout(() => {
+      this.recoveryTimer = undefined;
+      this.checkpoint();
+    }, 120);
     this.emit();
     clearTimeout(this.timer);
     this.timer = setTimeout(() => {
@@ -289,6 +374,7 @@ export class WorkspaceStore {
     this.status = "saving";
     this.emit();
     try {
+      await this.flushRecovery();
       const delta = workspaceDelta(this.persisted, data);
       this.revision = native
         ? await invoke<number>("save_delta", {
@@ -302,6 +388,7 @@ export class WorkspaceStore {
       this.savedGeneration = generation;
       this.error = "";
       this.status = this.dirty ? "saving" : "saved";
+      this.checkpoint();
     } catch (e) {
       this.error = String(e);
       this.status = "error";
