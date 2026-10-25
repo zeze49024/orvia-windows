@@ -1,3 +1,4 @@
+import { markdownImage } from "./image-options";
 import StarterKit from "@tiptap/starter-kit";
 import { Markdown } from "@tiptap/markdown";
 import Image from "@tiptap/extension-image";
@@ -10,6 +11,19 @@ import remarkGfm from "remark-gfm";
 // Never put an untrusted Markdown URL into an image src, including during paste.
 // The React node view resolves only verified workspace assets to blob URLs.
 export const SafeImage = Image.extend({
+  parseMarkdown: (token, helpers) =>
+    helpers.createNode("image", {
+      src: token.href,
+      title: token.title,
+      // Marked unescapes bracket escapes in image.text, but leaves escaped backslashes.
+      alt: token.text?.replace(/\\\\/g, "\\"),
+    }),
+  renderMarkdown: (node) =>
+    markdownImage(
+      node.attrs?.src ?? "",
+      node.attrs?.alt ?? "",
+      node.attrs?.title ?? null,
+    ),
   renderHTML({ node }) {
     return [
       "span",

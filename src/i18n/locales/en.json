@@ -214,5 +214,22 @@
   "autoUpdateHint": "Check 10 seconds after startup and every 6 hours. Failures stay quiet.",
   "updating": "Downloading and installing update",
   "updateProgressHint": "Your notes are saved before installation. The app will restart after updating.",
-  "exportNotes": "Export"
+  "exportNotes": "Export",
+  "findReplace": "Find and replace",
+  "findText": "Find text",
+  "replaceWith": "Replace with",
+  "replace": "Replace",
+  "replaceAll": "Replace all",
+  "previousMatch": "Previous match",
+  "nextMatch": "Next match",
+  "matchCase": "Match case",
+  "closeFind": "Close find",
+  "noMatches": "No matches",
+  "imagePreview": "Preview image",
+  "imageOptions": "Image settings",
+  "imageAlt": "Alternative text",
+  "imageSize": "Display width",
+  "imageOptionsHint": "Change display width without changing the original image. Export retains standard Markdown image syntax.",
+  "imageFileOnly": "Only local PNG, JPEG, WebP and GIF images are supported.",
+  "replaceLimit": "Rich editing replaces up to 5,000 matches at once. Narrow your search or switch to source mode for larger replacements."
 }

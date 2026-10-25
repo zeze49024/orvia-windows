@@ -1,6 +1,6 @@
 # 开发与发布
 
-版本：v0.1.0 正式版。按用户要求综合 beta1–beta8、rc1–rc3 更新日志，见 [正式版日志](RELEASE-v0.1.0.md)；验收见 [正式版验证记录](V0.1.0-VALIDATION.md)。
+版本：v0.1.1-beta1。用户授权助手编写本版日志，见 [本版日志](RELEASE-v0.1.1-beta1.md)；验收见 [写作体验验证](V0.1.1-BETA1-VALIDATION.md)。
 
 ## 启动
 

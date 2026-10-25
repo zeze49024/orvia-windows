@@ -6,6 +6,7 @@ import "./beta6.css";
 import "./beta8.css";
 import "./rc1.css";
 import "./rc2.css";
+import "./writing-tools.css";
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./app";

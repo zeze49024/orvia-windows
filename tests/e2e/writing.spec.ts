@@ -51,6 +51,8 @@ test("source edits undo/redo, recover unsupported syntax, and retain content aft
   await expect(page.locator(".editor-save")).toContainText("已保存");
   await page.reload();
   await page.locator(".card-main").filter({ hasText: "源码稳定性" }).click();
+  await expect(source).toHaveValue("# 中文与 emoji 😀\n\n纯正文");
+  await page.getByRole("button", { name: "实时编辑", exact: true }).click();
   await expect(page.locator(".live-editor h1")).toHaveText("中文与 emoji 😀");
 });
 

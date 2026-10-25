@@ -1,9 +1,18 @@
+import { imageWidth } from "@/core/image-options";
 import { useEffect, useState } from "react";
 import { ImagePlus } from "lucide-react";
 import { store, getAsset } from "@/core/storage";
 import { translator } from "@/i18n";
 
-export function LocalImage({ src, alt }: { src?: string; alt?: string }) {
+export function LocalImage({
+  src,
+  alt,
+  title,
+}: {
+  src?: string;
+  alt?: string;
+  title?: string;
+}) {
   const [url, setUrl] = useState("");
   useEffect(() => {
     let current = "",
@@ -28,7 +37,11 @@ export function LocalImage({ src, alt }: { src?: string; alt?: string }) {
     };
   }, [src]);
   return url ? (
-    <img src={url} alt={alt ?? ""} />
+    <img
+      src={url}
+      alt={alt ?? ""}
+      style={title ? { width: `${imageWidth(title)}%` } : undefined}
+    />
   ) : (
     <span className="blocked-image">
       <ImagePlus size={16} />

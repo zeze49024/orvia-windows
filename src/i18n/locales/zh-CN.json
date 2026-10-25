@@ -214,5 +214,22 @@
   "autoUpdateHint": "启动后 10 秒检测一次，运行期间每 6 小时检测；检测失败不打断写作。",
   "updating": "正在下载并安装更新",
   "updateProgressHint": "更新前会保存文档，安装完成后应用将重新启动。",
-  "exportNotes": "导出"
+  "exportNotes": "导出",
+  "findReplace": "查找与替换",
+  "findText": "查找内容",
+  "replaceWith": "替换为",
+  "replace": "替换",
+  "replaceAll": "全部替换",
+  "previousMatch": "上一个匹配",
+  "nextMatch": "下一个匹配",
+  "matchCase": "区分大小写",
+  "closeFind": "关闭查找",
+  "noMatches": "没有匹配项",
+  "imagePreview": "预览图片",
+  "imageOptions": "图片设置",
+  "imageAlt": "替代文字",
+  "imageSize": "显示宽度",
+  "imageOptionsHint": "调整显示宽度，不改变原始图片；导出保留标准 Markdown 图片语法。",
+  "imageFileOnly": "仅支持 PNG、JPEG、WebP 和 GIF 本地图片。",
+  "replaceLimit": "实时编辑一次最多替换 5000 项。请缩小查找范围，或切换源码模式进行大批量替换。"
 }

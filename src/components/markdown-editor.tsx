@@ -1,12 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { closeHistory } from "@tiptap/pm/history";
-import {
-  EditorContent,
-  NodeViewWrapper,
-  ReactNodeViewRenderer,
-  useEditor,
-  type NodeViewProps,
-} from "@tiptap/react";
+import { EditorContent, ReactNodeViewRenderer, useEditor } from "@tiptap/react";
 import {
   Bold,
   Italic,
@@ -21,6 +15,10 @@ import {
   Quote,
   Table,
   CodeSquare,
+  Search,
+  ChevronUp,
+  ChevronDown,
+  X,
 } from "lucide-react";
 import {
   editorExtensions,
@@ -30,7 +28,13 @@ import {
 } from "@/core/editor";
 import { translator, type MessageKey } from "@/i18n";
 import type { Locale } from "@/core/model";
-import { LocalImage } from "./local-image";
+import { AssetNode } from "./editor-image";
+import { Extension } from "@tiptap/core";
+import { Plugin } from "@tiptap/pm/state";
+import { Decoration, DecorationSet } from "@tiptap/pm/view";
+import { richMatches, textMatches, replaceMatches } from "@/core/find";
+import { readPosition } from "@/core/writing-position";
+import { useWritingPosition } from "@/hooks/use-writing-position";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { HeadingMenu } from "./ui/heading-menu";
@@ -43,13 +47,6 @@ import {
   DialogDescription,
 } from "./ui/dialog";
 
-function AssetNode({ node }: NodeViewProps) {
-  return (
-    <NodeViewWrapper className="editor-image" contentEditable={false}>
-      <LocalImage src={node.attrs.src} alt={node.attrs.alt} />
-    </NodeViewWrapper>
-  );
-}
 const AssetImage = SafeImage.extend({
   addNodeView() {
     return ReactNodeViewRenderer(AssetNode);
@@ -57,24 +54,51 @@ const AssetImage = SafeImage.extend({
 });
 
 export function MarkdownEditor({
+  documentId,
   value,
   onChange,
   locale,
   onImage,
+  onImageFiles,
   busy,
   notify,
 }: {
+  documentId: string;
   value: string;
   onChange: (value: string) => void;
   locale: Locale;
   onImage: (insert: (markdown: string) => void) => void;
+  onImageFiles: (files: File[], insert: (markdown: string) => void) => void;
   busy: boolean;
   notify: (message: string) => void;
 }) {
   const t = translator(locale),
-    latest = useRef({ value, onChange, notify, t });
-  latest.current = { value, onChange, notify, t };
-  const [source, setSource] = useState(value.length > 200_000),
+    latest = useRef({ value, onChange, notify, t, busy });
+  latest.current = { value, onChange, notify, t, busy };
+  const root = useRef<HTMLDivElement>(null);
+  const initialPosition = useRef(readPosition(documentId));
+  const importImagesRef = useRef<(files: File[], position?: number) => void>(
+    () => {},
+  );
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  const [findOpen, setFindOpen] = useState(false),
+    [replaceOpen, setReplaceOpen] = useState(false);
+  const [query, setQuery] = useState(""),
+    [replacement, setReplacement] = useState(""),
+    [sensitive, setSensitive] = useState(false),
+    [matchIndex, setMatchIndex] = useState(0);
+  const searchInput = useRef<HTMLInputElement>(null);
+  const searchState = useRef({ query, sensitive, matchIndex, findOpen });
+  searchState.current = { query, sensitive, matchIndex, findOpen };
+  const [source, setSource] = useState(
+      value.length > 200_000 || initialPosition.current?.mode === "source",
+    ),
     [guarded, setGuarded] = useState(false);
   const [sourceLevel, setSourceLevel] = useState(0);
   const [linkOpen, setLinkOpen] = useState(false),
@@ -88,10 +112,45 @@ export function MarkdownEditor({
   const sourceComposition = useRef<SourceSnapshot | null>(null);
   const sourceSelection = useRef({ from: 0, to: 0 });
   const editor = useEditor({
-    extensions: editorExtensions(
-      AssetImage,
-      (text) => `${latest.current.t("task")}: ${text}`,
-    ),
+    extensions: [
+      ...editorExtensions(
+        AssetImage,
+        (text) => `${latest.current.t("task")}: ${text}`,
+      ),
+      Extension.create({
+        name: "findHighlight",
+        addProseMirrorPlugins: () => [
+          new Plugin({
+            props: {
+              decorations: (state) => {
+                const search = searchState.current;
+                if (!search.findOpen || !search.query) return null;
+                const matches = richMatches(
+                  state.doc,
+                  search.query,
+                  search.sensitive,
+                );
+                const current =
+                  matches[search.matchIndex % (matches.length || 1)];
+                const shown = matches.slice(0, 2000);
+                if (current && !shown.includes(current)) shown.push(current);
+                return DecorationSet.create(
+                  state.doc,
+                  shown.map((match) =>
+                    Decoration.inline(match.from, match.to, {
+                      class:
+                        match === current
+                          ? "find-match find-current"
+                          : "find-match",
+                    }),
+                  ),
+                );
+              },
+            },
+          }),
+        ],
+      }),
+    ],
     content: value.length > 200_000 ? "" : value,
     contentType: "markdown",
     editorProps: {
@@ -143,8 +202,28 @@ export function MarkdownEditor({
         }
         return false;
       },
-      // Paste text only: HTML clipboard images must never initiate remote requests.
+      handleDrop: (view, event, _slice, moved) => {
+        const files = Array.from(event.dataTransfer?.files ?? []);
+        if (!files.length) return false;
+        event.preventDefault();
+        if (!moved && !latest.current.busy && !composing.current) {
+          const pos = view.posAtCoords({
+            left: event.clientX,
+            top: event.clientY,
+          })?.pos;
+          importImagesRef.current(files, pos);
+        }
+        return true;
+      },
+      // Only explicit local files and plain text; HTML must never fetch remote images.
       handlePaste: (_view, event) => {
+        if (latest.current.busy || composing.current) return true;
+        const files = Array.from(event.clipboardData?.files ?? []);
+        if (files.length) {
+          event.preventDefault();
+          importImagesRef.current(files);
+          return true;
+        }
         const text = event.clipboardData?.getData("text/plain");
         if (!text) return true;
         const ed = editorRef.current;
@@ -179,6 +258,93 @@ export function MarkdownEditor({
   });
   const editorRef = useRef(editor);
   editorRef.current = editor;
+  useWritingPosition(
+    documentId,
+    editor,
+    source,
+    textarea,
+    root,
+    initialPosition.current,
+  );
+  useEffect(() => {
+    editor?.setEditable(!busy, false);
+  }, [editor, busy]);
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (
+        root.current?.closest("[hidden]") ||
+        document.querySelector('[role="dialog"], [role="alertdialog"]') ||
+        event.isComposing ||
+        composing.current
+      )
+        return;
+      if (
+        (event.ctrlKey || event.metaKey) &&
+        ["f", "h"].includes(event.key.toLowerCase())
+      ) {
+        event.preventDefault();
+        setFindOpen(true);
+        setReplaceOpen(event.key.toLowerCase() === "h");
+        requestAnimationFrame(() => {
+          searchInput.current?.focus();
+          searchInput.current?.select();
+        });
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+  useEffect(() => {
+    if (!editor || source || editor.isDestroyed) return;
+    editor.view.dispatch(
+      editor.state.tr
+        .setMeta("findHighlight", true)
+        .setMeta("addToHistory", false),
+    );
+  }, [editor, source, query, sensitive, matchIndex, findOpen]);
+  const matches = source
+    ? textMatches(value, query, sensitive)
+    : editor
+      ? richMatches(editor.state.doc, query, sensitive)
+      : [];
+  const currentIndex = matches.length ? matchIndex % matches.length : 0;
+  const jump = (index: number) => {
+    if (!matches.length) return;
+    const next = (index + matches.length) % matches.length;
+    setMatchIndex(next);
+    const match = matches[next];
+    if (source && textarea.current) {
+      const area = textarea.current;
+      area.setSelectionRange(match.from, match.to);
+      const mirror = document.createElement("div"),
+        style = getComputedStyle(area);
+      for (const key of [
+        "font",
+        "lineHeight",
+        "letterSpacing",
+        "padding",
+        "boxSizing",
+        "tabSize",
+        "overflowWrap",
+        "wordBreak",
+      ] as const)
+        mirror.style[key] = style[key];
+      Object.assign(mirror.style, {
+        position: "absolute",
+        visibility: "hidden",
+        whiteSpace: "pre-wrap",
+        width: `${area.clientWidth}px`,
+      });
+      mirror.append(document.createTextNode(area.value.slice(0, match.from)));
+      const marker = document.createElement("span");
+      marker.textContent = "|";
+      mirror.append(marker);
+      document.body.append(mirror);
+      area.scrollTop = Math.max(0, marker.offsetTop - area.clientHeight / 2);
+      mirror.remove();
+      area.scrollIntoView({ block: "nearest" });
+    } else editor?.chain().setTextSelection(match).scrollIntoView().run();
+  };
 
   useEffect(() => {
     if (!editor) return;
@@ -262,6 +428,86 @@ export function MarkdownEditor({
       el.setSelectionRange(start + before.length, end + before.length);
     });
   };
+  const insertImage = (
+    provide: (insert: (markdown: string) => void) => void,
+    position?: number,
+  ) => {
+    if (busy || composing.current || !editor) return;
+    const from = textarea.current?.selectionStart ?? 0,
+      to = textarea.current?.selectionEnd ?? from;
+    const bookmark = editor.state.selection.getBookmark();
+    provide((markdown) => {
+      if (!mounted.current || editor.isDestroyed)
+        throw new Error("DOCUMENT_CHANGED");
+      if (source) {
+        const current = latest.current.value;
+        writeSource({
+          value:
+            current.slice(0, from) + "\n" + markdown + "\n" + current.slice(to),
+          from: from + markdown.length + 2,
+          to: from + markdown.length + 2,
+        });
+        requestAnimationFrame(() => {
+          textarea.current?.focus();
+          textarea.current?.setSelectionRange(
+            from + markdown.length + 2,
+            from + markdown.length + 2,
+          );
+        });
+      } else {
+        editor.view.dispatch(closeHistory(editor.state.tr));
+        const selection = bookmark.resolve(editor.state.doc);
+        editor
+          .chain()
+          .focus()
+          .setTextSelection(
+            position === undefined
+              ? { from: selection.from, to: selection.to }
+              : position,
+          )
+          .insertContent(markdown, { contentType: "markdown" })
+          .run();
+      }
+    });
+  };
+  importImagesRef.current = (files, position) => {
+    if (files.some((file) => !/\.(png|jpe?g|webp|gif)$/i.test(file.name))) {
+      notify(t("imageFileOnly"));
+      return;
+    }
+    insertImage((insert) => onImageFiles(files, insert), position);
+  };
+  const replaceFound = (all = false) => {
+    if (busy || composing.current || !matches.length) return;
+    const targets = all ? matches : [matches[currentIndex]];
+    if (!source && targets.length > 5000) {
+      notify(t("replaceLimit"));
+      return;
+    }
+    if (source) {
+      const next = replaceMatches(value, targets, replacement);
+      if (next.length > 5_000_000) {
+        notify(t("editorLimit"));
+        return;
+      }
+      const end = targets[0].from + replacement.length;
+      writeSource({ value: next, from: end, to: end });
+    } else if (editor) {
+      editor.view.dispatch(closeHistory(editor.state.tr));
+      let tr = editor.state.tr;
+      for (let i = targets.length - 1; i >= 0; i--)
+        tr = tr.insertText(replacement, targets[i].from, targets[i].to);
+      // Apply the entire replacement as one undoable transaction.
+      const markdown = editor.markdown!.serialize(tr.doc.toJSON());
+      if (markdown.length > 5_000_000) {
+        notify(t("editorLimit"));
+        return;
+      }
+      editor.view.dispatch(tr);
+      editor.view.dispatch(closeHistory(editor.state.tr));
+    }
+    setMatchIndex(0);
+  };
   const toggleSource = () => {
     if (composing.current || !editor) return;
     sourceHistory.current.boundary();
@@ -314,9 +560,10 @@ export function MarkdownEditor({
   );
 
   return (
-    <div className="markdown-editor">
+    <div className="markdown-editor" ref={root}>
       <div
         className="format-bar live-format-bar"
+        inert={busy}
         role="toolbar"
         aria-label={t("formatToolbar")}
         onClickCapture={(event) => {
@@ -478,37 +725,7 @@ export function MarkdownEditor({
             title={t("image")}
             disabled={busy}
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => {
-              const from = textarea.current?.selectionStart ?? 0,
-                to = textarea.current?.selectionEnd ?? from;
-              const bookmark = editor?.state.selection.getBookmark();
-              onImage((markdown) => {
-                if (source) {
-                  const current = latest.current.value;
-                  writeSource({
-                    value:
-                      current.slice(0, from) +
-                      "\n" +
-                      markdown +
-                      "\n" +
-                      current.slice(to),
-                    from,
-                    to: from + markdown.length + 2,
-                  });
-                } else if (editor && bookmark) {
-                  const selection = bookmark.resolve(editor.state.doc);
-                  editor
-                    .chain()
-                    .focus()
-                    .setTextSelection({
-                      from: selection.from,
-                      to: selection.to,
-                    })
-                    .insertContent(markdown, { contentType: "markdown" })
-                    .run();
-                }
-              });
-            }}
+            onClick={() => insertImage(onImage)}
           >
             <ImagePlus size={16} />
           </button>
@@ -525,6 +742,19 @@ export function MarkdownEditor({
             {t(source ? "liveEditShort" : "sourceModeShort")}
           </Button>
         </div>
+        <button
+          className="find-launch"
+          type="button"
+          aria-label={t("findReplace")}
+          title={`${t("findReplace")} · Ctrl+F / Ctrl+H`}
+          onClick={() => {
+            setFindOpen((open) => !open);
+            setReplaceOpen(true);
+            requestAnimationFrame(() => searchInput.current?.focus());
+          }}
+        >
+          <Search size={17} />
+        </button>
         <div
           className="editor-capsule history-capsule"
           role="group"
@@ -554,6 +784,116 @@ export function MarkdownEditor({
           )}
         </div>
       </div>
+      {findOpen && (
+        <section
+          className="find-bar"
+          aria-label={t("findReplace")}
+          onKeyDown={(e) => {
+            if (e.nativeEvent.isComposing) return;
+            if (e.key === "Escape") {
+              e.preventDefault();
+              e.stopPropagation();
+              setFindOpen(false);
+              if (source) textarea.current?.focus();
+              else editor?.commands.focus();
+            }
+            if (e.key === "Enter" && e.target === searchInput.current) {
+              e.preventDefault();
+              jump(currentIndex + (e.shiftKey ? -1 : 1));
+            }
+          }}
+        >
+          <div className="find-row">
+            <Input
+              ref={searchInput}
+              aria-label={t("findText")}
+              placeholder={t("findText")}
+              maxLength={200}
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setMatchIndex(0);
+              }}
+            />
+            <span className="find-count" role="status">
+              {query
+                ? matches.length
+                  ? `${currentIndex + 1} / ${matches.length}`
+                  : t("noMatches")
+                : "0 / 0"}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={t("previousMatch")}
+              disabled={!matches.length}
+              onClick={() => jump(currentIndex - 1)}
+            >
+              <ChevronUp size={17} />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={t("nextMatch")}
+              disabled={!matches.length}
+              onClick={() => jump(currentIndex + 1)}
+            >
+              <ChevronDown size={17} />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label={t("matchCase")}
+              aria-pressed={sensitive}
+              onClick={() => setSensitive(!sensitive)}
+            >
+              Aa
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setReplaceOpen(!replaceOpen)}
+            >
+              {t("replace")}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={t("closeFind")}
+              onClick={() => setFindOpen(false)}
+            >
+              <X size={17} />
+            </Button>
+          </div>
+          {replaceOpen && (
+            <div className="find-row">
+              <Input
+                aria-label={t("replaceWith")}
+                placeholder={t("replaceWith")}
+                value={replacement}
+                maxLength={10000}
+                onChange={(e) => setReplacement(e.target.value)}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={busy || !matches.length}
+                onClick={() => replaceFound()}
+              >
+                {t("replace")}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={busy || !matches.length}
+                onClick={() => replaceFound(true)}
+              >
+                {t("replaceAll")}
+              </Button>
+            </div>
+          )}
+        </section>
+      )}
       {guarded && (
         <p className="editor-notice" role="status">
           {t("sourcePreserved")}
@@ -570,6 +910,23 @@ export function MarkdownEditor({
           className="editor-textarea source-editor"
           aria-label={t("body")}
           maxLength={5_000_000}
+          readOnly={busy}
+          onPaste={(e) => {
+            const files = Array.from(e.clipboardData.files);
+            if (files.length) {
+              e.preventDefault();
+              importImagesRef.current(files);
+            }
+          }}
+          onDragOver={(e) => {
+            if (e.dataTransfer.types.includes("Files")) e.preventDefault();
+          }}
+          onDrop={(e) => {
+            if (e.dataTransfer.files.length) {
+              e.preventDefault();
+              importImagesRef.current(Array.from(e.dataTransfer.files));
+            }
+          }}
           value={value}
           placeholder={t("write")}
           onCompositionStart={() => {

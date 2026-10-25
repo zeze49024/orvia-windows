@@ -54,7 +54,12 @@ export function EditorWorkspace({
   markdownExport: (id: string) => void;
   removed: (d: Document) => void;
   setModal: (s: string) => void;
-  importFiles: (v?: boolean, insert?: (markdown: string) => void) => void;
+  importFiles: (
+    v?: boolean,
+    insert?: (markdown: string) => void,
+    folder?: boolean,
+    files?: File[],
+  ) => void;
   busy: boolean;
 }) {
   const t = translator(locale),
@@ -165,7 +170,9 @@ export function EditorWorkspace({
                       : ""
                 }
                 components={{
-                  img: ({ src, alt }) => <LocalImage src={src} alt={alt} />,
+                  img: ({ src, alt, title }) => (
+                    <LocalImage src={src} alt={alt} title={title} />
+                  ),
                   a: ({ href, children }) => (
                     <button
                       className="markdown-link"
@@ -185,10 +192,14 @@ export function EditorWorkspace({
           ) : (
             <MarkdownEditor
               key={active.id}
+              documentId={active.id}
               value={active.body}
               locale={locale}
               onChange={(body) => patch(active.id, { body })}
               onImage={(insert) => importFiles(true, insert)}
+              onImageFiles={(files, insert) =>
+                importFiles(true, insert, false, files)
+              }
               busy={busy}
               notify={notify}
             />

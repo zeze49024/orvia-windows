@@ -1,0 +1,124 @@
+.live-format-bar .find-launch {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  width: 38px;
+  height: 38px;
+  color: var(--text-secondary);
+  margin-left: auto;
+  flex-shrink: 0;
+  background: var(--surface);
+}
+.find-bar {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px;
+  margin: 0 0 20px;
+  background: var(--surface-alt);
+  position: sticky;
+  top: 70px;
+  z-index: 9;
+  box-shadow: 0 4px 16px #00000008;
+}
+.find-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.find-row + .find-row {
+  margin-top: 8px;
+}
+.find-row input {
+  min-width: 120px;
+  flex: 1;
+  width: auto;
+}
+.find-count {
+  font-size: 12px;
+  min-width: 65px;
+  color: var(--text-secondary);
+}
+.find-row button[aria-pressed="true"] {
+  color: var(--blue);
+  background: var(--blue-bg);
+}
+.find-match {
+  background: #ffeaa0;
+  color: #332800;
+  border-radius: 2px;
+}
+.find-current {
+  background: #ffcf40;
+  color: #201800;
+  outline: 2px solid #b58500;
+}
+.source-editor::selection {
+  background: #ffcf40;
+  color: #201800;
+}
+.editor-image {
+  position: relative;
+  max-width: 100%;
+  min-width: 60px;
+  margin: 18px 0;
+}
+.editor-image img {
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+}
+.image-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+.image-actions button {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.image-selected > img {
+  outline: 2px solid var(--blue);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+.image-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.image-field select {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 8px;
+}
+.image-preview-dialog {
+  max-width: min(1100px, 94vw) !important;
+}
+.image-preview {
+  max-height: 72vh;
+  overflow: auto;
+  display: flex;
+  justify-content: center;
+  background: var(--surface-alt);
+  border-radius: 8px;
+  padding: 12px;
+}
+.image-preview img {
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+@media (max-width: 1100px) {
+  .find-bar {
+    position: relative;
+    top: auto;
+  }
+  .find-row input {
+    flex-basis: 180px;
+  }
+}

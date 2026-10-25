@@ -406,28 +406,43 @@ export function App() {
     imagesOnly = false,
     insertAtCaret?: (markdown: string) => void,
     folder = false,
+    incoming?: File[],
   ) =>
     run(async () => {
       const controller = new AbortController();
       cancelRef.current = controller;
-      const files = folder
-        ? await chooseMarkdownFolder()
-        : await chooseFiles(
-            imagesOnly
-              ? ["png", "jpg", "jpeg", "webp", "gif"]
-              : [
-                  "md",
-                  "markdown",
-                  "txt",
-                  "docx",
-                  "pdf",
-                  "png",
-                  "jpg",
-                  "jpeg",
-                  "webp",
-                  "gif",
-                ],
-          );
+      if (
+        incoming &&
+        (incoming.length > 100 ||
+          incoming.some((f) => f.size > 20 * 1024 * 1024) ||
+          incoming.reduce((n, f) => n + f.size, 0) > 128 * 1024 * 1024)
+      )
+        throw new Error("FILE_TOO_LARGE");
+      const files = incoming
+        ? await Promise.all(
+            incoming.map(async (file) => ({
+              name: file.name,
+              bytes: new Uint8Array(await file.arrayBuffer()),
+            })),
+          )
+        : folder
+          ? await chooseMarkdownFolder()
+          : await chooseFiles(
+              imagesOnly
+                ? ["png", "jpg", "jpeg", "webp", "gif"]
+                : [
+                    "md",
+                    "markdown",
+                    "txt",
+                    "docx",
+                    "pdf",
+                    "png",
+                    "jpg",
+                    "jpeg",
+                    "webp",
+                    "gif",
+                  ],
+            );
       if (!files.length) return;
       const documents: Document[] = [],
         assets: Asset[] = [];

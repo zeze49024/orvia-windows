@@ -1,5 +1,5 @@
 // Runs ONLY against a disposable CI installation with WebView2 debugging enabled.
-import { chromium } from "@playwright/test";
+import { chromium, expect } from "@playwright/test";
 import { readFile, writeFile } from "node:fs/promises";
 const phase = process.argv[2];
 if (!process.env.CI || !["seed", "verify", "update"].includes(phase))
@@ -47,7 +47,7 @@ if (phase === "seed") {
     id: "af485e10-f680-4ff6-8b40-af799171e221",
     libraryId: data.libraries[0].id,
     title: "Upgrade preservation",
-    body: "# Native upgrade fixture\n\n中文内容 retained from rc3",
+    body: "# Native upgrade fixture\n\n中文内容 retained from stable",
     tags: ["upgrade"],
     starred: true,
     createdAt: now,
@@ -81,7 +81,7 @@ if (phase === "seed") {
     .click();
   await page
     .getByRole("dialog")
-    .getByText("v0.1.0-rc3 → v0.1.0", { exact: true })
+    .getByText("v0.1.0 → v0.1.1-beta1", { exact: true })
     .waitFor({ timeout: 60000 });
   const closed = page.waitForEvent("close", { timeout: 120000 });
   await page
@@ -94,12 +94,12 @@ if (phase === "seed") {
     (d) => d.title === "Upgrade preservation",
   );
   if (
-    !doc?.body.includes("中文内容 retained from rc3") ||
+    !doc?.body.includes("中文内容 retained from stable") ||
     !doc.starred ||
     doc.tags[0] !== "upgrade"
   )
     throw new Error("Upgrade lost data");
-  const changed = { ...doc, body: doc.body + "\n\nSaved by v0.1.0" };
+  const changed = { ...doc, body: doc.body + "\n\nSaved by v0.1.1-beta1" };
   const delta = {
     libraries: { upsert: [], remove: [] },
     documents: { upsert: [changed], remove: [] },
@@ -204,7 +204,9 @@ if (phase === "seed") {
     .filter({ hasText: "Upgrade preservation" })
     .click();
   if (
-    !(await page.locator(".live-editor").innerText()).includes("Saved by v0.1.0")
+    !(await page.locator(".live-editor").innerText()).includes(
+      "Saved by v0.1.1-beta1",
+    )
   )
     throw new Error("Native editor reload failed");
   await page
@@ -235,12 +237,128 @@ if (phase === "seed") {
     .getByRole("button", { name: strings.backLibrary, exact: true })
     .click();
   await page.locator(".live-editor").waitFor();
+  // Exercise the shipped writing tools in actual WebView2 with real native asset storage.
+  await page.keyboard.press("Control+h");
+  await page
+    .getByRole("textbox", { name: strings.findText, exact: true })
+    .fill("Native upgrade fixture");
+  await expect(page.locator(".find-count")).toHaveText("1 / 1");
+  await page
+    .getByRole("textbox", { name: strings.replaceWith, exact: true })
+    .fill("Native writing fixture");
+  await page
+    .getByRole("button", { name: strings.replaceAll, exact: true })
+    .click();
+  await expect(page.locator(".live-editor h1")).toHaveText(
+    "Native writing fixture",
+  );
+  await page.getByRole("button", { name: strings.undo, exact: true }).click();
+  await expect(page.locator(".live-editor h1")).toHaveText(
+    "Native upgrade fixture",
+  );
+  await page
+    .getByRole("button", { name: strings.closeFind, exact: true })
+    .click();
+  const pixel =
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==";
+  await page.locator(".live-editor").focus();
+  await page.keyboard.press("Control+End");
+  for (const type of ["paste", "drop"]) {
+    await page.locator(".live-editor").evaluate(
+      (el, { pixel, type }) => {
+        const transfer = new DataTransfer();
+        transfer.items.add(
+          new File(
+            [Uint8Array.from(atob(pixel), (c) => c.charCodeAt(0))],
+            "native.png",
+            { type: "image/png" },
+          ),
+        );
+        el.dispatchEvent(
+          type === "paste"
+            ? new ClipboardEvent("paste", {
+                clipboardData: transfer,
+                bubbles: true,
+                cancelable: true,
+              })
+            : new DragEvent("drop", {
+                dataTransfer: transfer,
+                bubbles: true,
+                cancelable: true,
+                clientX: el.getBoundingClientRect().left + 10,
+                clientY: el.getBoundingClientRect().top + 10,
+              }),
+        );
+      },
+      { pixel, type },
+    );
+    await expect(page.locator(".editor-image img")).toHaveCount(
+      type === "paste" ? 1 : 2,
+    );
+    await page
+      .locator(".statusbar")
+      .filter({ hasText: strings.saved })
+      .waitFor();
+  }
+  await page
+    .getByRole("button", { name: strings.imageOptions, exact: true })
+    .first()
+    .click();
+  await page
+    .getByRole("textbox", { name: strings.imageAlt, exact: true })
+    .fill("Native 中文 [图片]");
+  await page
+    .getByRole("combobox", { name: strings.imageSize, exact: true })
+    .selectOption("50");
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: strings.save, exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: strings.imagePreview, exact: true })
+    .first()
+    .click();
+  await expect(page.getByRole("dialog").locator("img")).toHaveAttribute(
+    "alt",
+    "Native 中文 [图片]",
+  );
+  await page.keyboard.press("Escape");
+  await page
+    .getByRole("button", { name: strings.sourceMode, exact: true })
+    .click();
+  const area = page.locator(".source-editor");
+  await area.focus();
+  await area.evaluate((el) => {
+    el.setSelectionRange(3, 5);
+    el.dispatchEvent(new Event("select", { bubbles: true }));
+  });
+  await page.waitForTimeout(180);
+  await page.keyboard.press("Control+s");
+  await page.locator(".statusbar").filter({ hasText: strings.saved }).waitFor();
+  const written = (await invoke("load_workspace")).data.documents.find(
+    (d) => d.id === doc.id,
+  );
+  if (
+    !written.body.includes("orvia-width:50%") ||
+    !written.body.includes("asset:") ||
+    !written.body.includes("Native 中文")
+  )
+    throw new Error("Native image metadata not persisted");
+  await page.reload();
+  await page
+    .locator(".card-main")
+    .filter({ hasText: "Upgrade preservation" })
+    .click();
+  await expect(area).toBeVisible();
+  await expect
+    .poll(() => area.evaluate((el) => [el.selectionStart, el.selectionEnd]))
+    .toEqual([3, 5]);
   await writeFile(
     "native-validation.json",
     JSON.stringify(
       {
-        previous: "0.1.0-rc3",
-        current: "0.1.0",
+        previous: "0.1.0",
+        current: "0.1.1-beta1",
         installerUpgrade: true,
         signedGithubUpdater: process.env.USE_UPDATER === "true",
         sqlitePreserved: true,
@@ -252,6 +370,10 @@ if (phase === "seed") {
         deleteConfirmation: true,
         autoUpdateSetting: true,
         singleContextMove: true,
+        findReplace: true,
+        localImagePasteDrop: true,
+        imageOptionsAndPreview: true,
+        writingPosition: true,
       },
       null,
       2,
