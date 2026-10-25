@@ -114,15 +114,24 @@ if (phase === "seed") {
       .getByRole("button", { name: strings.sourceMode, exact: true })
       .click();
   await page.evaluate(() => {
-    const original = window.__TAURI_INTERNALS__,
-      wrapper = Object.create(original);
-    Object.defineProperty(wrapper, "invoke", {
-      value: (cmd, args, opts) =>
-        cmd === "save_delta"
-          ? Promise.reject(new Error("TEST_DISK_FULL"))
-          : original.invoke(cmd, args, opts),
-    });
-    window.__TAURI_INTERNALS__ = wrapper;
+    const original = window.fetch.bind(window);
+    window.fetch = (input, init) => {
+      const cmd = decodeURIComponent(
+        new URL(typeof input === "string" ? input : input.url).pathname.slice(
+          1,
+        ),
+      );
+      if (cmd === "save_delta")
+        return Promise.resolve(
+          new Response(JSON.stringify("TEST_DISK_FULL"), {
+            headers: {
+              "Content-Type": "application/json",
+              "Tauri-Response": "error",
+            },
+          }),
+        );
+      return original(input, init);
+    };
   });
   await page
     .locator(".source-editor")
@@ -450,15 +459,24 @@ if (phase === "seed") {
   await page.locator(".statusbar").filter({ hasText: strings.saved }).waitFor();
   const pdfPath = path.resolve("native-writing.pdf");
   await page.evaluate((pdfPath) => {
-    const original = window.__TAURI_INTERNALS__,
-      wrapper = Object.create(original);
-    Object.defineProperty(wrapper, "invoke", {
-      value: (cmd, args, opts) =>
-        cmd === "plugin:dialog|save"
-          ? Promise.resolve(pdfPath)
-          : original.invoke(cmd, args, opts),
-    });
-    window.__TAURI_INTERNALS__ = wrapper;
+    const original = window.fetch.bind(window);
+    window.fetch = (input, init) => {
+      const cmd = decodeURIComponent(
+        new URL(typeof input === "string" ? input : input.url).pathname.slice(
+          1,
+        ),
+      );
+      if (cmd === "plugin:dialog|save")
+        return Promise.resolve(
+          new Response(JSON.stringify(pdfPath), {
+            headers: {
+              "Content-Type": "application/json",
+              "Tauri-Response": "ok",
+            },
+          }),
+        );
+      return original(input, init);
+    };
   }, pdfPath);
   await page
     .getByRole("button", { name: strings.exportPdf, exact: true })
