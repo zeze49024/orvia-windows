@@ -1,11 +1,11 @@
 {
-  "version": "0.1.1-beta1",
-  "notes": "新增文档内查找与替换、图片操作和编辑位置恢复，提升日常写作体验。\r\n\r\n- 查找与替换：实时编辑与 Markdown 源码模式均支持 Ctrl+F 查找、Ctrl+H 替换，提供匹配计数、上下跳转、大小写匹配、逐项及全部替换；实时编辑高亮匹配，批量替换可一步撤销。\r\n- 图片操作：支持粘贴截图、拖入本地图片、图片预览、替代文字编辑及 25%–100% 显示宽度选择；图片保存在本地，导出 Markdown 保留图片和显示宽度信息。\r\n- 编辑位置恢复：按笔记保存编辑模式、光标选区及滚动位置，离开后重新打开、重启应用及从设置返回时恢复写作现场；位置偏好独立于笔记正文保存。\r\n- 稳定性：补充查找替换、图片导出兼容、位置恢复和跨版本安装更新回归验证。",
-  "pub_date": "2026-10-25T15:35:14.668Z",
+  "version": "0.1.1-beta2",
+  "notes": "完善保存状态、失败重试与异常草稿恢复，新增保留文档排版与图片的 PDF 导出",
+  "pub_date": "2026-10-25T16:36:47.202Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRTWVLTkMxVzBkTmVKTnF4RjYrUHBrWEdUOXA1NkZwKys3K09CMTJYL3liUXJHN1pKZG55L3RqNVZVWnJueldpSTNLbkhoZUJGUExkQWQ0UHNUaTc0Q0w3dEhhcGdFVkFJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyOTQyNTAzCWZpbGU6T3J2aWFfMC4xLjEtYmV0YTFfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMS4xLWJldGExCkk1OGE0aERFZzlzK0NtU1FiSmJoNHRFRUZhTFpoN2dkSWNWREtOT2JrUzZFaWdTNWg5b0VVN2szcVhscys2QWpBVUVsenFHTTlIU003K3d3SWFCSkJ3PT0K",
-      "url": "https://github.com/zeze49024/orvia-windows/releases/download/v0.1.1-beta1/Orvia_0.1.1-beta1_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRTWVLTkMxVzBkTmNHT1lVQzE1eWhTWTJvM2JMTVh4NE9SNkxvTjJMZUVKNmczWHJpSURua08vWWhBRk8xSmJxSi9MOXd0Z2VtbG80S0JiNlZUZFE0S1gweXFMc2ZwWkF3PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyOTQ2MTc0CWZpbGU6T3J2aWFfMC4xLjEtYmV0YTJfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMS4xLWJldGEyCmpnTGVnMFRDN3pldkU0SENSQXdKbWlGY0hRMzFmOWF3eDNwVktLeEFvQnlkODlEcmNmTHFJd2oxQVcxelpoeENrNGk0STQydWRoUzlJd1BmYmRpYkR3PT0K",
+      "url": "https://github.com/zeze49024/orvia-windows/releases/download/v0.1.1-beta2/Orvia_0.1.1-beta2_x64-setup.exe"
     }
   }
 }
