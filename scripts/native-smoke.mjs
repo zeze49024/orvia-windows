@@ -420,12 +420,31 @@ if (phase === "seed") {
     .getByRole("button", { name: strings.sourceMode, exact: true })
     .click();
   const area = page.locator(".source-editor");
+  // Background WebView2 throttles frames and timers. Let initial restoration finish
+  // before simulating the user's new selection, then wait for its durable preference.
+  await page.evaluate(
+    () =>
+      new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      ),
+  );
   await area.focus();
   await area.evaluate((el) => {
     el.setSelectionRange(3, 5);
     el.dispatchEvent(new Event("select", { bubbles: true }));
   });
-  await page.waitForTimeout(180);
+  await expect
+    .poll(
+      () =>
+        page.evaluate((id) => {
+          const saved = JSON.parse(
+            localStorage.getItem("orvia-writing-positions-v1") ?? "{}",
+          )[id];
+          return saved ? [saved.source.from, saved.source.to] : null;
+        }, doc.id),
+      { timeout: 15000 },
+    )
+    .toEqual([3, 5]);
   await page.keyboard.press("Control+s");
   await page.locator(".statusbar").filter({ hasText: strings.saved }).waitFor();
   const written = (await invoke("load_workspace")).data.documents.find(
