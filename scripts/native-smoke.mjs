@@ -474,6 +474,7 @@ if (phase === "seed") {
   );
   await page.keyboard.press("Control+s");
   await page.locator(".statusbar").filter({ hasText: strings.saved }).waitFor();
+  await page.evaluate(()=>{window.__pdfAudit=[];const observer=new MutationObserver(()=>{const text=[...document.querySelectorAll('.toast,[role=alert]')].map(e=>e.textContent).join(' | ');if(text && window.__pdfAudit.at(-1)!==text)window.__pdfAudit.push(text)});observer.observe(document.body,{childList:true,subtree:true,characterData:true});});
   const pdfPath = path.resolve("native-writing.pdf");
   const dialogApproval = promisify(execFile)(
     "powershell.exe",
@@ -492,7 +493,7 @@ if (phase === "seed") {
   await page
     .getByRole("button", { name: strings.exportPdf, exact: true })
     .click();
-  await dialogApproval;
+  console.log((await dialogApproval).stdout);
   try {
     await expect
       .poll(
@@ -510,6 +511,7 @@ if (phase === "seed") {
     console.log(
       "PDF export diagnostic",
       await page.locator(".toast,[role=alert]").allTextContents(),
+      await page.evaluate(()=>window.__pdfAudit),
     );
     await page.screenshot({ path: "native-pdf-error.png" });
     throw error;
