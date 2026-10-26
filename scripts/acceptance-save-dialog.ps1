@@ -13,6 +13,9 @@ Add-Type @'
 using System;
 using System.Runtime.InteropServices;
 public static class OrviaDialogMessages {
+ [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hwnd);
+ [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hwnd,int cmd);
+ [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hwnd);
  [DllImport("user32.dll",CharSet=CharSet.Unicode)] public static extern IntPtr SendMessage(IntPtr hwnd,uint msg,IntPtr wParam,string lParam);
  [DllImport("user32.dll")] public static extern IntPtr SendMessage(IntPtr hwnd,uint msg,IntPtr wParam,IntPtr lParam);
 }
@@ -32,8 +35,16 @@ while ([DateTime]::UtcNow -lt $deadline) {
     $editHandle=[IntPtr]$edit.Current.NativeWindowHandle
     $saveHandle=[IntPtr]$save.Current.NativeWindowHandle
     if ($editHandle -eq [IntPtr]::Zero -or $saveHandle -eq [IntPtr]::Zero) { continue }
+    $dialogHandle=[IntPtr]$dialog.Current.NativeWindowHandle
+    [void][OrviaDialogMessages]::ShowWindow($dialogHandle,5)
+    [void][OrviaDialogMessages]::SetForegroundWindow($dialogHandle)
     [void][OrviaDialogMessages]::SendMessage($editHandle,0x000C,[IntPtr]::Zero,$targetFile)
-    [void][OrviaDialogMessages]::SendMessage($saveHandle,0x00F5,[IntPtr]::Zero,[IntPtr]::Zero)
+    $invokePattern=$null
+    if ($save.TryGetCurrentPattern([Windows.Automation.InvokePattern]::Pattern,[ref]$invokePattern)) { $invokePattern.Invoke() }
+    else { [void][OrviaDialogMessages]::SendMessage($saveHandle,0x00F5,[IntPtr]::Zero,[IntPtr]::Zero) }
+    $closeDeadline=[DateTime]::UtcNow.AddSeconds(10)
+    while ([OrviaDialogMessages]::IsWindowVisible($dialogHandle) -and [DateTime]::UtcNow -lt $closeDeadline) { Start-Sleep -Milliseconds 100 }
+    if ([OrviaDialogMessages]::IsWindowVisible($dialogHandle)) { throw 'Owned native dialog did not accept the fixture target' }
     Write-Output 'Native save dialog approved in the isolated acceptance fixture'
     exit 0
     }

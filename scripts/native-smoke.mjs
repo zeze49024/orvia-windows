@@ -493,18 +493,28 @@ if (phase === "seed") {
     .getByRole("button", { name: strings.exportPdf, exact: true })
     .click();
   await dialogApproval;
-  await expect
-    .poll(
-      async () => {
-        try {
-          return (await readFile(pdfPath)).subarray(0, 5).toString();
-        } catch {
-          return "";
-        }
-      },
-      { timeout: 60000 },
-    )
-    .toBe("%PDF-");
+  try {
+    await expect
+      .poll(
+        async () => {
+          try {
+            return (await readFile(pdfPath)).subarray(0, 5).toString();
+          } catch {
+            return "";
+          }
+        },
+        { timeout: 60000 },
+      )
+      .toBe("%PDF-");
+  } catch (error) {
+    console.log(
+      "PDF export diagnostic",
+      await page.locator(".toast,[role=alert]").allTextContents(),
+    );
+    await page.screenshot({ path: "native-pdf-error.png" });
+    throw error;
+  }
+
   const pdf = (await readFile(pdfPath)).toString("latin1");
   if (
     (pdf.match(/\/Type \/Page\b/g) ?? []).length < 2 ||

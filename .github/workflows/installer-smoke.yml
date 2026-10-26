@@ -130,6 +130,7 @@ jobs:
           path: |
             native-validation.json
             native-upgrade.png
+            native-pdf-error.png
             native-writing.pdf
             native-startup.txt
             playwright-report/
