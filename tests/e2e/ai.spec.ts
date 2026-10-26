@@ -3,7 +3,7 @@ async function setup(page: Page) {
   await page.route("**/src/core/ai-transport.ts", (route) =>
     route.fulfill({
       contentType: "application/javascript",
-      body: `export const aiAvailable=true;let config={enabled:false,provider:'deepseek',model:'deepseek-flash',maxOutputTokens:2048,maxInputChars:32000,maxRounds:3},hasKey=false;window.aiTest={requests:[],cancelled:[],mode:'normal'};export const aiTransport={load:async()=>({config:{...config},hasKey}),save:async(c)=>{config={...c}},saveKey:async()=>{hasKey=true},deleteKey:async()=>{hasKey=false},models:async()=>['deepseek-flash'],cancel:async(id)=>{window.aiTest.cancelled.push(id)},run:async(request)=>{window.aiTest.requests.push(request);if(window.aiTest.mode==='slow')await new Promise(r=>setTimeout(r,1500));const proposal=request.mode==='edit'&&/润色|精简|扩写|翻译/.test(request.task)?{title:request.snapshot.title,body:window.aiTest.mode==='image'?'![bad](asset:'+'b'.repeat(64)+')':request.snapshot.body.replace('Original','Improved')}:null;return {answer:window.aiTest.mode==='plain'?'## Result\\n\\nSafe answer':'## Summary\\n\\n**Safe answer** <img src="https://example.invalid/track">',proposal,inputTokens:100,outputTokens:50,requests:2,actions:request.scope==='none'?[]:['read_current_note',...(proposal?['propose_note_edit']:[])]}}};`,
+      body: `export const aiAvailable=true;let config={enabled:false,provider:'deepseek',model:'deepseek-flash',maxOutputTokens:2048,maxInputChars:32000,maxRounds:3},hasKey=false,authorized=false;window.aiTest={requests:[],cancelled:[],mode:'normal'};export const aiTransport={load:async()=>({config:{...config},hasKey,authorized}),save:async(c)=>{config={...c}},saveKey:async()=>{hasKey=true;authorized=true},authorize:async()=>{authorized=true},revokeAuthorization:async()=>{authorized=false},deleteKey:async()=>{hasKey=false;authorized=false},models:async()=>['deepseek-flash'],cancel:async(id)=>{window.aiTest.cancelled.push(id)},run:async(request)=>{window.aiTest.requests.push(request);if(window.aiTest.mode==='slow')await new Promise(r=>setTimeout(r,1500));const proposal=request.mode==='edit'&&/润色|精简|扩写|翻译/.test(request.task)?{title:request.snapshot.title,body:window.aiTest.mode==='image'?'![bad](asset:'+'b'.repeat(64)+')':request.snapshot.body.replace('Original','Improved')}:null;return {answer:window.aiTest.mode==='plain'?'## Result\\n\\nSafe answer':'## Summary\\n\\n**Safe answer** <img src="https://example.invalid/track">',proposal,inputTokens:100,outputTokens:50,requests:2,actions:request.scope==='none'?[]:['read_current_note',...(proposal?['propose_note_edit']:[])]}}};`,
     }),
   );
   await page.goto("/");
@@ -46,10 +46,7 @@ async function send(page: Page, text?: string) {
   if (text)
     await page.getByRole("textbox", { name: "发送给 AI 的消息" }).fill(text);
   await page.getByRole("button", { name: "发送消息", exact: true }).click();
-  await page
-    .getByRole("dialog", { name: "确认本次发送", exact: true })
-    .waitFor();
-  await page.getByRole("button", { name: "确认并发送", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
 }
 async function sourceSelection(page: Page) {
   await page.getByRole("button", { name: "关闭 AI 面板", exact: true }).click();
@@ -64,18 +61,13 @@ async function sourceSelection(page: Page) {
   await source.dispatchEvent("contextmenu", { clientX: 500, clientY: 420 });
   await page.getByRole("menuitem", { name: "润色", exact: true }).click();
 }
-test("side panel has reviewed continuous chat, safe Markdown and persistent local sessions", async ({
+test("one-time authorized side panel sends directly with safe Markdown and persistent local sessions", async ({
   page,
 }) => {
   await setup(page);
   await expect(page.getByRole("region", { name: "AI 笔记助手" })).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await page.getByRole("button", { name: "总结这篇笔记", exact: true }).click();
-  await page.getByRole("button", { name: "发送消息", exact: true }).click();
-  await expect(
-    page.getByRole("dialog", { name: "确认本次发送" }),
-  ).toContainText("Outside text");
-  await page.getByRole("button", { name: "取消", exact: true }).click();
   expect(
     await page.evaluate(() => (window as any).aiTest.requests.length),
   ).toBe(0);
@@ -254,4 +246,62 @@ test("stale responses, changed proposals and image substitutions are refused; cl
   await expect(page.locator(".live-editor")).toContainText(
     "Concurrent user writing",
   );
+});
+
+test("revoking key permission disables sending until setup reauthorization", async ({
+  page,
+}) => {
+  await setup(page);
+  await send(page, "总结");
+  await expect(page.locator(".ai-assistant")).toHaveCount(1);
+  await page.keyboard.press("Control+,");
+  await page.getByRole("button", { name: "AI 与模型", exact: true }).click();
+  await page.getByRole("button", { name: "撤销发送授权", exact: true }).click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "确认", exact: true })
+    .click();
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "AI 笔记助手", exact: true }).click();
+  await page
+    .getByRole("textbox", { name: "发送给 AI 的消息" })
+    .fill("不能发送");
+  await expect(
+    page.getByRole("button", { name: "发送消息", exact: true }),
+  ).toBeDisabled();
+  await page.keyboard.press("Control+,");
+  await page.getByRole("button", { name: "AI 与模型", exact: true }).click();
+  await page
+    .getByRole("button", { name: "授权后续 AI 对话", exact: true })
+    .click();
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "AI 笔记助手", exact: true }).click();
+  await send(page, "重新授权后发送");
+  await expect(page.locator(".ai-assistant")).toHaveCount(2);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
+test("rapid repeated send cannot register duplicate requests", async ({
+  page,
+}) => {
+  await setup(page);
+  await page.evaluate(() => {
+    (window as any).aiTest.mode = "slow";
+  });
+  await page
+    .getByRole("textbox", { name: "发送给 AI 的消息" })
+    .fill("只发送一次");
+  await page
+    .getByRole("button", { name: "发送消息", exact: true })
+    .evaluate((button: HTMLButtonElement) => {
+      button.click();
+      button.click();
+    });
+  await expect
+    .poll(() => page.evaluate(() => (window as any).aiTest.requests.length))
+    .toBe(1);
+  await expect(page.locator(".ai-assistant")).toHaveCount(1);
+  expect(
+    await page.evaluate(() => (window as any).aiTest.requests.length),
+  ).toBe(1);
 });

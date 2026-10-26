@@ -774,188 +774,196 @@ export function MarkdownEditor({
           }
         }}
       >
-        <div
-          className="editor-capsule format-capsule"
-          role="group"
-          aria-label={t("formatGroup")}
-        >
-          <HeadingMenu
-            value={
-              source
-                ? sourceLevel
-                : editor?.isActive("heading")
-                  ? editor.getAttributes("heading").level
-                  : 0
-            }
-            label={t("heading")}
-            paragraph={t("paragraph")}
-            onChange={(level) => {
-              // Each explicit heading choice is one undo step, even if choices
-              // arrive within ProseMirror's normal typing group interval.
-              if (!source && editor)
-                editor.view.dispatch(closeHistory(editor.state.tr));
-              if (source && textarea.current) {
-                const el = textarea.current;
-                const result = setSourceHeading(
-                  value,
-                  el.selectionStart,
-                  el.selectionEnd,
-                  level,
-                );
-                if (result.value.length > 5_000_000) return;
-                setSourceLevel(level);
-                writeSource({
-                  value: result.value,
-                  from: result.from,
-                  to: result.to,
-                });
-                requestAnimationFrame(() => {
-                  el.focus();
-                  el.setSelectionRange(result.from, result.to);
-                });
-              } else if (level)
+        <div className="editor-format-cluster">
+          <div
+            className="editor-capsule format-capsule"
+            role="group"
+            aria-label={t("formatGroup")}
+          >
+            <HeadingMenu
+              value={
+                source
+                  ? sourceLevel
+                  : editor?.isActive("heading")
+                    ? editor.getAttributes("heading").level
+                    : 0
+              }
+              label={t("heading")}
+              paragraph={t("paragraph")}
+              onChange={(level) => {
+                // Each explicit heading choice is one undo step, even if choices
+                // arrive within ProseMirror's normal typing group interval.
+                if (!source && editor)
+                  editor.view.dispatch(closeHistory(editor.state.tr));
+                if (source && textarea.current) {
+                  const el = textarea.current;
+                  const result = setSourceHeading(
+                    value,
+                    el.selectionStart,
+                    el.selectionEnd,
+                    level,
+                  );
+                  if (result.value.length > 5_000_000) return;
+                  setSourceLevel(level);
+                  writeSource({
+                    value: result.value,
+                    from: result.from,
+                    to: result.to,
+                  });
+                  requestAnimationFrame(() => {
+                    el.focus();
+                    el.setSelectionRange(result.from, result.to);
+                  });
+                } else if (level)
+                  editor
+                    ?.chain()
+                    .focus()
+                    .setHeading({ level: level as 1 | 2 | 3 | 4 | 5 | 6 })
+                    .run();
+                else editor?.chain().focus().setParagraph().run();
+              }}
+            />
+            <span className="toolbar-divider" aria-hidden="true" />
+            {command(
+              "bold",
+              ["**", "**"],
+              () => {
+                editor?.chain().focus().toggleBold().run();
+              },
+              editor?.isActive("bold") ?? false,
+              Bold,
+            )}
+            {command(
+              "italic",
+              ["*", "*"],
+              () => {
+                editor?.chain().focus().toggleItalic().run();
+              },
+              editor?.isActive("italic") ?? false,
+              Italic,
+            )}
+            <span className="toolbar-divider" aria-hidden="true" />
+            {command(
+              "bulletList",
+              ["- ", ""],
+              () => {
+                editor?.chain().focus().toggleBulletList().run();
+              },
+              editor?.isActive("bulletList") ?? false,
+              List,
+            )}
+            {command(
+              "orderedList",
+              ["1. ", ""],
+              () => {
+                editor?.chain().focus().toggleOrderedList().run();
+              },
+              editor?.isActive("orderedList") ?? false,
+              ListOrdered,
+            )}
+            {command(
+              "task",
+              ["- [ ] ", ""],
+              () => {
+                editor?.chain().focus().toggleTaskList().run();
+              },
+              editor?.isActive("taskList") ?? false,
+              ListTodo,
+            )}
+            <span className="toolbar-divider" aria-hidden="true" />
+            {command(
+              "quote",
+              ["> ", ""],
+              () => {
+                editor?.chain().focus().toggleBlockquote().run();
+              },
+              editor?.isActive("blockquote") ?? false,
+              Quote,
+            )}
+            {command(
+              "link",
+              ["[", "](https://)"],
+              () => {
+                setHref(editor?.getAttributes("link").href ?? "https://");
+                setLinkOpen(true);
+              },
+              editor?.isActive("link") ?? false,
+              Link,
+            )}
+            {command(
+              "code",
+              ["`", "`"],
+              () => {
+                editor?.chain().focus().toggleCode().run();
+              },
+              editor?.isActive("code") ?? false,
+              Code2,
+            )}
+            {command(
+              "codeBlock",
+              ["\n```\n", "\n```\n"],
+              () => {
+                editor?.chain().focus().toggleCodeBlock().run();
+              },
+              editor?.isActive("codeBlock") ?? false,
+              CodeSquare,
+            )}
+            <span className="toolbar-divider" aria-hidden="true" />
+            {command(
+              "insertTable",
+              ["\n| A | B |\n| --- | --- |\n|  |  |\n", ""],
+              () => {
                 editor
                   ?.chain()
                   .focus()
-                  .setHeading({ level: level as 1 | 2 | 3 | 4 | 5 | 6 })
+                  .insertTable({ rows: 3, cols: 2, withHeaderRow: true })
                   .run();
-              else editor?.chain().focus().setParagraph().run();
-            }}
-          />
-          <span className="toolbar-divider" aria-hidden="true" />
-          {command(
-            "bold",
-            ["**", "**"],
-            () => {
-              editor?.chain().focus().toggleBold().run();
-            },
-            editor?.isActive("bold") ?? false,
-            Bold,
-          )}
-          {command(
-            "italic",
-            ["*", "*"],
-            () => {
-              editor?.chain().focus().toggleItalic().run();
-            },
-            editor?.isActive("italic") ?? false,
-            Italic,
-          )}
-          <span className="toolbar-divider" aria-hidden="true" />
-          {command(
-            "bulletList",
-            ["- ", ""],
-            () => {
-              editor?.chain().focus().toggleBulletList().run();
-            },
-            editor?.isActive("bulletList") ?? false,
-            List,
-          )}
-          {command(
-            "orderedList",
-            ["1. ", ""],
-            () => {
-              editor?.chain().focus().toggleOrderedList().run();
-            },
-            editor?.isActive("orderedList") ?? false,
-            ListOrdered,
-          )}
-          {command(
-            "task",
-            ["- [ ] ", ""],
-            () => {
-              editor?.chain().focus().toggleTaskList().run();
-            },
-            editor?.isActive("taskList") ?? false,
-            ListTodo,
-          )}
-          <span className="toolbar-divider" aria-hidden="true" />
-          {command(
-            "quote",
-            ["> ", ""],
-            () => {
-              editor?.chain().focus().toggleBlockquote().run();
-            },
-            editor?.isActive("blockquote") ?? false,
-            Quote,
-          )}
-          {command(
-            "link",
-            ["[", "](https://)"],
-            () => {
-              setHref(editor?.getAttributes("link").href ?? "https://");
-              setLinkOpen(true);
-            },
-            editor?.isActive("link") ?? false,
-            Link,
-          )}
-          {command(
-            "code",
-            ["`", "`"],
-            () => {
-              editor?.chain().focus().toggleCode().run();
-            },
-            editor?.isActive("code") ?? false,
-            Code2,
-          )}
-          {command(
-            "codeBlock",
-            ["\n```\n", "\n```\n"],
-            () => {
-              editor?.chain().focus().toggleCodeBlock().run();
-            },
-            editor?.isActive("codeBlock") ?? false,
-            CodeSquare,
-          )}
-          <span className="toolbar-divider" aria-hidden="true" />
-          {command(
-            "insertTable",
-            ["\n| A | B |\n| --- | --- |\n|  |  |\n", ""],
-            () => {
-              editor
-                ?.chain()
-                .focus()
-                .insertTable({ rows: 3, cols: 2, withHeaderRow: true })
-                .run();
-            },
-            false,
-            Table,
-          )}
-          <button
-            aria-label={t("image")}
-            title={t("image")}
-            disabled={busy}
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => insertImage(onImage)}
+              },
+              false,
+              Table,
+            )}
+            <button
+              aria-label={t("image")}
+              title={t("image")}
+              disabled={busy}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => insertImage(onImage)}
+            >
+              <ImagePlus size={16} />
+            </button>
+            <span className="toolbar-divider" aria-hidden="true" />
+            <Button
+              variant="ghost"
+              size="sm"
+              className="editor-mode"
+              aria-label={t(source ? "liveEdit" : "sourceMode")}
+              title={t(source ? "liveEdit" : "sourceMode")}
+              aria-pressed={source}
+              onClick={toggleSource}
+            >
+              {t(source ? "liveEditShort" : "sourceModeShort")}
+            </Button>
+          </div>
+          <div
+            className="editor-capsule find-capsule"
+            role="group"
+            aria-label={t("findReplace")}
           >
-            <ImagePlus size={16} />
-          </button>
-          <span className="toolbar-divider" aria-hidden="true" />
-          <Button
-            variant="ghost"
-            size="sm"
-            className="editor-mode"
-            aria-label={t(source ? "liveEdit" : "sourceMode")}
-            title={t(source ? "liveEdit" : "sourceMode")}
-            aria-pressed={source}
-            onClick={toggleSource}
-          >
-            {t(source ? "liveEditShort" : "sourceModeShort")}
-          </Button>
+            <button
+              className="find-launch"
+              type="button"
+              aria-label={t("findReplace")}
+              title={`${t("findReplace")} · ${store.data.settings.shortcuts.find} / ${store.data.settings.shortcuts.replace}`}
+              onClick={() => {
+                setFindOpen((open) => !open);
+                setReplaceOpen(true);
+                requestAnimationFrame(() => searchInput.current?.focus());
+              }}
+            >
+              <Search size={17} />
+            </button>
+          </div>
         </div>
-        <button
-          className="find-launch"
-          type="button"
-          aria-label={t("findReplace")}
-          title={`${t("findReplace")} · ${store.data.settings.shortcuts.find} / ${store.data.settings.shortcuts.replace}`}
-          onClick={() => {
-            setFindOpen((open) => !open);
-            setReplaceOpen(true);
-            requestAnimationFrame(() => searchInput.current?.focus());
-          }}
-        >
-          <Search size={17} />
-        </button>
         <div
           className="editor-capsule history-capsule"
           role="group"

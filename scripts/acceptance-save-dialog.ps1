@@ -1,4 +1,4 @@
-param([Parameter(Mandatory=$true)][string]$Target,[ValidateSet('Save','Folder','DenyAI')][string]$Mode='Save')
+param([Parameter(Mandatory=$true)][string]$Target,[ValidateSet('Save','Folder','DenyAI','ApproveAISetup')][string]$Mode='Save')
 $ErrorActionPreference='Stop'
 if ($env:CI -ne 'true' -or !$env:ORVIA_ACCEPTANCE_EXE) { throw 'Only allowed in the disposable CI acceptance fixture' }
 $fixtureExe=[IO.Path]::GetFullPath($env:ORVIA_ACCEPTANCE_EXE)
@@ -32,6 +32,19 @@ while ([DateTime]::UtcNow -lt $deadline) {
     if ($owner.Current.ClassName -eq '#32770') { $dialogs += $owner }
     foreach ($dialog in $dialogs) {
     if ($fixturePids -notcontains $dialog.Current.ProcessId) { continue }
+    if ($Mode -eq 'ApproveAISetup') {
+      if (!$dialog.Current.Name.StartsWith('Orvia AI') -or !$dialog.Current.Name.Contains('Setup authorization')) { continue }
+      $approvalHandle=[IntPtr]$dialog.Current.NativeWindowHandle
+      $approve=$dialog.FindFirst([Windows.Automation.TreeScope]::Descendants,([Windows.Automation.OrCondition]::new(([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::AutomationIdProperty,'1')),([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::AutomationIdProperty,'CommandButton_1')))))
+      $pattern=$null
+      if ($null -ne $approve -and $approve.TryGetCurrentPattern([Windows.Automation.InvokePattern]::Pattern,[ref]$pattern)) { $pattern.Invoke() }
+      else { [void][OrviaDialogMessages]::SendMessage($approvalHandle,0x0466,[IntPtr]1,[IntPtr]::Zero) }
+      $approvalDeadline=[DateTime]::UtcNow.AddSeconds(8)
+      while ([OrviaDialogMessages]::IsWindowVisible($approvalHandle) -and [DateTime]::UtcNow -lt $approvalDeadline) { Start-Sleep -Milliseconds 100 }
+      if ([OrviaDialogMessages]::IsWindowVisible($approvalHandle)) { throw 'Isolated AI setup dialog did not close' }
+      Write-Output 'Approved setup authorization for the synthetic key in the isolated fixture'
+      exit 0
+    }
     if ($Mode -eq 'DenyAI') {
       if (!$dialog.Current.Name.StartsWith('Orvia AI')) { continue }
       $cancelButton=$dialog.FindFirst([Windows.Automation.TreeScope]::Descendants,([Windows.Automation.AndCondition]::new(([Windows.Automation.OrCondition]::new(([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::AutomationIdProperty,'2')),([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::AutomationIdProperty,'CommandButton_2')))),([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::Button)))))

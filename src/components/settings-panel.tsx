@@ -1,4 +1,6 @@
 import { AiSettings } from "./ai-settings";
+import { useViewMotion } from "@/hooks/use-view-motion";
+import type { MotionPreference } from "@/core/motion";
 import { StorageManagement } from "./storage-management";
 import { VaultPanel } from "./vault-panel";
 import { BackupSettings } from "./backup-settings";
@@ -71,6 +73,7 @@ export function SettingsPanel({
   const t = translator(locale);
   const [category, setCategory] = useState("general"),
     [query, setQuery] = useState("");
+  useViewMotion(category, ".settings-content");
   const w = (a: string, b: string, c: string) => words(locale, a, b, c);
   const categories = [
     {
@@ -160,6 +163,34 @@ export function SettingsPanel({
                 change((s) => ({ ...s, settings: { ...s.settings, theme } }))
               }
             />
+          </div>
+          <div className="settings-row motion-settings-row">
+            <div>
+              <b>{t("motionTitle")}</b>
+              <p>{t("motionHint")}</p>
+            </div>
+            <select
+              aria-label={t("motionTitle")}
+              value={data.settings.motion}
+              onChange={(e) =>
+                change((s) => ({
+                  ...s,
+                  settings: {
+                    ...s.settings,
+                    motion: e.target.value as MotionPreference,
+                  },
+                }))
+              }
+            >
+              <option value="elegant">{t("motionElegant")}</option>
+              <option value="moderate">{t("motionModerate")}</option>
+              <option value="rapid">{t("motionRapid")}</option>
+            </select>
+          </div>
+          <div className="motion-settings-preview">
+            <span className="motion-preview-indicator" />
+            {t("motionPreview")}
+            <small>{t("motionReducedHint")}</small>
           </div>
         </>
       ),

@@ -1,0 +1,208 @@
+:root {
+  --motion-control: 140ms;
+  --motion-page: 180ms;
+  --motion-panel: 160ms;
+  --motion-cycle: 1050ms;
+  --motion-distance: 3px;
+  --motion-easing: cubic-bezier(0.2, 0.7, 0.25, 1);
+}
+/* Keep the formatter and search capsule adjacent; history stays at the far edge. */
+.live-format-bar {
+  column-gap: 12px;
+  row-gap: 8px;
+}
+.editor-format-cluster {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+  max-width: 100%;
+}
+.editor-format-cluster .format-capsule {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.editor-format-cluster .format-capsule::-webkit-scrollbar {
+  display: none;
+}
+.editor-format-cluster .find-capsule {
+  flex: none;
+  padding: 4px 7px;
+  min-height: 42px;
+}
+.live-format-bar .find-capsule .find-launch {
+  width: 28px;
+  min-width: 28px;
+  height: 30px;
+  min-height: 30px;
+  margin: 0;
+  border: 0;
+  border-radius: 50%;
+  padding: 0;
+  background: transparent;
+  color: var(--text-secondary);
+}
+.live-format-bar .find-capsule .find-launch svg {
+  stroke-width: 2.25;
+}
+.live-format-bar .find-capsule .find-launch:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+.history-capsule {
+  margin-left: auto;
+}
+.app-shell,
+.sidebar,
+.topbar,
+.editor-paper,
+.document-aside,
+.ai-dock,
+.settings-page {
+  transition:
+    background-color var(--motion-control) var(--motion-easing),
+    color var(--motion-control) var(--motion-easing),
+    border-color var(--motion-control) var(--motion-easing);
+}
+.app-shell button,
+.app-shell select,
+.app-shell input,
+.app-shell textarea,
+.document-card,
+.ai-proposal {
+  transition-duration: var(--motion-control);
+  transition-timing-function: var(--motion-easing);
+  transition-property:
+    color, background-color, border-color, box-shadow, opacity;
+}
+[data-slot="dialog-content"],
+[data-slot="dialog-overlay"],
+[data-slot="tooltip-content"],
+.heading-menu,
+.ai-selection-menu {
+  animation-duration: var(--motion-panel) !important;
+  transition-duration: var(--motion-panel);
+}
+.ai-dock,
+.ai-history-popover,
+.ai-model-popover,
+.find-bar {
+  animation: motion-panel-in var(--motion-panel) var(--motion-easing);
+}
+.ai-message {
+  animation: motion-message-in var(--motion-page) var(--motion-easing);
+}
+.ai-thinking > svg {
+  animation: motion-ai-wait var(--motion-cycle) ease-in-out infinite;
+}
+.ai-thinking i {
+  animation-duration: var(--motion-cycle);
+}
+.ai-thinking i:nth-last-child(2) {
+  animation-delay: calc(var(--motion-cycle) * 0.14);
+}
+.ai-thinking i:last-child {
+  animation-delay: calc(var(--motion-cycle) * 0.28);
+}
+.save-spinner {
+  animation-duration: calc(var(--motion-cycle) * 0.8);
+}
+@keyframes motion-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--motion-distance));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes motion-message-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--motion-distance));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes motion-ai-wait {
+  0%,
+  100% {
+    opacity: 0.65;
+    transform: rotate(-10deg) scale(0.95);
+  }
+  50% {
+    opacity: 1;
+    transform: rotate(12deg) scale(1.08);
+  }
+}
+.motion-settings-row select {
+  min-width: 120px;
+  font-size: 12px;
+  padding: 7px 10px;
+  border: 1px solid var(--line, var(--border));
+  border-radius: 7px;
+  background: var(--surface, var(--background));
+  color: var(--text, var(--foreground));
+}
+.motion-settings-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.motion-settings-preview small {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.motion-preview-indicator {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--blue);
+  margin: 0 6px;
+  animation: motion-ai-wait var(--motion-cycle) ease-in-out infinite;
+}
+.ai-authorization-settings {
+  padding: 13px;
+  border: 1px solid var(--line, var(--border));
+  border-radius: 9px;
+  background: var(--surface-alt, var(--muted));
+  font-size: 12px;
+  line-height: 1.8;
+}
+.ai-authorization-settings p {
+  margin-bottom: 9px;
+}
+.ai-authorization-settings [role="status"] {
+  color: var(--text-secondary);
+}
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-control: 0.01ms !important;
+    --motion-page: 0.01ms !important;
+    --motion-panel: 0.01ms !important;
+    --motion-cycle: 0.01ms !important;
+    --motion-distance: 0px !important;
+  }
+  .app-shell *,
+  .app-shell *::before,
+  .app-shell *::after,
+  [data-slot="dialog-content"],
+  [data-slot="dialog-overlay"],
+  [data-slot="tooltip-content"],
+  .heading-menu,
+  .ai-selection-menu {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

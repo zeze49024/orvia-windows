@@ -1,4 +1,4 @@
-use crate::{ai_credentials as credentials, Storage};
+use crate::{ai_authorization as authorization, ai_credentials as credentials, Storage};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{fs, io::Write, sync::Mutex, time::Duration};
@@ -72,13 +72,21 @@ fn read_config(storage: &Storage) -> Result<Config, String> {
 pub struct Status {
     config: Config,
     has_key: bool,
+    authorized: bool,
 }
 #[tauri::command]
 pub fn ai_config(storage: State<Storage>) -> Result<Status, String> {
     let config = read_config(&storage)?;
-    let has_key =
-        credentials::read(&credentials::target(&storage.root, &config.provider)?)?.is_some();
-    Ok(Status { config, has_key })
+    let key = credentials::read(&credentials::target(&storage.root, &config.provider)?)?;
+    let authorized = match &key {
+        Some(key) => authorization::authorized(&storage.root, &config.provider, &key.0)?,
+        None => false,
+    };
+    Ok(Status {
+        config,
+        has_key: key.is_some(),
+        authorized,
+    })
 }
 #[tauri::command]
 pub fn ai_save_config(storage: State<Storage>, config: Config) -> Result<(), String> {
@@ -97,14 +105,93 @@ pub fn ai_save_config(storage: State<Storage>, config: Config) -> Result<(), Str
     drop(file);
     fs::rename(temp, storage.root.join("ai-config.json")).map_err(|_| "AI_CONFIG_WRITE".into())
 }
-#[tauri::command]
-pub fn ai_save_key(storage: State<Storage>, provider: String, key: String) -> Result<(), String> {
-    let key = credentials::Secret(key);
-    credentials::write(&credentials::target(&storage.root, &provider)?, &key.0)
+async fn setup_consent(window: &WebviewWindow, provider: &str, locale: &str) -> Result<(), String> {
+    let url = endpoint(provider)?;
+    let text=match locale {
+        "en"=>format!("Allow future AI messages to {} using this key?\n\nWhen you press Send, Orvia will directly send the selected text/current note (as chosen), your instruction and recent conversation context. Unlocked encrypted notes are sent as decrypted text. Image files and other conversations are not automatically uploaded.\n\nAPI charges may apply. No confirmation will be shown for each message. Changes to notes still require confirmation. You can stop requests or revoke this permission in AI settings. This permission is local and bound to this provider and key.",url),
+        "zh-TW"=>format!("是否授權使用此 Key，將後續主動傳送的 AI 訊息直接傳送至 {}？\n\n傳送內容包含你選擇的文字片段／目前筆記、指令與最近的本會話上下文；解鎖的加密筆記會以解密文字傳送。不自動上傳圖片檔案或其他會話。\n\n可能產生 API 費用。授權後每次傳送不再確認，修改筆記仍須確認。可停止請求，或在 AI 設定撤銷。授權僅儲存在本機，綁定服務商與此 Key。",url),
+        _=>format!("是否授权使用此 Key，将后续主动发送的 AI 消息直接发送至 {}？\n\n发送内容包含你选择的文字片段／当前笔记、指令与最近的本会话上下文；解锁的加密笔记会以解密文字发送。不自动上传图片文件或其他会话。\n\n可能产生 API 费用。授权后每次发送不再确认，修改笔记仍须确认。可停止请求，或在 AI 设置撤销。授权仅保存在本机，绑定服务商与此 Key。",url),
+    };
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    window
+        .dialog()
+        .message(text)
+        .title("Orvia AI · 设置授权 / Setup authorization")
+        .kind(MessageDialogKind::Warning)
+        .buttons(MessageDialogButtons::OkCancel)
+        .show(move |ok| {
+            let _ = tx.send(ok);
+        });
+    if !tokio::time::timeout(Duration::from_secs(180), rx)
+        .await
+        .map_err(|_| "AI_TIMEOUT")?
+        .map_err(|_| "AI_CANCELLED")?
+    {
+        return Err("AI_CANCELLED".into());
+    }
+    Ok(())
 }
 #[tauri::command]
-pub fn ai_delete_key(storage: State<Storage>, provider: String) -> Result<(), String> {
-    credentials::delete(&credentials::target(&storage.root, &provider)?)
+pub async fn ai_save_key(
+    window: WebviewWindow,
+    storage: State<'_, Storage>,
+    provider: String,
+    key: String,
+    locale: String,
+) -> Result<(), String> {
+    let key = credentials::Secret(key);
+    credentials::validate(&key.0)?;
+    credentials::target(&storage.root, &provider)?;
+    if !authorization::authorized(&storage.root, &provider, &key.0)? {
+        setup_consent(&window, &provider, &locale).await?;
+    }
+    credentials::write(&credentials::target(&storage.root, &provider)?, &key.0)?;
+    authorization::save(&storage.root, &provider, &key.0)
+}
+#[tauri::command]
+pub async fn ai_authorize(
+    window: WebviewWindow,
+    storage: State<'_, Storage>,
+    provider: String,
+    locale: String,
+) -> Result<(), String> {
+    let key = credentials::read(&credentials::target(&storage.root, &provider)?)?
+        .ok_or("AI_KEY_MISSING")?;
+    if !authorization::authorized(&storage.root, &provider, &key.0)? {
+        setup_consent(&window, &provider, &locale).await?;
+        authorization::save(&storage.root, &provider, &key.0)?;
+    }
+    Ok(())
+}
+fn stop_active(state: &AiState) {
+    if let Ok(mut lock) = state.0.lock() {
+        if let Some(job) = lock.job.as_mut() {
+            if let Some(tx) = job.cancel.take() {
+                let _ = tx.send(());
+            }
+        }
+    }
+}
+#[tauri::command]
+pub fn ai_revoke_authorization(
+    storage: State<Storage>,
+    state: State<AiState>,
+    provider: String,
+) -> Result<(), String> {
+    authorization::revoke(&storage.root, &provider)?;
+    stop_active(&state);
+    Ok(())
+}
+#[tauri::command]
+pub fn ai_delete_key(
+    storage: State<Storage>,
+    state: State<AiState>,
+    provider: String,
+) -> Result<(), String> {
+    authorization::revoke(&storage.root, &provider)?;
+    credentials::delete(&credentials::target(&storage.root, &provider)?)?;
+    stop_active(&state);
+    Ok(())
 }
 struct Job {
     id: String,
@@ -450,7 +537,6 @@ pub(crate) async fn agent(
 }
 #[tauri::command]
 pub async fn ai_run(
-    window: WebviewWindow,
     storage: State<'_, Storage>,
     state: State<'_, AiState>,
     request: Request,
@@ -467,46 +553,12 @@ pub async fn ai_run(
     let mut cancel = begin_job(&state, &request.id)?;
     let _running = Running(&state, request.id.clone());
     let work = async {
-        let title: String = request
-            .snapshot
-            .title
-            .chars()
-            .filter(|c| !c.is_control())
-            .take(100)
-            .collect();
-        let url = endpoint(&c.provider)?;
-        let scope_label = match (request.locale.as_str(), request.scope.as_str()) {
-            ("en", "selection") => "Selected Markdown fragment only",
-            ("en", "none") => "No new note content",
-            ("en", _) => "Current note",
-            ("zh-TW", "selection") => "僅選取的 Markdown 片段",
-            ("zh-TW", "none") => "不附帶新的筆記內容",
-            ("zh-TW", _) => "目前筆記",
-            (_, "selection") => "仅选中的 Markdown 片段",
-            (_, "none") => "不附带新的笔记内容",
-            _ => "当前笔记",
-        };
-        let consent=match request.locale.as_str(){
-            "en"=>format!("Send the reviewed instruction and conversation context to {}?\n\nScope: {}\nNote: {}\nModel: {}\nPrevious messages: {}\nEncrypted vault: {}\n\nNo other notes, images or keys are included in model context. API charges apply. Stopping cannot recall sent data. Changes require separate confirmation.",url,scope_label,title,c.model,request.history.len(),request.snapshot.encrypted),
-            "zh-TW"=>format!("是否將已審閱的指令和本會話上下文傳送至 {}？\n\n範圍：{}\n筆記：{}\n模型：{}\n歷史訊息：{} 條\n加密空間：{}\n\n不包含其他筆記、圖片檔案或模型上下文中的 Key。API 可能產生費用，停止無法撤回已傳送資料。修改另行確認。",url,scope_label,title,c.model,request.history.len(),request.snapshot.encrypted),
-            _=>format!("是否将已审阅的指令和本会话上下文发送至 {}？\n\n范围：{}\n笔记：{}\n模型：{}\n历史消息：{} 条\n加密空间：{}\n\n不包含其他笔记、图片文件或模型上下文中的 Key。API 可能产生费用，停止无法撤回已发送内容。修改另行确认。",url,scope_label,title,c.model,request.history.len(),request.snapshot.encrypted),
-        };
-        let (tx, rx) = tokio::sync::oneshot::channel();
-        window
-            .dialog()
-            .message(consent)
-            .title("Orvia AI · 授权 / Authorization")
-            .kind(MessageDialogKind::Warning)
-            .buttons(MessageDialogButtons::OkCancel)
-            .show(move |ok| {
-                let _ = tx.send(ok);
-            });
-        if !rx.await.map_err(|_| "AI_CANCELLED")? {
-            return Err("AI_CANCELLED".into());
-        }
         let key = credentials::read(&credentials::target(&storage.root, &c.provider)?)?
             .ok_or("AI_KEY_MISSING")?;
-        agent(&client()?, url, &key.0, &c, &request).await
+        if !authorization::authorized(&storage.root, &c.provider, &key.0)? {
+            return Err("AI_AUTHORIZATION_REQUIRED".into());
+        }
+        agent(&client()?, endpoint(&c.provider)?, &key.0, &c, &request).await
     };
     tokio::select! {result=tokio::time::timeout(Duration::from_secs(180),work)=>result.map_err(|_|"AI_TIMEOUT".to_string())?,_= &mut cancel=>Err("AI_CANCELLED".into())}
 }

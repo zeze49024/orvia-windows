@@ -10,7 +10,11 @@ export type AiConfig = {
   maxInputChars: number;
   maxRounds: number;
 };
-export type AiStatus = { config: AiConfig; hasKey: boolean };
+export type AiStatus = {
+  config: AiConfig;
+  hasKey: boolean;
+  authorized: boolean;
+};
 export type AiSnapshot = {
   id: string;
   title: string;
@@ -38,8 +42,12 @@ export type AiOutput = {
 export const aiTransport = {
   load: () => invoke<AiStatus>("ai_config"),
   save: (config: AiConfig) => invoke<void>("ai_save_config", { config }),
-  saveKey: (provider: string, key: string) =>
-    invoke<void>("ai_save_key", { provider, key }),
+  saveKey: (provider: string, key: string, locale: string) =>
+    invoke<void>("ai_save_key", { provider, key, locale }),
+  authorize: (provider: string, locale: string) =>
+    invoke<void>("ai_authorize", { provider, locale }),
+  revokeAuthorization: (provider: string) =>
+    invoke<void>("ai_revoke_authorization", { provider }),
   deleteKey: (provider: string) => invoke<void>("ai_delete_key", { provider }),
   models: (provider: string) => invoke<string[]>("ai_models", { provider }),
   run: (request: AiRequest) => invoke<AiOutput>("ai_run", { request }),

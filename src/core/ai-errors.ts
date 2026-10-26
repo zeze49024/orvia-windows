@@ -3,6 +3,9 @@ export function aiError(error: unknown, t: (key: MessageKey) => string) {
   const message = String(error);
   let key: MessageKey = "aiError";
   if (/AI_CANCELLED|AbortError/.test(message)) key = "aiCancelled";
+  else if (message.includes("AI_AUTHORIZATION_REQUIRED"))
+    key = "aiAuthorizationRequired";
+  else if (message.includes("AI_AUTHORIZATION_STORE")) key = "aiStoreError";
   else if (message.includes("AI_HISTORY_LIMIT")) key = "aiHistoryLimit";
   else if (message.includes("AI_SOURCE_REQUIRED")) key = "aiSourceRequired";
   else if (message.includes("AI_CONFLICT")) key = "aiConflict";

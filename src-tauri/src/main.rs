@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 use rusqlite::{Connection, OptionalExtension};
 mod ai;
+mod ai_authorization;
 mod ai_credentials;
 mod backup_directory;
 mod image_guard;
@@ -273,6 +274,8 @@ fn main() {
             ai::ai_save_config,
             ai::ai_save_key,
             ai::ai_delete_key,
+            ai::ai_authorize,
+            ai::ai_revoke_authorization,
             ai::ai_models,
             ai::ai_run,
             ai::ai_cancel,

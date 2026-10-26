@@ -53,7 +53,7 @@ if (phase === "seed") {
     id: "af485e10-f680-4ff6-8b40-af799171e221",
     libraryId: data.libraries[0].id,
     title: "Upgrade preservation",
-    body: "# Native upgrade fixture\n\n中文内容 retained from beta4",
+    body: "# Native upgrade fixture\n\n中文内容 retained from beta5",
     tags: ["upgrade"],
     starred: true,
     createdAt: now,
@@ -62,6 +62,10 @@ if (phase === "seed") {
     deletedAt: null,
   });
   await invoke("save_workspace", { data, expectedRevision: loaded.revision });
+  await invoke("ai_save_key", {
+    provider: "deepseek",
+    key: "orvia-upgrade-only-not-a-real-key",
+  });
 } else if (phase === "update") {
   await page.reload();
   await page.waitForSelector(".app-shell");
@@ -96,7 +100,7 @@ if (phase === "seed") {
     .click();
   await page
     .getByRole("dialog")
-    .getByText("v0.1.1-beta4 → v0.1.1-beta5", { exact: true })
+    .getByText("v0.1.1-beta5 → v0.1.1-beta6", { exact: true })
     .waitFor({ timeout: 60000 });
   const closed = page.waitForEvent("close", { timeout: 120000 });
   await page
@@ -198,12 +202,12 @@ if (phase === "seed") {
     (d) => d.title === "Upgrade preservation",
   );
   if (
-    !doc?.body.includes("中文内容 retained from beta4") ||
+    !doc?.body.includes("中文内容 retained from beta5") ||
     !doc.starred ||
     doc.tags[0] !== "upgrade"
   )
     throw new Error("Upgrade lost data");
-  const changed = { ...doc, body: doc.body + "\n\nSaved by v0.1.1-beta5" };
+  const changed = { ...doc, body: doc.body + "\n\nSaved by v0.1.1-beta6" };
   const delta = {
     libraries: { upsert: [], remove: [] },
     documents: { upsert: [changed], remove: [] },
@@ -309,7 +313,7 @@ if (phase === "seed") {
     .click();
   if (
     !(await page.locator(".live-editor").innerText()).includes(
-      "Saved by v0.1.1-beta5",
+      "Saved by v0.1.1-beta6",
     )
   )
     throw new Error("Native editor reload failed");
@@ -764,28 +768,98 @@ if (phase === "seed") {
     .getByRole("button", { name: strings.close, exact: true })
     .last()
     .count();
-  // Never authorize provider inference in acceptance: use a synthetic credential,
-  // verify native storage and explicitly deny the OS consent dialog.
+  // Setup grants are tested with synthetic keys. NEVER send a real inference.
   const initialAi = await invoke("ai_config");
-  if (initialAi.config.enabled || initialAi.hasKey)
-    throw new Error("AI must start disabled without credentials");
+  if (initialAi.config.enabled)
+    throw new Error("AI must remain disabled after upgrade");
+  if (
+    process.env.EXPECT_LEGACY_AI_KEY === "true" &&
+    (!initialAi.hasKey || initialAi.authorized)
+  )
+    throw new Error("Legacy key was lost or silently authorized");
+  const nativeDoc = (await invoke("load_workspace")).data.documents.find(
+    (d) => d.title === "Upgrade preservation",
+  );
+  const request = () => ({
+    id: crypto.randomUUID(),
+    snapshot: {
+      id: nativeDoc.id,
+      title: nativeDoc.title,
+      body: nativeDoc.body,
+      fingerprint: "a".repeat(64),
+      encrypted: false,
+    },
+    task: "Native authorization boundary - no inference",
+    mode: "answer",
+    locale: "en",
+    scope: "note",
+    history: [],
+  });
+  if (initialAi.hasKey) {
+    await invoke("ai_save_config", {
+      config: { ...initialAi.config, enabled: true },
+    });
+    await expect(invoke("ai_run", { request: request() })).rejects.toThrow(
+      "AI_AUTHORIZATION_REQUIRED",
+    );
+    await invoke("ai_save_config", { config: initialAi.config });
+    await invoke("ai_delete_key", { provider: "deepseek" });
+  }
   await page.keyboard.press("Control+,");
+  await page
+    .locator(".settings-nav nav")
+    .getByRole("button", { name: strings.appearance, exact: true })
+    .click();
+  await expect(
+    page.getByRole("combobox", { name: strings.motionTitle, exact: true }),
+  ).toHaveValue("moderate");
+  await page
+    .getByRole("combobox", { name: strings.motionTitle, exact: true })
+    .selectOption("rapid");
+  await expect
+    .poll(async () => (await invoke("load_workspace")).data.settings.motion)
+    .toBe("rapid");
   await page
     .locator(".settings-nav nav")
     .getByRole("button", { name: strings.aiSettings, exact: true })
     .click();
-  await expect(
-    page.getByRole("switch", { name: strings.aiEnabled, exact: true }),
-  ).not.toBeChecked();
   const syntheticKey = "orvia-validation-only-not-a-real-key";
+  const setupDialog = (mode) =>
+    promisify(execFile)(
+      "powershell.exe",
+      [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "scripts/acceptance-save-dialog.ps1",
+        "-Target",
+        path.resolve("native-validation.json"),
+        "-Mode",
+        mode,
+      ],
+      { timeout: 50000 },
+    );
   await page.getByLabel(strings.aiKey, { exact: true }).fill(syntheticKey);
+  const denial = setupDialog("DenyAI");
   await page
     .getByRole("button", { name: strings.aiSaveKey, exact: true })
     .click();
+  console.log((await denial).stdout);
+  await expect.poll(async () => (await invoke("ai_config")).hasKey).toBe(false);
   await expect(page.getByLabel(strings.aiKey, { exact: true })).toHaveValue("");
-  await expect.poll(async () => (await invoke("ai_config")).hasKey).toBe(true);
+  await page.getByLabel(strings.aiKey, { exact: true }).fill(syntheticKey);
+  const approval = setupDialog("ApproveAISetup");
+  await page
+    .getByRole("button", { name: strings.aiSaveKey, exact: true })
+    .click();
+  console.log((await approval).stdout);
+  await expect
+    .poll(async () => (await invoke("ai_config")).authorized)
+    .toBe(true);
+  await expect(page.getByLabel(strings.aiKey, { exact: true })).toHaveValue("");
   if (JSON.stringify(await invoke("load_workspace")).includes(syntheticKey))
-    throw new Error("Credential leaked to the workspace");
+    throw new Error("Credential leaked to workspace");
   await page
     .getByRole("switch", { name: strings.aiEnabled, exact: true })
     .check();
@@ -795,51 +869,39 @@ if (phase === "seed") {
   await expect
     .poll(async () => (await invoke("ai_config")).config.enabled)
     .toBe(true);
-  await page.keyboard.press("Escape");
-  await page
-    .locator(".card-main")
-    .filter({ hasText: "Upgrade preservation" })
-    .click();
-  await page
-    .getByRole("button", { name: strings.aiTitle, exact: true })
-    .click();
-  await page
-    .getByRole("button", { name: strings.aiSummarize, exact: true })
-    .click();
-  await page
-    .getByRole("button", { name: strings.aiChatSend, exact: true })
-    .click();
-  await page
-    .getByRole("dialog", { name: strings.aiSendReview, exact: true })
-    .waitFor();
-  const denyAuthorization = promisify(execFile)(
-    "powershell.exe",
-    [
-      "-NoProfile",
-      "-ExecutionPolicy",
-      "Bypass",
-      "-File",
-      "scripts/acceptance-save-dialog.ps1",
-      "-Target",
-      path.resolve("native-validation.json"),
-      "-Mode",
-      "DenyAI",
-    ],
-    { timeout: 50000 },
+  // Pre-cancel before registration so this authorized native path cannot issue HTTP.
+  const cancelled = request();
+  await invoke("ai_cancel", { id: cancelled.id });
+  await expect(invoke("ai_run", { request: cancelled })).rejects.toThrow(
+    "AI_CANCELLED",
   );
-  await page
-    .getByRole("button", { name: strings.aiConfirmSend, exact: true })
-    .click();
-  console.log((await denyAuthorization).stdout);
-  await expect(page.locator(".ai-chat-error")).toHaveText(strings.aiCancelled);
-  const aiChats = (await invoke("load_workspace")).data.settings
-    .aiConversations;
-  if (
-    !aiChats.length ||
-    aiChats[0].messages[0].role !== "user" ||
-    JSON.stringify(aiChats).includes(syntheticKey)
-  )
-    throw new Error("AI local chat persistence or key separation failed");
+  const stored = await invoke("load_workspace"),
+    now = new Date().toISOString();
+  stored.data.settings.aiConversations.push({
+    id: crypto.randomUUID(),
+    documentId: nativeDoc.id,
+    title: "Native setup grant fixture",
+    createdAt: now,
+    updatedAt: now,
+    messages: [
+      {
+        id: crypto.randomUUID(),
+        role: "user",
+        content: strings.aiSummarizePrompt,
+        createdAt: now,
+      },
+      {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: "Local native chat fixture; no model call.",
+        createdAt: now,
+      },
+    ],
+  });
+  await invoke("save_workspace", {
+    data: stored.data,
+    expectedRevision: stored.revision,
+  });
   await page.reload();
   await page
     .locator(".card-main")
@@ -850,7 +912,14 @@ if (phase === "seed") {
     .click();
   await expect(
     page.getByRole("log", { name: strings.aiChatMessages }),
-  ).toContainText(strings.aiSummarizePrompt);
+  ).toContainText("Local native chat fixture");
+  await page
+    .getByRole("textbox", { name: strings.aiChatInput, exact: true })
+    .fill("Direct send is enabled - not sent in acceptance");
+  await expect(
+    page.getByRole("button", { name: strings.aiChatSend, exact: true }),
+  ).toBeEnabled();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await page
     .getByRole("button", { name: strings.aiClosePanel, exact: true })
     .click();
@@ -859,6 +928,19 @@ if (phase === "seed") {
     .locator(".settings-nav nav")
     .getByRole("button", { name: strings.aiSettings, exact: true })
     .click();
+  await page
+    .getByRole("button", { name: strings.aiRevokeAuthorization, exact: true })
+    .click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: strings.confirm, exact: true })
+    .click();
+  await expect
+    .poll(async () => (await invoke("ai_config")).authorized)
+    .toBe(false);
+  await expect(invoke("ai_run", { request: request() })).rejects.toThrow(
+    "AI_AUTHORIZATION_REQUIRED",
+  );
   await page
     .getByRole("button", { name: strings.aiDeleteKey, exact: true })
     .click();
@@ -881,8 +963,8 @@ if (phase === "seed") {
     "native-validation.json",
     JSON.stringify(
       {
-        previous: "0.1.1-beta4",
-        current: "0.1.1-beta5",
+        previous: "0.1.1-beta5",
+        current: "0.1.1-beta6",
         installerUpgrade: true,
         signedGithubUpdater: process.env.USE_UPDATER === "true",
         sqlitePreserved: true,
@@ -909,7 +991,11 @@ if (phase === "seed") {
         damagedRecoveryQuarantine: true,
         aiDefaultOff: true,
         aiCredentialProtection: true,
-        aiNativeConsentDenied: true,
+        aiSetupConsentDenied: true,
+        aiSetupConsentAccepted: true,
+        aiAuthorizationRevoked: true,
+        aiLegacyKeyPreserved: process.env.EXPECT_LEGACY_AI_KEY === "true",
+        motionPreferencePreserved: true,
         aiChatHistoryPreserved: true,
         realProviderInference: false,
       },

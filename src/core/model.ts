@@ -3,9 +3,9 @@ export { defaultShortcuts } from "./shortcuts";
 import { z } from "zod";
 import { conversationsSchema } from "./ai-history";
 import { localeCodes } from "../i18n/registry";
-export const APP_VERSION = "0.1.1-beta5";
+export const APP_VERSION = "0.1.1-beta6";
 export const RELEASE_NOTE =
-  "重构 AI 侧边聊天面板，新增选中文字快捷操作、连续对话与本地会话管理，优化修改审阅及上下文授权体验";
+  "优化编辑工具栏布局，新增三档全局动画，调整 AI 为配置密钥时一次授权、后续直接对话";
 export const colors = ["blue", "orange", "green", "purple", "rose"] as const;
 export const librarySchema = z.object({
   id: z.string().uuid(),
@@ -99,6 +99,7 @@ export const workspaceSchema = z
         .string()
         .regex(/^[a-z][a-z0-9-]{0,63}$/)
         .default("light"),
+      motion: z.enum(["elegant", "moderate", "rapid"]).default("moderate"),
     }),
   })
   .superRefine((s, ctx) => {
@@ -145,6 +146,7 @@ export function emptyWorkspace(locale: Locale = "zh-CN"): Workspace {
       sidebar: true,
       layout: "grid",
       theme: "light",
+      motion: "moderate",
       autoUpdate: true,
       updateChannel: "stable",
       autoBackup: {

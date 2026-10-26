@@ -138,8 +138,8 @@ export function AiSettings({
           disabled={busy || key.length < 16}
           onClick={() =>
             void run(async () => {
-              await aiTransport.saveKey(config.provider, key);
-              setStatus({ config, hasKey: true });
+              await aiTransport.saveKey(config.provider, key, locale);
+              setStatus({ config, hasKey: true, authorized: true });
               setMessage(t("aiKeySaved"));
             })
           }
@@ -159,7 +159,7 @@ export function AiSettings({
                 })
               ) {
                 await aiTransport.deleteKey(config.provider);
-                setStatus({ config, hasKey: false });
+                setStatus({ config, hasKey: false, authorized: false });
                 setMessage(t("aiDeleteKey"));
               }
             })
@@ -167,6 +167,60 @@ export function AiSettings({
         >
           {t("aiDeleteKey")}
         </Button>
+      </div>
+      <div className="ai-authorization-settings">
+        <p>{t("aiAuthorizationHint")}</p>
+        <p className="ai-grant-status" aria-live="polite">
+          {t(
+            status?.authorized && status.config.provider === config.provider
+              ? "aiAuthorized"
+              : "aiAuthorizationRequired",
+          )}
+        </p>
+        <div className="modal-actions">
+          <Button
+            variant="outline"
+            disabled={
+              busy ||
+              !status?.hasKey ||
+              status.config.provider !== config.provider ||
+              status.authorized
+            }
+            onClick={() =>
+              void run(async () => {
+                await aiTransport.authorize(config.provider, locale);
+                setStatus({ config, hasKey: true, authorized: true });
+                setMessage(t("aiAuthorized"));
+              })
+            }
+          >
+            {t("aiAuthorize")}
+          </Button>
+          <Button
+            variant="outline"
+            disabled={
+              busy ||
+              !status?.authorized ||
+              status.config.provider !== config.provider
+            }
+            onClick={() =>
+              void run(async () => {
+                if (
+                  await confirm({
+                    title: t("aiRevokeAuthorization"),
+                    description: t("aiRevokeHint"),
+                  })
+                ) {
+                  await aiTransport.revokeAuthorization(config.provider);
+                  setStatus({ config, hasKey: true, authorized: false });
+                  setMessage(t("aiAuthorizationRequired"));
+                }
+              })
+            }
+          >
+            {t("aiRevokeAuthorization")}
+          </Button>
+        </div>
       </div>
       <Button
         variant="outline"

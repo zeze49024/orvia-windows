@@ -50,6 +50,7 @@ import {
 import type { AiEditorBridge, AiSelectionRequest } from "@/core/ai-editor";
 import { aiError } from "@/core/ai-errors";
 import { store } from "@/core/storage";
+import { chatScrollBehavior } from "@/core/motion";
 import { resolveTheme } from "@/core/themes";
 import type { Document, Locale } from "@/core/model";
 import type { Confirm } from "@/hooks/use-confirmation";
@@ -169,14 +170,7 @@ export function AiPanel({
     [pending, setPending] = useState(false),
     [error, setError] = useState(""),
     [historyOpen, setHistoryOpen] = useState(false);
-  const [consent, setConsent] = useState<{
-      request: AiRequest;
-      base: AiSnapshot;
-      anchor: AiAnchor | null;
-      sessionId: string;
-      historyTotal: number;
-    } | null>(null),
-    [review, setReview] = useState<Review | null>(null),
+  const [review, setReview] = useState<Review | null>(null),
     [scopeOpen, setScopeOpen] = useState(false),
     [rename, setRename] = useState<{ id: string; title: string } | null>(null);
   const [models, setModels] = useState<string[]>([]),
@@ -186,7 +180,10 @@ export function AiPanel({
   const session = sessions.find((c) => c.id === activeId),
     messages = session?.messages || [];
   const usable =
-    status?.config.enabled && status.hasKey && !!status.config.model;
+    status?.config.enabled &&
+    status.hasKey &&
+    status.authorized &&
+    !!status.config.model;
   function ensureLive() {
     if (
       !alive.current ||
@@ -243,7 +240,6 @@ export function AiPanel({
     if (!seed) return;
     anchorBody.current = seed.body;
     stop();
-    setConsent(null);
     setReview(null);
     setAnchor(seed.anchor);
     setScope("selection");
@@ -262,7 +258,7 @@ export function AiPanel({
   useEffect(() => {
     timeline.current?.scrollTo({
       top: timeline.current.scrollHeight,
-      behavior: "smooth",
+      behavior: chatScrollBehavior(),
     });
   }, [messages.length, pending, activeId]);
   useEffect(() => {
@@ -277,7 +273,7 @@ export function AiPanel({
         if (historyOpen || modelsOpen) {
           setHistoryOpen(false);
           setModelsOpen(false);
-        } else if (!consent && !review && !scopeOpen && !rename) {
+        } else if (!review && !scopeOpen && !rename) {
           stop();
           onClose();
         }
@@ -285,7 +281,7 @@ export function AiPanel({
     };
     window.addEventListener("keydown", close);
     return () => window.removeEventListener("keydown", close);
-  }, [historyOpen, modelsOpen, consent, review, scopeOpen, rename]);
+  }, [historyOpen, modelsOpen, review, scopeOpen, rename]);
   const fail = (e: unknown) => setError(aiError(e, t));
   async function newChat() {
     stop();
@@ -312,18 +308,23 @@ export function AiPanel({
   }
   function choose(id: string) {
     stop();
-    setConsent(null);
     setReview(null);
     setError("");
     setDraft("");
     setActiveId(id);
     setHistoryOpen(false);
   }
+  const sending = useRef(false);
   async function prepareSend() {
-    if (pending || !usable || !draft.trim()) return;
+    if (pending || sending.current || !usable || !draft.trim()) return;
+    sending.current = true;
+    const preparedId = crypto.randomUUID();
+    job.current = preparedId;
+    setPending(true);
     setError("");
     try {
       const base = await aiSnapshot(currentDoc());
+      if (!alive.current || job.current !== preparedId) return;
       assertCurrent(base);
       if (
         scope === "selection" &&
@@ -352,9 +353,9 @@ export function AiPanel({
         messages,
         status!.config.maxInputChars - cost,
       );
-      setConsent({
+      await sendMessage({
         request: {
-          id: crypto.randomUUID(),
+          id: preparedId,
           snapshot,
           task: draft.trim(),
           mode: scope === "none" ? "answer" : "edit",
@@ -368,13 +369,22 @@ export function AiPanel({
         historyTotal: messages.length,
       });
     } catch (e) {
-      fail(e);
+      if (alive.current && job.current === preparedId) fail(e);
+    } finally {
+      sending.current = false;
+      if (alive.current && job.current === preparedId) {
+        job.current = null;
+        setPending(false);
+      }
     }
   }
-  async function sendConfirmed() {
-    const captured = consent;
-    if (!captured) return;
-    setConsent(null);
+  async function sendMessage(captured: {
+    request: AiRequest;
+    base: AiSnapshot;
+    anchor: AiAnchor | null;
+    sessionId: string;
+    historyTotal: number;
+  }) {
     const { request, base, sessionId } = captured;
     job.current = request.id;
     setPending(true);
@@ -614,7 +624,13 @@ export function AiPanel({
           <p className="ai-setup">{t("aiDesktop")}</p>
         ) : !usable ? (
           <div className="ai-setup">
-            <p>{t("aiSetup")}</p>
+            <p>
+              {t(
+                status?.hasKey && !status.authorized
+                  ? "aiAuthorizationRequired"
+                  : "aiSetup",
+              )}
+            </p>
             <Button variant="outline" size="sm" onClick={onConfigure}>
               {t("aiConfigure")}
             </Button>
@@ -945,7 +961,7 @@ export function AiPanel({
           <div className="ai-composer-foot">
             <button onClick={() => setScopeOpen(true)}>
               <ShieldCheck size={12} />
-              {scopeLabel} · {t("aiBeforeSend")}
+              {scopeLabel} · {t("aiDirectSend")}
             </button>
             <span>{t("aiAccuracy")}</span>
           </div>
@@ -1010,66 +1026,6 @@ export function AiPanel({
             </CardContent>
           </Card>
         )}
-        <Dialog
-          open={!!consent}
-          onOpenChange={(open) => {
-            if (!open) setConsent(null);
-          }}
-        >
-          <DialogContent
-            className="dialog ai-review-dialog"
-            closeLabel={t("close")}
-          >
-            <DialogHeader>
-              <DialogTitle>{t("aiSendReview")}</DialogTitle>
-              <DialogDescription>
-                {status?.config.provider} · {status?.config.model} ·{" "}
-                {t("aiCost")}
-              </DialogDescription>
-            </DialogHeader>
-            {consent && (
-              <>
-                <div className="ai-send-preview">
-                  <strong>
-                    {consent.request.scope === "selection"
-                      ? t("aiSelection")
-                      : consent.request.scope === "note"
-                        ? t("aiCurrentNote")
-                        : t("aiNoNote")}
-                  </strong>
-                  <pre>
-                    {consent.request.snapshot.body || t("aiContextNone")}
-                  </pre>
-                  <strong>{t("aiInstruction")}</strong>
-                  <pre>{consent.request.task}</pre>
-                  <details>
-                    <summary>
-                      {t("aiHistorySent")} ·{" "}
-                      {consent.request.history?.length || 0} /{" "}
-                      {consent.historyTotal}
-                    </summary>
-                    {consent.request.history?.map((m, i) => (
-                      <div key={i}>
-                        <b>{m.role === "user" ? t("aiYou") : "Orvia AI"}</b>
-                        <pre>{m.content}</pre>
-                      </div>
-                    ))}
-                  </details>
-                  {(consent.request.history?.length || 0) <
-                    consent.historyTotal && <p>{t("aiHistoryTrim")}</p>}
-                </div>
-                <div className="modal-actions">
-                  <Button variant="outline" onClick={() => setConsent(null)}>
-                    {t("cancel")}
-                  </Button>
-                  <Button onClick={() => void sendConfirmed()}>
-                    {t("aiConfirmSend")}
-                  </Button>
-                </div>
-              </>
-            )}
-          </DialogContent>
-        </Dialog>
         <Dialog
           open={!!review}
           onOpenChange={(open) => {

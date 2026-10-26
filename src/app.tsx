@@ -3,6 +3,8 @@ import { AdvancedSearch } from "./components/advanced-search";
 import { vaultSession } from "./core/vault";
 import { templates, words, matchesShortcut } from "./core/productivity";
 import { useWorkspaceMaintenance } from "./hooks/use-workspace-maintenance";
+import { applyMotion } from "./core/motion";
+import { useViewMotion } from "./hooks/use-view-motion";
 import { RecoveryNotice } from "./components/recovery-notice";
 import { exportPdf } from "./core/pdf-export";
 import { useConfirmation } from "./hooks/use-confirmation";
@@ -166,6 +168,8 @@ export function App() {
   useLayoutEffect(() => {
     if (store.ready) applyTheme(data.settings.theme);
   }, [data.settings.theme, store.ready]);
+  useLayoutEffect(()=>{applyMotion(data.settings.motion);},[data.settings.motion]);
+  useViewMotion(`${store.ready}:${store.vaultMode}:${settingsOpen}:${page}:${selected||''}`,settingsOpen?'.settings-page':'#main-content');
   useEffect(() => {
     document.documentElement.lang = locale;
     document.title = "Orvia v" + APP_VERSION;
