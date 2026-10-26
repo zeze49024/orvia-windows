@@ -7,21 +7,34 @@ $workspaceRoot=[IO.Path]::GetFullPath($env:GITHUB_WORKSPACE).TrimEnd('\')+'\'
 if (!$targetFile.StartsWith($workspaceRoot,[StringComparison]::OrdinalIgnoreCase)) { throw 'Target is outside the acceptance workspace' }
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
+Add-Type @'
+using System;
+using System.Runtime.InteropServices;
+public static class OrviaDialogMessages {
+ [DllImport("user32.dll",CharSet=CharSet.Unicode)] public static extern IntPtr SendMessage(IntPtr hwnd,uint msg,IntPtr wParam,string lParam);
+ [DllImport("user32.dll")] public static extern IntPtr SendMessage(IntPtr hwnd,uint msg,IntPtr wParam,IntPtr lParam);
+}
+'@
 $deadline=[DateTime]::UtcNow.AddSeconds(40)
 while ([DateTime]::UtcNow -lt $deadline) {
   $fixturePids=@(Get-Process -Name orvia -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $fixtureExe } | Select-Object -ExpandProperty Id)
   $windows=[Windows.Automation.AutomationElement]::RootElement.FindAll([Windows.Automation.TreeScope]::Children,[Windows.Automation.Condition]::TrueCondition)
-  foreach ($dialog in $windows) {
-    if ($fixturePids -notcontains $dialog.Current.ProcessId -or $dialog.Current.ClassName -ne '#32770') { continue }
-    $edit=$dialog.FindFirst([Windows.Automation.TreeScope]::Descendants,([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::AutomationIdProperty,'1001')))
-    $save=$dialog.FindFirst([Windows.Automation.TreeScope]::Descendants,([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::AutomationIdProperty,'1')))
+  foreach ($owner in $windows) {
+    if ($fixturePids -notcontains $owner.Current.ProcessId) { continue }
+    $dialogs=@($owner.FindAll([Windows.Automation.TreeScope]::Subtree,([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ClassNameProperty,'#32770'))))
+    foreach ($dialog in $dialogs) {
+    if ($fixturePids -notcontains $dialog.Current.ProcessId) { continue }
+    $edit=$dialog.FindFirst([Windows.Automation.TreeScope]::Descendants,([Windows.Automation.AndCondition]::new(([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::AutomationIdProperty,'1001')),([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ClassNameProperty,'Edit')))))
+    $save=$dialog.FindFirst([Windows.Automation.TreeScope]::Descendants,([Windows.Automation.AndCondition]::new(([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::AutomationIdProperty,'1')),([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ClassNameProperty,'Button')))))
     if ($null -eq $edit -or $null -eq $save) { continue }
-    $value=$edit.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern)
-    $value.SetValue($targetFile)
-    $action=$save.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern)
-    $action.Invoke()
+    $editHandle=[IntPtr]$edit.Current.NativeWindowHandle
+    $saveHandle=[IntPtr]$save.Current.NativeWindowHandle
+    if ($editHandle -eq [IntPtr]::Zero -or $saveHandle -eq [IntPtr]::Zero) { continue }
+    [void][OrviaDialogMessages]::SendMessage($editHandle,0x000C,[IntPtr]::Zero,$targetFile)
+    [void][OrviaDialogMessages]::SendMessage($saveHandle,0x00F5,[IntPtr]::Zero,[IntPtr]::Zero)
     Write-Output 'Native save dialog approved in the isolated acceptance fixture'
     exit 0
+    }
   }
   Start-Sleep -Milliseconds 200
 }
