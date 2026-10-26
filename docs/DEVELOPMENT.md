@@ -1,6 +1,6 @@
 # 开发与发布
 
-版本：v0.1.1-beta2。已确认日志见 [本版日志](RELEASE-v0.1.1-beta2.md)；验证见 [保存恢复与 PDF 验收](V0.1.1-BETA2-VALIDATION.md)。
+版本：v0.1.1-beta7。已确认日志见 [本版日志](RELEASE-v0.1.1-beta7.md)；验证见 [本版验收](V0.1.1-BETA7-VALIDATION.md)。
 
 ## 启动
 
@@ -87,9 +87,9 @@ Tauri updater 校验 Ed25519 签名后才运行安装包。更新签名不等同
 
 文档名称改为小字号的“文件名”输入栏，不作为正文 H1 或导出内容。所有 Markdown 导出入口均导出选定文档的单个 `.md`，不创建目录或 ZIP，也不插入文件名作为额外标题。Markdown 语法树中的本地图片引用转换为 data URI 嵌入，代码里的资产字面量不变；部分第三方 Markdown 阅读器可能限制 data URI 图片。完整 `.orvia` 备份格式保留，用于工作空间恢复。
 
-## Beta6 质量与验收
+## 当前质量与验收
 
-`npm run test:e2e` 运行三个端到端工作流；首次运行需 `npx playwright install chromium`。安装升级验证由 `.github/workflows/installer-smoke.yml` 在一次性 Windows runner 中执行，执行 beta5 安装与 beta6 覆盖升级，并通过真实 WebView2 → IPC → SQLite 验证数据保留。不得将此脚本用于用户的日常安装。
+`npm run test:e2e` 运行 43 项端到端回归；首次运行需 `npx playwright install chromium`。安装升级验证由 `.github/workflows/installer-smoke.yml` 在一次性 Windows runner 中执行，执行 v0.1.1-beta6 安装与 beta7 覆盖升级，并通过真实 WebView2 → IPC → SQLite 验证数据保留。不得将此脚本用于用户的日常安装。
 
 用于隔离调试时，编译后的程序支持 `--validation-root <绝对目录>`，目录必须预先含 `.orvia-validation` 文件；同时将进程环境 `WEBVIEW2_USER_DATA_FOLDER` 指向该目录下的独立 WebView2 文件夹。该模式使用独立数据库且不加入日常实例锁，普通启动行为不变。测试需要调试端口时仅在该测试进程设置 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9226`；正式启动不配置调试端口。
 
