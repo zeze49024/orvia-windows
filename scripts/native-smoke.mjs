@@ -568,7 +568,7 @@ if (phase === "seed") {
   await page.locator(".live-editor").fill("Native private body 中文");
   await page.keyboard.press("Control+s");
   await page
-    .locator(".editor-save")
+    .locator(".statusbar")
     .filter({ hasText: strings.saved })
     .waitFor();
   const cipher = await invoke("read_private_record", { record: "main" });

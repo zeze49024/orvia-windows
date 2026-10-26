@@ -45,14 +45,14 @@ while ([DateTime]::UtcNow -lt $deadline) {
     if ($edit.TryGetCurrentPattern([Windows.Automation.ValuePattern]::Pattern,[ref]$valuePattern)) { $valuePattern.SetValue($targetFile) }
     else { [void][OrviaDialogMessages]::SendMessage($editHandle,0x000C,[IntPtr]::Zero,$targetFile) }
     Start-Sleep -Milliseconds 250
-    if ($Mode -eq 'Save') {
+    if ($Mode -in @('Save','Folder')) {
       if ([OrviaDialogMessages]::GetForegroundWindow() -ne $dialogHandle) { throw 'Owned save dialog could not receive keyboard input' }
       if ($targetFile.IndexOfAny('+^%~(){}[]'.ToCharArray()) -ge 0) { throw 'Unsupported keyboard characters in isolated fixture path' }
-      [Windows.Forms.SendKeys]::SendWait('%n')
+      [Windows.Forms.SendKeys]::SendWait($(if($Mode -eq 'Save'){'%n'}else{'%d'}))
       [Windows.Forms.SendKeys]::SendWait('^a')
       [Windows.Forms.SendKeys]::SendWait($targetFile)
-      [Windows.Forms.SendKeys]::SendWait('{TAB}')
-      Start-Sleep -Milliseconds 250
+      [Windows.Forms.SendKeys]::SendWait($(if($Mode -eq 'Save'){'{TAB}'}else{'{ENTER}'}))
+      Start-Sleep -Milliseconds 500
     }
     try { $save.SetFocus() } catch {}
     $invokePattern=$null
