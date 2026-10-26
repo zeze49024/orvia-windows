@@ -85,10 +85,10 @@ jobs:
             node scripts/native-smoke.mjs update
             if ($LASTEXITCODE -ne 0) { throw "Signed in-app updater failed" }
             for ($i=0; $i -lt 120; $i++) {
-              if ((Get-Item $executable).VersionInfo.ProductVersion -eq '0.1.1-beta2') { break }
+              if ((Get-Item $executable).VersionInfo.ProductVersion -eq '0.1.1-beta3') { break }
               Start-Sleep -Seconds 1
             }
-            if ((Get-Item $executable).VersionInfo.ProductVersion -ne '0.1.1-beta2') {
+            if ((Get-Item $executable).VersionInfo.ProductVersion -ne '0.1.1-beta3') {
               Get-Process | Where-Object { $_.MainWindowTitle -like '*Orvia*' -or $_.MainWindowTitle -like '*Installer*' } | Select-Object Id,ProcessName,MainWindowTitle
               Get-ItemProperty -LiteralPath $languageKey | Format-List
               $defaultExecutable = Join-Path $env:LOCALAPPDATA 'Orvia/orvia.exe'
