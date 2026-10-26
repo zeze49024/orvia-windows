@@ -1,4 +1,9 @@
 import { test, expect, type Page } from "@playwright/test";
+for(const locale of ['en','zh-TW'] as const)test(`locked vault retains ${locale} after restart`,async({page})=>{
+ await page.goto('/');await page.locator('.app-shell').waitFor();
+ await page.evaluate(async(locale)=>{const modulePath='/src/core/storage.ts';const {store}=await import(modulePath);store.change(s=>({...s,settings:{...s.settings,locale}}));await store.flush();await store.createVault('language regression passphrase');await store.lockVault()},locale);
+ await page.reload();await expect(page.locator('.vault-gate')).toBeVisible();await expect(page.getByRole('button',{name:locale==='en'?'Unlock':'解鎖',exact:true})).toBeVisible();
+});
 async function settings(page: Page) {
   await page.getByRole("button", { name: /^设置 Ctrl/ }).click();
 }

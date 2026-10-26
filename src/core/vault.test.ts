@@ -35,11 +35,19 @@ test("private workspace stays separate from public SQLite preview and locks secr
     "Public note",
     "public text",
   );
-  s.change((w) => ({ ...w, documents: [normal] }));
+  s.change((w) => ({
+    ...w,
+    documents: [normal],
+    settings: { ...w.settings, locale: "en" },
+  }));
   await s.flush();
   await s.createVault("long private password 中文");
   expect(s.vaultMode).toBe("private");
   expect(s.data.documents).toHaveLength(0);
+  const restarted = new WorkspaceStore();
+  await restarted.load();
+  expect(restarted.vaultMode).toBe("locked");
+  expect(restarted.data.settings.locale).toBe("en");
   const secret = newDocument(
     s.data.libraries[0].id,
     "SECRET TITLE",
@@ -65,11 +73,13 @@ test("private workspace stays separate from public SQLite preview and locks secr
   await s.unlockVault("long private password 中文");
   expect(s.data.documents[0].body).toBe("SECRET BODY 中文");
   expect(readPosition(secret.id)?.scroll).toBe(200);
-  const opened=await openVault(backup,"long private password 中文");
-  const payload=await vaultSession.validate(opened.value);
+  const opened = await openVault(backup, "long private password 中文");
+  const payload = await vaultSession.validate(opened.value);
   await s.mergeVaultBackup(payload);
-  expect(s.data.documents.filter(d=>d.title==="SECRET TITLE")).toHaveLength(2);
-  expect(new Set(s.data.documents.map(d=>d.id)).size).toBe(2);
+  expect(
+    s.data.documents.filter((d) => d.title === "SECRET TITLE"),
+  ).toHaveLength(2);
+  expect(new Set(s.data.documents.map((d) => d.id)).size).toBe(2);
   await s.changeVaultPassword("a changed private passphrase");
   await s.lockVault();
   await expect(s.unlockVault("long private password 中文")).rejects.toThrow();

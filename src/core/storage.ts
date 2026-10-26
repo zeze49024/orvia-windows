@@ -188,6 +188,8 @@ export class WorkspaceStore {
   private setVaultHint(active: boolean) {
     try {
       localStorage.setItem("orvia-active-vault", active ? "1" : "0");
+      if (active)
+        localStorage.setItem("orvia-vault-locale", this.data.settings.locale);
     } catch {}
   }
   private enterVault(payload: VaultPayload) {
@@ -495,6 +497,18 @@ export class WorkspaceStore {
         preferVault = localStorage.getItem("orvia-active-vault") === "1";
       } catch {}
       if (this.vaultAvailable && preferVault) {
+        let locale: Workspace["settings"]["locale"] =
+          navigator.language.startsWith("en")
+            ? "en"
+            : /TW|HK|Hant/.test(navigator.language)
+              ? "zh-TW"
+              : "zh-CN";
+        try {
+          const hint = localStorage.getItem("orvia-vault-locale");
+          if (hint === "en" || hint === "zh-TW" || hint === "zh-CN")
+            locale = hint;
+        } catch {}
+        this.data = emptyWorkspace(locale);
         this.vaultMode = "locked";
         this.status = "saved";
         this.ready = false;
@@ -634,6 +648,7 @@ export class WorkspaceStore {
         for (const id of Object.keys(histories))
           if (!data.documents.some((d) => d.id === id)) delete histories[id];
         this.revision = await vaultSession.save(data, histories);
+        this.setVaultHint(true);
       } else {
         this.revision = native
           ? await invoke<number>("save_delta", {

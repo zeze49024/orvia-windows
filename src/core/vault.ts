@@ -131,6 +131,7 @@ export class VaultSession {
       total += bytes.length;
       if (total > 80 * 1024 * 1024 || (await sha256(bytes)) !== id)
         throw new Error("VAULT_ASSET_INTEGRITY");
+      imageDimensions(bytes);
     }
     for (const a of p.workspace.assets) {
       const encoded = p.assets[a.id];
@@ -146,12 +147,23 @@ export class VaultSession {
         if (entry.document.id !== id)
           throw new Error("VAULT_HISTORY_INTEGRITY");
         for (const a of entry.assets)
-          if (!p.assets[a.id] || fromBase64(p.assets[a.id]).length !== a.size)
+          if (
+            !p.assets[a.id] ||
+            fromBase64(p.assets[a.id]).length !== a.size ||
+            imageDimensions(fromBase64(p.assets[a.id])).mime !== a.mime
+          )
             throw new Error("VAULT_ASSET_INTEGRITY");
         for (const m of entry.document.body.matchAll(/asset:([a-f0-9]{64})/g))
           if (!p.assets[m[1]]) throw new Error("VAULT_ASSET_INTEGRITY");
       }
     }
+    for (const a of p.recovery?.assets ?? [])
+      if (
+        !p.assets[a.id] ||
+        fromBase64(p.assets[a.id]).length !== a.size ||
+        imageDimensions(fromBase64(p.assets[a.id])).mime !== a.mime
+      )
+        throw new Error("VAULT_ASSET_INTEGRITY");
     for (const d of p.recovery?.documents ?? [])
       for (const m of d.body.matchAll(/asset:([a-f0-9]{64})/g))
         if (!p.assets[m[1]]) throw new Error("VAULT_ASSET_INTEGRITY");

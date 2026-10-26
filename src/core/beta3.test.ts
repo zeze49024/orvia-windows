@@ -19,6 +19,13 @@ import {
 import { snapshot } from "./history";
 import { store, documentHistory, putAsset } from "./storage";
 import { inventory } from "./storage-management";
+import { vaultSession } from './vault';
+import { toBase64 } from './vault-crypto';
+test('encrypted backup validates image pixels even when the image is only retained by history',async()=>{
+ const bytes=Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jC1sAAAAASUVORK5CYII='),c=>c.charCodeAt(0));new DataView(bytes.buffer).setUint32(16,100000);
+ const id=await sha256(bytes),workspace=emptyWorkspace(),doc=newDocument(workspace.libraries[0].id,'Current','current');workspace.documents=[doc];
+ await expect(vaultSession.validate({version:1,revision:0,workspace,assets:{[id]:toBase64(bytes)},history:{[doc.id]:[snapshot({...doc,body:`![old](asset:${id})`},[{id,mime:'image/png',size:bytes.length}],1)]},recovery:null,positions:{}})).rejects.toThrow('IMAGE_PIXEL_LIMIT');
+});
 test("advanced search combines fields, dates, library and favorite without executing regex", () => {
   const w = emptyWorkspace();
   const a = newDocument(w.libraries[0].id, "Alpha", "needle [x] 中文");
