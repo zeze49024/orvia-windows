@@ -1,15 +1,15 @@
 {
-  "version": "0.1.1-beta5",
-  "notes": "# Orvia v0.1.1-beta5\r\n\r\n重构 AI 侧边聊天面板，新增选中文字快捷操作、连续对话与本地会话管理，优化修改审阅及上下文授权体验。\r\n\r\n- 采用已确认 A 方案：编辑页右侧聊天面板，支持展开/收起、固定输入区和独立消息滚动。保留原有 AI 按钮，基于 shadcn/ui 统一卡片、标签、输入框、提示和确认界面。\r\n- 选中文字后右键新增“询问 AI、润色、扩写、总结、翻译”；支持源码和可视编辑模式，选区以可展开、移除的引用展示。\r\n- 支持连续追问与本地会话的新建、切换、重命名和确认删除；对话按笔记及本地空间隔离，加密知识库的会话随空间加密，锁定后清除解密状态。\r\n- 每次发送前可审阅选区/当前笔记/不附带笔记、指令及携带的会话上下文；随后仍需原生授权。只发送当前会话中最近能容纳的最多 20 条历史，明确展示裁剪情况，默认不会发送其他会话。\r\n- AI 回复支持安全 Markdown 排版，不执行 HTML、远程图片、外链或代码。每条回复提供复制、光标插入与继续追问；替换选区、替换整篇笔记、插入内容分别审阅确认。\r\n- 应用修改前校验当前原文、空间与选区位置；保留修改前历史，拒绝过期建议与未授权图片引用。导入备份后的旧建议只供查看，需重新生成后才能直接替换。\r\n- 本地会话上限 40 段，每段 80 条消息，总计 4 MiB；到达上限提示用户管理旧会话，不静默清理。永久删除笔记时清理关联对话，备份恢复会重建关联。\r\n- 保留用户自带 DeepSeek/OpenAI Key、Windows 凭据管理器、固定官方接口、输入/输出/轮次/时间上限及停止控制，处理停止早于原生任务登记的竞态，不自动重试。\r\n\r\nAI 仍默认关闭。使用自己的 Key 和支持工具调用的模型，API 费用由服务商收取。本次没有真实用户 Key，协议和界面通过模拟请求验证，未进行付费推理。Windows Authenticode 代码签名保持取消；保留既有 Tauri Ed25519 更新包签名。",
-  "pub_date": "2026-10-26T08:05:29.214Z",
+  "version": "0.1.1-beta6",
+  "notes": "# Orvia v0.1.1-beta6\r\n\r\n优化编辑工具栏布局，新增三档全局动画，调整 AI 为配置密钥时一次授权、后续直接对话。\r\n\r\n- “查找与替换”采用与格式、撤销/重做一致的胶囊样式，放在格式胶囊旁，保持 12px 间距；撤销/重做保留右侧位置。窄窗口中的格式工具可横向滚动，不挤走查找入口。\r\n- 设置 → 外观新增全局“优雅、适中、急速”动画速度，默认适中。统一控件反馈、页面/设置分类过渡、弹层、AI 消息和等待图标的节奏；页面切换动画作用于现有视图，不重建编辑器、不清除撤销栈。\r\n- 遵循系统“减少动态效果”偏好；急速与减少动态效果时避免聊天区平滑滚动。\r\n- 保存或更换 API Key 时通过一次原生授权确认后续直接发送的范围、会话上下文、解锁的加密笔记文字和 API 费用；后续主动发送不再弹出逐次确认。\r\n- 已保存的旧 Key 无需重新输入，在 AI 设置点击“授权后续 AI 对话”完成一次确认即可。新增“撤销发送授权”，保留 Key、停止当前请求，并阻止后续发送直到再次授权。\r\n- 授权绑定本机数据目录、服务商、Key 与权限策略，不随知识库或备份复制；更换 Key、删除 Key、撤销、策略不匹配时不继续沿用旧授权。Key 仍由 Windows 凭据管理器保存。\r\n- 保留修改笔记、替换选区和插入内容前的差异审阅与确认，保留历史；发送范围、跨笔记工具限制、调用上限和停止控制不变。防止快速连点发送造成重复请求。\r\n\r\n没有用户真实 Key 时不进行真实付费推理；协议与直接发送界面通过模拟模型验证。Windows Authenticode 代码签名按用户要求保持取消，安装更新包继续使用既有 Ed25519 签名。",
+  "pub_date": "2026-10-26T09:09:05.666Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRTWVLTkMxVzBkTmVrRXlMN1poanJwNkhpZ1R6SENKY0g3cEJlQ1JpVkQxTDR6dmYwV1BYTlR2S29LRzM5eklsSVhEeUxNMnNZQ0ZyODVPdVdPVi9kU0NrNklJVktQb3dvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMDAxODYwCWZpbGU6T3J2aWFfMC4xLjEtYmV0YTVfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMS4xLWJldGE1ClVadThncVZ5YWhEMHpjUEswQ1l1V255Wkl3YkdibXBGYnBuekhzbTR2eExMM0NkaXJ1MkJwTFB4ckFMVS9kcnRvMWt3UDNQdHljL21GcC94NXdqL0JnPT0K",
-      "url": "https://github.com/zeze49024/orvia-windows/releases/download/v0.1.1-beta5/Orvia_0.1.1-beta5_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRTWVLTkMxVzBkTmNnZ09yczE4ZjdoR3E0SUxBdXJiKzI5bWhmWVpQZEpMSEw2dkM2a0gvL1ljcXlCcEZpMDk1V0FuWXpXZHY3MGJwNTI0WWFVMUxubnpqTjFvaXA0L0FrPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMDA1MDkzCWZpbGU6T3J2aWFfMC4xLjEtYmV0YTZfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMS4xLWJldGE2CmtKbVgycHErN1QrS05UT0ZmOUtZQ21xSC9UekxtdElLbjBiMU5Ga3pGdFVCcnFtdzhDZEhLdTMwNktVd0hUUllmSkFDNFZ0dXpoZWl4czgyNDNkTkJnPT0K",
+      "url": "https://github.com/zeze49024/orvia-windows/releases/download/v0.1.1-beta6/Orvia_0.1.1-beta6_x64-setup.exe"
     },
     "preview": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRTWVLTkMxVzBkTmVrRXlMN1poanJwNkhpZ1R6SENKY0g3cEJlQ1JpVkQxTDR6dmYwV1BYTlR2S29LRzM5eklsSVhEeUxNMnNZQ0ZyODVPdVdPVi9kU0NrNklJVktQb3dvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMDAxODYwCWZpbGU6T3J2aWFfMC4xLjEtYmV0YTVfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMS4xLWJldGE1ClVadThncVZ5YWhEMHpjUEswQ1l1V255Wkl3YkdibXBGYnBuekhzbTR2eExMM0NkaXJ1MkJwTFB4ckFMVS9kcnRvMWt3UDNQdHljL21GcC94NXdqL0JnPT0K",
-      "url": "https://github.com/zeze49024/orvia-windows/releases/download/v0.1.1-beta5/Orvia_0.1.1-beta5_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRTWVLTkMxVzBkTmNnZ09yczE4ZjdoR3E0SUxBdXJiKzI5bWhmWVpQZEpMSEw2dkM2a0gvL1ljcXlCcEZpMDk1V0FuWXpXZHY3MGJwNTI0WWFVMUxubnpqTjFvaXA0L0FrPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMDA1MDkzCWZpbGU6T3J2aWFfMC4xLjEtYmV0YTZfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMS4xLWJldGE2CmtKbVgycHErN1QrS05UT0ZmOUtZQ21xSC9UekxtdElLbjBiMU5Ga3pGdFVCcnFtdzhDZEhLdTMwNktVd0hUUllmSkFDNFZ0dXpoZWl4czgyNDNkTkJnPT0K",
+      "url": "https://github.com/zeze49024/orvia-windows/releases/download/v0.1.1-beta6/Orvia_0.1.1-beta6_x64-setup.exe"
     }
   }
 }
