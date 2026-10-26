@@ -86,6 +86,8 @@ pub(crate) struct Delta {
     documents: Changes,
     assets: Changes,
     settings: Option<Value>,
+    #[serde(default)]
+    history: std::collections::HashMap<String, Vec<Value>>,
 }
 pub(crate) fn apply_delta(
     c: &mut Connection,
@@ -187,6 +189,48 @@ pub(crate) fn apply_delta(
             .map_err(|_| "DATABASE_READ")?;
         if count < min || count > max {
             return Err("INVALID_DATA".into());
+        }
+    }
+    if delta.history.len() > 20000 {
+        return Err("INVALID_HISTORY".into());
+    }
+    let mut total_history = 0usize;
+    for (id, entries) in delta.history {
+        if entries.len() > 20
+            || !tx
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM documents WHERE id=?1)",
+                    [&id],
+                    |r| r.get::<_, bool>(0),
+                )
+                .map_err(|_| "DATABASE_READ")?
+        {
+            return Err("INVALID_HISTORY".into());
+        }
+        let size = serde_json::to_vec(&entries)
+            .map_err(|_| "INVALID_HISTORY")?
+            .len();
+        total_history += size;
+        if size > 20_000_000 || total_history > 32 * 1024 * 1024 {
+            return Err("INVALID_HISTORY".into());
+        }
+        tx.execute("DELETE FROM document_history WHERE document_id=?1", [&id])
+            .map_err(|_| "DATABASE_WRITE")?;
+        for entry in entries {
+            if entry["document"]["id"].as_str() != Some(id.as_str())
+                || !entry["savedAt"].is_string()
+                || !entry["document"]["body"].is_string()
+            {
+                return Err("INVALID_HISTORY".into());
+            }
+            let payload =
+                serde_json::json!({"document":entry["document"],"assets":entry["assets"]})
+                    .to_string();
+            tx.execute(
+                "INSERT INTO document_history(document_id,saved_at,payload) VALUES(?1,?2,?3)",
+                params![id, entry["savedAt"].as_str().unwrap(), payload],
+            )
+            .map_err(|_| "DATABASE_WRITE")?;
         }
     }
     if let Some(settings) = delta.settings {

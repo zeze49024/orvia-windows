@@ -1,3 +1,8 @@
+import { VaultPanel } from "./components/vault-panel";
+import { AdvancedSearch } from "./components/advanced-search";
+import { vaultSession } from "./core/vault";
+import { templates, words, matchesShortcut } from "./core/productivity";
+import { useWorkspaceMaintenance } from "./hooks/use-workspace-maintenance";
 import { RecoveryNotice } from "./components/recovery-notice";
 import { exportPdf } from "./core/pdf-export";
 import { useConfirmation } from "./hooks/use-confirmation";
@@ -15,8 +20,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
-  createBackup,
-  importBackup,
+  createFullBackup,
+  prepareRestore,
   inspectBackup,
   mergeAssets,
 } from "@/core/backup";
@@ -99,6 +104,14 @@ export function App() {
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
+  const [searchRequest, setSearchRequest] = useState<{
+    id: string;
+    query: string;
+    serial: number;
+  } | null>(null);
+  const [templateId, setTemplateId] = useState("blank"),
+    [restoreSettings, setRestoreSettings] = useState(false),
+    [restoreSummary, setRestoreSummary] = useState("");
   const data = store.data,
     locale = data.settings.locale,
     currentTheme = resolveTheme(
@@ -138,7 +151,17 @@ export function App() {
     data.settings.autoUpdate,
     store.ready,
     busyRef,
+    data.settings.updateChannel,
   );
+  useWorkspaceMaintenance(store.ready, store.vaultMode, busyRef, run, notify);
+  useEffect(() => {
+    setSearchRequest(null);
+    setSelected(null);
+    setQuery("");
+    setModal("");
+    setPreview(false);
+    setSettingsOpen(false);
+  }, [store.vaultMode]);
   useEffect(() => store.subscribe(redraw), []);
   useLayoutEffect(() => {
     if (store.ready) applyTheme(data.settings.theme);
@@ -153,25 +176,42 @@ export function App() {
   }, []);
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (document.querySelector(".update-progress")) return;
+      if (!store.ready || document.querySelector(".update-progress")) return;
       if (
         e.isComposing ||
         e.keyCode === 229 ||
         document.querySelector('[role="alertdialog"]')
       )
         return;
+      if (
+        matchesShortcut(e, store.data.settings.shortcuts.lockVault) &&
+        store.vaultMode === "private"
+      ) {
+        e.preventDefault();
+        void run(() => store.lockVault());
+        return;
+      }
+      if (
+        matchesShortcut(e, store.data.settings.shortcuts.newNote) &&
+        !document.querySelector('[role="dialog"]')
+      ) {
+        e.preventDefault();
+        setLibraryId(store.data.libraries[0].id);
+        setModal("new");
+        return;
+      }
       if (e.key === "Escape" && !document.querySelector('[role="dialog"]'))
         setSettingsOpen(false);
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+      if (matchesShortcut(e, store.data.settings.shortcuts.searchAll)) {
         e.preventDefault();
         setModal("search");
       }
-      if ((e.ctrlKey || e.metaKey) && e.key === ",") {
+      if (matchesShortcut(e, store.data.settings.shortcuts.settings)) {
         e.preventDefault();
         setModal("");
         setSettingsOpen(true);
       }
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+      if (matchesShortcut(e, store.data.settings.shortcuts.save)) {
         e.preventDefault();
         void store.flush().catch(error);
       }
@@ -258,6 +298,10 @@ export function App() {
   const create = () => {
     if (!newTitle.trim()) return;
     const doc = newDocument(libraryId || data.libraries[0].id, newTitle.trim());
+    doc.body =
+      [...templates(locale), ...data.settings.templates].find(
+        (t) => t.id === templateId,
+      )?.body ?? "";
     change((s) => ({ ...s, documents: [doc, ...s.documents] }));
     setSelected(doc.id);
     setNewTitle("");
@@ -268,6 +312,7 @@ export function App() {
   const batchExport = (ids: string[], format: "files" | "zip" | "share") =>
     void run(async () => {
       await store.flush();
+      if (!(await allowPlaintext())) return;
       let saved = false;
       if (format === "share") {
         const file = await shareDocuments(store.data, ids);
@@ -368,17 +413,43 @@ export function App() {
   };
   const exportBackup = () =>
     run(async () => {
+      await store.flush();
+      const encrypted = vaultSession.active;
+      const bytes = encrypted
+        ? await vaultSession.backup(store.recovery)
+        : await createFullBackup(structuredClone(store.data), {
+            history: true,
+            trash: true,
+            settings: true,
+          });
       if (
         await saveFile(
-          `Orvia-${new Date().toISOString().slice(0, 10)}.orvia`,
-          await createBackup(structuredClone(store.data)),
-          ["orvia"],
+          `Orvia-${new Date().toISOString().slice(0, 10)}.${encrypted ? "orvia-vault" : "orvia"}`,
+          bytes,
+          [encrypted ? "orvia-vault" : "orvia"],
         )
       )
         notify(t("exported"));
     });
+  const allowPlaintext = async () =>
+    !vaultSession.active ||
+    (await confirm({
+      title: words(
+        locale,
+        "导出明文文件？",
+        "匯出明文檔案？",
+        "Export plaintext?",
+      ),
+      description: words(
+        locale,
+        "导出的文件不再受加密空间保护。请妥善保存。",
+        "匯出的檔案不再受加密空間保護。請妥善保存。",
+        "Exported files are not protected by vault encryption. Store them safely.",
+      ),
+    }));
   const markdownExport = (id: string) =>
     run(async () => {
+      if (!(await allowPlaintext())) return;
       const file = await exportMarkdownDocument(
         structuredClone(store.data),
         id,
@@ -387,6 +458,7 @@ export function App() {
     });
   const pdfExport = (id: string) =>
     run(async () => {
+      if (!(await allowPlaintext())) return;
       if (await exportPdf(structuredClone(store.data), id))
         notify(t(native ? "exported" : "pdfPrintClosed"));
     });
@@ -395,6 +467,13 @@ export function App() {
       const files = await chooseFiles(["orvia", "zip"], false);
       if (!files.length) return;
       const result = await inspectBackup(files[0].bytes);
+      setRestoreSettings(false);
+      setRestoreSummary(
+        `${result.data.libraries.length} ${words(locale, "知识库", "知識庫", "libraries")} · ${result.data.assets.length} ${words(locale, "图片", "圖片", "images")} · ${Object.values(result.history).reduce((n, v) => n + v.length, 0)} ${words(locale, "历史版本", "歷史版本", "history")} · ${result.data.documents.filter((d) => d.deletedAt).length} ${words(locale, "回收站笔记", "回收站筆記", "trash notes")} · ${result.data.documents
+          .slice(0, 5)
+          .map((d) => d.title)
+          .join(" / ")}`,
+      );
       setRestoreBytes(files[0].bytes);
       setRestoreCount(result.data.documents.length);
       setModal("restore");
@@ -402,9 +481,12 @@ export function App() {
   const restore = () =>
     run(async () => {
       if (!restoreBytes) return;
-      const next = await importBackup(store.data, restoreBytes);
-      store.change(() => next);
-      await store.flush();
+      const next = await prepareRestore(
+        store.data,
+        restoreBytes,
+        restoreSettings,
+      );
+      await store.applyRestore(next.data, next.history);
       setRestoreBytes(null);
       setModal("");
       notify(t("restoredBackup"));
@@ -560,6 +642,36 @@ export function App() {
     setSelected(null);
     notify(t(doc.deletedAt ? "restored" : "removed"));
   };
+  if (store.vaultMode === "locked")
+    return (
+      <>
+        {confirmationDialog}
+        <header className="titlebar" data-tauri-drag-region>
+          <b data-tauri-drag-region>Orvia</b>
+          <div className="flex-spacer" />
+          <Button
+            variant="ghost"
+            aria-label={t("minimize")}
+            onClick={() => void windowAction("minimize")}
+          >
+            <Minus size={16} />
+          </Button>
+          <Button
+            variant="ghost"
+            aria-label={t("close")}
+            onClick={() => void windowAction("close")}
+          >
+            <X size={16} />
+          </Button>
+        </header>
+        <VaultPanel gate busy={busy} run={run} confirm={confirm} />
+        {toast && (
+          <p className="toast" role="alert">
+            {toast}
+          </p>
+        )}
+      </>
+    );
   if (store.status === "error" && !store.ready)
     return (
       <div className="startup">
@@ -578,6 +690,9 @@ export function App() {
     );
   return (
     <div className="app-shell">
+      <a className="skip-link" href="#main-content">
+        {words(locale, "跳到主要内容", "跳到主要內容", "Skip to main content")}
+      </a>
       {confirmationDialog}
       <header
         className="titlebar"
@@ -658,7 +773,7 @@ export function App() {
             >
               <Search size={15} />
               <span>{t("search")}</span>
-              <kbd>Ctrl K</kbd>
+              <kbd>{data.settings.shortcuts.searchAll}</kbd>
             </button>
             <div className="nav-group">
               {(
@@ -742,7 +857,9 @@ export function App() {
               <button className="nav-row" onClick={() => setSettingsOpen(true)}>
                 <Settings size={16} />
                 <span>{t("settings")}</span>
-                <span className="shortcut">Ctrl ,</span>
+                <span className="shortcut">
+                  {data.settings.shortcuts.settings}
+                </span>
               </button>
               <div className="sidebar-foot">
                 <span>WINDOWS · v{APP_VERSION}</span>
@@ -829,6 +946,8 @@ export function App() {
           )}
           {settingsOpen && (
             <SettingsPanel
+              run={run}
+              confirm={confirm}
               onBack={() => setSettingsOpen(false)}
               locale={locale}
               data={data}
@@ -846,9 +965,26 @@ export function App() {
               updateMessage={updateMessage}
             />
           )}
-          <div className="workspace-content" hidden={settingsOpen}>
+
+          {store.recoveryWarning && (
+            <p role="alert">
+              {words(
+                locale,
+                "损坏草稿已隔离保留。请在设置的存储分析中导出排查。",
+                "損壞草稿已隔離保留。請在設定的儲存分析中匯出排查。",
+                "A damaged recovery file was quarantined. Export it from storage settings for diagnosis.",
+              )}
+            </p>
+          )}
+          <div
+            id="main-content"
+            tabIndex={-1}
+            className="workspace-content"
+            hidden={settingsOpen}
+          >
             {active ? (
               <EditorWorkspace
+                searchRequest={searchRequest}
                 confirm={confirm}
                 active={active}
                 data={data}
@@ -1001,6 +1137,22 @@ export function App() {
                 />
               </label>
               <label>
+                {words(locale, "笔记模板", "筆記範本", "Note template")}
+                <select
+                  className="full-select"
+                  value={templateId}
+                  onChange={(e) => setTemplateId(e.target.value)}
+                >
+                  {[...templates(locale), ...data.settings.templates].map(
+                    (t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ),
+                  )}
+                </select>
+              </label>
+              <label>
                 {t("belongs")}
                 <select
                   className="full-select"
@@ -1026,51 +1178,16 @@ export function App() {
             </div>
           )}
           {modal === "search" && (
-            <div className="modal-stack">
-              <Input
-                autoFocus
-                aria-label={t("search")}
-                placeholder={t("queryHint")}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
-              <div className="search-results">
-                {data.documents
-                  .filter(
-                    (d) =>
-                      !d.deletedAt &&
-                      (d.title + d.body + d.tags.join(" "))
-                        .toLocaleLowerCase()
-                        .includes(query.toLocaleLowerCase()),
-                  )
-                  .map((d) => (
-                    <button
-                      key={d.id}
-                      onClick={() => {
-                        openDoc(d.id);
-                        setModal("");
-                        setQuery("");
-                      }}
-                    >
-                      <span
-                        className={`file-icon ${data.libraries.find((l) => l.id === d.libraryId)?.color}`}
-                      >
-                        <FileText size={18} />
-                      </span>
-                      <span>
-                        <b>{d.title || t("write")}</b>
-                        <small>
-                          {
-                            data.libraries.find((l) => l.id === d.libraryId)
-                              ?.name
-                          }
-                        </small>
-                      </span>
-                      <ChevronRight size={14} />
-                    </button>
-                  ))}
-              </div>
-            </div>
+            <AdvancedSearch
+              query={query}
+              setQuery={setQuery}
+              open={(id, q) => {
+                setSearchRequest({ id, query: q, serial: Date.now() });
+                openDoc(id);
+                setModal("");
+                setQuery("");
+              }}
+            />
           )}
           {modal === "import" && (
             <div className="modal-stack">
@@ -1211,6 +1328,20 @@ export function App() {
           {modal === "restore" && (
             <div className="modal-stack">
               <p>{t("restoreConfirm")}</p>
+              <p>{restoreSummary}</p>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={restoreSettings}
+                  onChange={(e) => setRestoreSettings(e.target.checked)}
+                />
+                {words(
+                  locale,
+                  "同时恢复应用设置（默认保留当前设置）",
+                  "同時還原應用設定（預設保留目前設定）",
+                  "Restore application settings (current settings kept by default)",
+                )}
+              </label>
               <Badge variant="secondary">
                 {restoreCount} {t("documents")}
               </Badge>

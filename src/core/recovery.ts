@@ -125,3 +125,5 @@ export async function writeBrowserRecovery(journal: Recovery) {
     tx.onabort = () => reject(tx.error);
   });
 }
+
+export async function quarantineBrowserRecovery(){const db=await recoveryDb();return new Promise<void>((resolve,reject)=>{const tx=db.transaction("checkpoint","readwrite"),store=tx.objectStore("checkpoint"),req=store.get("main");req.onsuccess=()=>{if(req.result){store.put(req.result,"corrupt:"+Date.now()+":"+crypto.randomUUID());store.delete("main");}};tx.oncomplete=()=>resolve();tx.onabort=()=>reject(tx.error);tx.onerror=()=>reject(tx.error);});}

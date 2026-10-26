@@ -1,8 +1,10 @@
+import { defaultShortcuts, validateShortcuts } from "./shortcuts";
+export { defaultShortcuts } from "./shortcuts";
 import { z } from "zod";
 import { localeCodes } from "../i18n/registry";
-export const APP_VERSION = "0.1.1-beta2";
+export const APP_VERSION = "0.1.1-beta3";
 export const RELEASE_NOTE =
-  "完善保存状态、失败重试与异常草稿恢复，新增保留文档排版与图片的 PDF 导出";
+  "加强文件权限与导入防护，完善备份恢复和更新通道，新增加密知识库、存储管理、高级搜索、笔记模板及快捷键与无障碍支持";
 export const colors = ["blue", "orange", "green", "purple", "rose"] as const;
 export const librarySchema = z.object({
   id: z.string().uuid(),
@@ -31,6 +33,11 @@ export const docSchema = z.object({
   openedAt: z.string().datetime().nullable(),
   deletedAt: z.string().datetime().nullable(),
 });
+export const templateSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string().min(1).max(100),
+  body: z.string().max(1_000_000),
+});
 export const workspaceSchema = z
   .object({
     schemaVersion: z.literal(1),
@@ -41,6 +48,50 @@ export const workspaceSchema = z
       locale: z.enum(localeCodes),
       sidebar: z.boolean(),
       autoUpdate: z.boolean().default(true),
+      updateChannel: z.enum(["stable", "preview"]).default("stable"),
+      autoBackup: z
+        .object({
+          enabled: z.boolean(),
+          intervalMinutes: z.union([
+            z.literal(15),
+            z.literal(60),
+            z.literal(1440),
+          ]),
+          keep: z.number().int().min(3).max(50),
+          history: z.boolean(),
+          trash: z.boolean(),
+        })
+        .default({
+          enabled: false,
+          intervalMinutes: 60,
+          keep: 7,
+          history: true,
+          trash: true,
+        }),
+      templates: z.array(templateSchema).max(100).default([]),
+      shortcuts: z
+        .object(
+          Object.fromEntries(
+            Object.entries(defaultShortcuts).map(([key, value]) => [
+              key,
+              z.string().max(32).default(value),
+            ]),
+          ) as Record<keyof typeof defaultShortcuts, z.ZodDefault<z.ZodString>>,
+        )
+        .superRefine((keys, ctx) => {
+          try {
+            validateShortcuts(keys);
+          } catch {
+            ctx.addIssue({
+              code: "custom",
+              message: "SHORTCUT_CONFLICT_OR_RESERVED",
+            });
+          }
+        })
+        .default(defaultShortcuts),
+      vaultAutoLockMinutes: z
+        .union([z.literal(1), z.literal(5), z.literal(15), z.literal(30)])
+        .default(5),
       layout: z.enum(["grid", "list"]),
       theme: z
         .string()
@@ -93,6 +144,17 @@ export function emptyWorkspace(locale: Locale = "zh-CN"): Workspace {
       layout: "grid",
       theme: "light",
       autoUpdate: true,
+      updateChannel: "stable",
+      autoBackup: {
+        enabled: false,
+        intervalMinutes: 60,
+        keep: 7,
+        history: true,
+        trash: true,
+      },
+      templates: [],
+      shortcuts: { ...defaultShortcuts },
+      vaultAutoLockMinutes: 5,
     },
   };
 }

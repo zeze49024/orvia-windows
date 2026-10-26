@@ -1,3 +1,5 @@
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 // Runs ONLY against a disposable CI installation with WebView2 debugging enabled.
 import { chromium, expect } from "@playwright/test";
 import path from "node:path";
@@ -51,7 +53,7 @@ if (phase === "seed") {
     id: "af485e10-f680-4ff6-8b40-af799171e221",
     libraryId: data.libraries[0].id,
     title: "Upgrade preservation",
-    body: "# Native upgrade fixture\n\n中文内容 retained from beta1",
+    body: "# Native upgrade fixture\n\n中文内容 retained from beta2",
     tags: ["upgrade"],
     starred: true,
     createdAt: now,
@@ -73,9 +75,7 @@ if (phase === "seed") {
       "utf8",
     ),
   );
-  await page
-    .getByRole("button", { name: strings.settings + " Ctrl ,", exact: true })
-    .click();
+  await page.keyboard.press("Control+,");
   await page
     .locator(".settings-nav nav")
     .getByRole("button", { name: strings.versionUpdates, exact: true })
@@ -85,7 +85,7 @@ if (phase === "seed") {
     .click();
   await page
     .getByRole("dialog")
-    .getByText("v0.1.1-beta1 → v0.1.1-beta2", { exact: true })
+    .getByText("v0.1.1-beta2 → v0.1.1-beta3", { exact: true })
     .waitFor({ timeout: 60000 });
   const closed = page.waitForEvent("close", { timeout: 120000 });
   await page
@@ -187,12 +187,12 @@ if (phase === "seed") {
     (d) => d.title === "Upgrade preservation",
   );
   if (
-    !doc?.body.includes("中文内容 retained from beta1") ||
+    !doc?.body.includes("中文内容 retained from beta2") ||
     !doc.starred ||
     doc.tags[0] !== "upgrade"
   )
     throw new Error("Upgrade lost data");
-  const changed = { ...doc, body: doc.body + "\n\nSaved by v0.1.1-beta2" };
+  const changed = { ...doc, body: doc.body + "\n\nSaved by v0.1.1-beta3" };
   const delta = {
     libraries: { upsert: [], remove: [] },
     documents: { upsert: [changed], remove: [] },
@@ -298,13 +298,11 @@ if (phase === "seed") {
     .click();
   if (
     !(await page.locator(".live-editor").innerText()).includes(
-      "Saved by v0.1.1-beta2",
+      "Saved by v0.1.1-beta3",
     )
   )
     throw new Error("Native editor reload failed");
-  await page
-    .getByRole("button", { name: strings.settings + " Ctrl ,", exact: true })
-    .click();
+  await page.keyboard.press("Control+,");
   await page
     .locator(".settings-nav nav")
     .getByRole("button", { name: strings.versionUpdates, exact: true })
@@ -477,29 +475,24 @@ if (phase === "seed") {
   await page.keyboard.press("Control+s");
   await page.locator(".statusbar").filter({ hasText: strings.saved }).waitFor();
   const pdfPath = path.resolve("native-writing.pdf");
-  await page.evaluate((pdfPath) => {
-    const original = window.fetch.bind(window);
-    window.fetch = (input, init) => {
-      const cmd = decodeURIComponent(
-        new URL(typeof input === "string" ? input : input.url).pathname.slice(
-          1,
-        ),
-      );
-      if (cmd === "plugin:dialog|save")
-        return Promise.resolve(
-          new Response(JSON.stringify(pdfPath), {
-            headers: {
-              "Content-Type": "application/json",
-              "Tauri-Response": "ok",
-            },
-          }),
-        );
-      return original(input, init);
-    };
-  }, pdfPath);
+  const dialogApproval = promisify(execFile)(
+    "powershell.exe",
+    [
+      "-NoProfile",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      "scripts/acceptance-save-dialog.ps1",
+      "-Target",
+      pdfPath,
+    ],
+    { timeout: 50000 },
+  );
+
   await page
     .getByRole("button", { name: strings.exportPdf, exact: true })
     .click();
+  await dialogApproval;
   await expect
     .poll(
       async () => {
@@ -518,12 +511,136 @@ if (phase === "seed") {
     !pdf.includes("/Subtype /Image")
   )
     throw new Error("Native PDF lost pages or images");
+  await expect(
+    invoke("export_pdf", { token: "C:/unauthorized.pdf" }),
+  ).rejects.toBeDefined();
+  const beforePrivate = await invoke("load_workspace");
+  const lang = beforePrivate.data.settings.locale;
+  const word = (cn, tw, en) =>
+    lang === "en" ? en : lang === "zh-TW" ? tw : cn;
+  await page.keyboard.press("Control+,");
+  await page
+    .locator(".settings-nav nav")
+    .getByRole("button", {
+      name: word(
+        "安全与加密知识库",
+        "安全與加密知識庫",
+        "Security and encrypted vault",
+      ),
+      exact: true,
+    })
+    .click();
+  await page
+    .locator(".settings-content input[type=password]")
+    .nth(0)
+    .fill("native isolated passphrase");
+  await page
+    .locator(".settings-content input[type=password]")
+    .nth(1)
+    .fill("native isolated passphrase");
+  await page
+    .getByRole("button", {
+      name: word("创建加密空间", "建立加密空間", "Create vault"),
+      exact: true,
+    })
+    .click();
+  await page
+    .locator(".page-actions")
+    .getByRole("button", { name: strings.new, exact: true })
+    .click();
+  await page.getByRole("dialog").locator("input").fill("Native secret fixture");
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: strings.create, exact: true })
+    .click();
+  await page.locator(".live-editor").fill("Native private body 中文");
+  await page.keyboard.press("Control+s");
+  await page
+    .locator(".editor-save")
+    .filter({ hasText: strings.saved })
+    .waitFor();
+  const cipher = await invoke("read_private_record", { record: "main" });
+  const cipherText = Buffer.from(cipher.bytes).toString("utf8");
+  if (
+    cipherText.includes("Native private body") ||
+    cipherText.includes("Native secret fixture") ||
+    !cipherText.includes("orvia-encrypted-vault")
+  )
+    throw new Error("Private data was not encrypted");
+  if (
+    JSON.stringify((await invoke("load_workspace")).data).includes(
+      "Native private body",
+    )
+  )
+    throw new Error("Private data leaked into public SQLite");
+  await page.reload();
+  await page.locator(".vault-gate").waitFor();
+  await page
+    .locator(".vault-gate input[type=password]")
+    .fill("native isolated passphrase");
+  await page
+    .getByRole("button", { name: word("解锁", "解鎖", "Unlock"), exact: true })
+    .click();
+  await page
+    .locator(".card-main")
+    .filter({ hasText: "Native secret fixture" })
+    .waitFor();
+  await page.keyboard.press("Control+,");
+  await page
+    .locator(".settings-nav nav")
+    .getByRole("button", {
+      name: word(
+        "安全与加密知识库",
+        "安全與加密知識庫",
+        "Security and encrypted vault",
+      ),
+      exact: true,
+    })
+    .click();
+  await page
+    .getByRole("button", {
+      name: word("打开普通知识库", "開啟普通知識庫", "Open regular workspace"),
+      exact: true,
+    })
+    .click();
+  await page
+    .locator(".card-main")
+    .filter({ hasText: "Upgrade preservation" })
+    .waitFor();
+  if (
+    JSON.stringify((await invoke("load_workspace")).data).includes(
+      "Native secret fixture",
+    )
+  )
+    throw new Error("Public workspace separation failed");
+  const protectedAssets = (await invoke("storage_inventory")).assets.filter(
+    (a) => a.referenced,
+  );
+  if (!protectedAssets.length)
+    throw new Error("Referenced image inventory missing");
+  await expect(
+    invoke("cleanup_assets", { ids: [protectedAssets[0].id] }),
+  ).rejects.toBeDefined();
+  await invoke("read_asset", { id: protectedAssets[0].id });
+  await invoke("write_recovery", {
+    data: { schemaVersion: "damaged native fixture" },
+  });
+  await page.reload();
+  await page
+    .locator(".card-main")
+    .filter({ hasText: "Upgrade preservation" })
+    .waitFor();
+  await expect.poll(() => invoke("recovery_quarantines")).not.toEqual([]);
+  await page
+    .getByRole("button", { name: strings.close, exact: true })
+    .last()
+    .count();
   await writeFile(
     "native-validation.json",
     JSON.stringify(
       {
-        previous: "0.1.1-beta1",
-        current: "0.1.1-beta2",
+        previous: "0.1.1-beta2",
+        current: "0.1.1-beta3",
         installerUpgrade: true,
         signedGithubUpdater: process.env.USE_UPDATER === "true",
         sqlitePreserved: true,
@@ -540,6 +657,11 @@ if (phase === "seed") {
         imageOptionsAndPreview: true,
         writingPosition: true,
         pdfExport: true,
+        pdfAuthorization: true,
+        encryptedVault: true,
+        publicPrivateSeparation: true,
+        referencedAssetProtection: true,
+        damagedRecoveryQuarantine: true,
       },
       null,
       2,

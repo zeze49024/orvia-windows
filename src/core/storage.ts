@@ -1,4 +1,8 @@
+import { vaultSession, type VaultPayload } from "./vault";
+import { toBase64 } from "./vault-crypto";
+import { validateImage } from "./image-validation";
 import {
+  quarantineBrowserRecovery,
   makeRecovery,
   readBrowserRecovery,
   writeBrowserRecovery,
@@ -145,6 +149,8 @@ async function writePreview(
       delta.libraries.remove.forEach((id) =>
         tx.objectStore("libraries").delete(id),
       );
+      for (const [id, entries] of Object.entries(delta.history ?? {}))
+        tx.objectStore("history").put(entries, id);
       tx.objectStore("metadata").put(
         {
           revision: expected + 1,
@@ -166,6 +172,8 @@ async function writePreview(
 }
 export async function documentHistory(id: string): Promise<HistoryEntry[]> {
   await store.flush();
+  if (vaultSession.active)
+    return structuredClone(vaultSession.payload!.history[id] ?? []);
   if (native) return invoke("document_history", { id });
   const database = await db();
   return new Promise((resolve, reject) => {
@@ -175,6 +183,189 @@ export async function documentHistory(id: string): Promise<HistoryEntry[]> {
   });
 }
 export class WorkspaceStore {
+  vaultMode: "public" | "private" | "locked" = "public";
+  vaultAvailable = false;
+  private setVaultHint(active: boolean) {
+    try {
+      localStorage.setItem("orvia-active-vault", active ? "1" : "0");
+    } catch {}
+  }
+  private enterVault(payload: VaultPayload) {
+    this.vaultAvailable = true;
+    this.vaultMode = "private";
+    this.data = payload.workspace;
+    this.persisted = this.data;
+    this.revision = payload.revision;
+    this.generation = 0;
+    this.savedGeneration = 0;
+    this.recovery = payload.recovery;
+    this.recoveryWarning = vaultSession.warning;
+    this.recoveryBlocked = false;
+    this.recoveryState = "saved";
+    this.ready = true;
+    this.status = "saved";
+    this.error = "";
+    this.path = "orvia-vault://local";
+    this.setVaultHint(true);
+    this.emit();
+  }
+  async unlockVault(password: string) {
+    if (this.vaultMode === "public") {
+      await this.flush();
+      await this.flushRecovery();
+    }
+    try {
+      const p = await vaultSession.unlock(password);
+      this.enterVault(p);
+    } catch (error) {
+      vaultSession.lock();
+      throw error;
+    }
+  }
+  async createVault(password: string, copy = false) {
+    await this.flush();
+    await this.flushRecovery();
+    const data = copy
+      ? structuredClone(this.data)
+      : emptyWorkspace(this.data.settings.locale);
+    data.settings.autoBackup.enabled = false;
+    const assets: Record<string, string> = {};
+    let size = 0;
+    for (const a of data.assets) {
+      size += a.size;
+      if (size > 50 * 1024 * 1024) throw new Error("VAULT_SIZE");
+      assets[a.id] = toBase64(await getAsset(a));
+    }
+    const history: Record<string, HistoryEntry[]> = {};
+    if (copy)
+      for (const d of data.documents) {
+        history[d.id] = await documentHistory(d.id);
+      }
+    const p = await vaultSession.create(password, data, assets, history);
+    this.enterVault(p);
+  }
+  async createVaultFromBackup(password: string, payload: VaultPayload) {
+    if (this.vaultMode !== "public") throw new Error("VAULT_MODE");
+    await this.flush();
+    await this.flushRecovery();
+    const p = await vaultSession.create(
+      password,
+      payload.workspace,
+      payload.assets,
+      payload.history,
+      { recovery: payload.recovery, positions: payload.positions },
+    );
+    this.enterVault(p);
+  }
+  async mergeVaultBackup(payload: VaultPayload) {
+    if (!vaultSession.active) throw new Error("VAULT_LOCKED");
+    await this.flush();
+    if (payload.recovery)
+      payload = {
+        ...payload,
+        workspace: recoverCopies(
+          payload.workspace,
+          payload.recovery,
+          " (Recovered)",
+        ).data,
+      };
+    const libraries = new Map(
+      payload.workspace.libraries.map((l) => [l.id, crypto.randomUUID()]),
+    );
+    const ids = new Map(
+      payload.workspace.documents.map((d) => [d.id, crypto.randomUUID()]),
+    );
+    const mapDoc = (d: Workspace["documents"][number]) => ({
+      ...d,
+      id: ids.get(d.id)!,
+      libraryId: libraries.get(d.libraryId) ?? libraries.values().next().value!,
+    });
+    const history = Object.fromEntries(
+      Object.entries(payload.history).map(([id, entries]) => [
+        ids.get(id)!,
+        entries.map((e) => ({ ...e, document: mapDoc(e.document) })),
+      ]),
+    );
+    const next = workspaceSchema.parse({
+      ...this.data,
+      libraries: [
+        ...this.data.libraries,
+        ...payload.workspace.libraries.map((l) => ({
+          ...l,
+          id: libraries.get(l.id)!,
+        })),
+      ],
+      documents: [
+        ...this.data.documents,
+        ...payload.workspace.documents.map(mapDoc),
+      ],
+      assets: [
+        ...new Map(
+          [...this.data.assets, ...payload.workspace.assets].map((a) => [
+            a.id,
+            a,
+          ]),
+        ).values(),
+      ],
+    });
+    const assets = { ...vaultSession.payload!.assets, ...payload.assets };
+    if (
+      new TextEncoder().encode(
+        JSON.stringify({
+          ...vaultSession.payload,
+          workspace: next,
+          assets,
+          history: { ...vaultSession.payload!.history, ...history },
+        }),
+      ).length >
+      80 * 1024 * 1024
+    )
+      throw new Error("VAULT_SIZE");
+    vaultSession.payload!.assets = assets;
+    await this.applyRestore(next, history);
+  }
+  async lockVault() {
+    if (this.vaultMode !== "private") return;
+    try {
+      await this.flush();
+    } catch {
+      await this.flushRecovery();
+      if (this.recoveryState !== "saved") throw new Error("VAULT_UNSAVED");
+    }
+    await this.flushRecovery();
+    clearTimeout(this.timer);
+    clearTimeout(this.recoveryTimer);
+    const locale = this.data.settings.locale;
+    vaultSession.lock();
+    this.data = emptyWorkspace(locale);
+    this.persisted = null;
+    this.generation = 0;
+    this.savedGeneration = 0;
+    this.recovery = null;
+    this.ready = false;
+    this.status = "saved";
+    this.vaultMode = "locked";
+    this.error = "";
+    this.emit();
+  }
+  async openPublic() {
+    if (this.vaultMode === "private") await this.lockVault();
+    this.setVaultHint(false);
+    this.vaultMode = "public";
+    this.ready = false;
+    this.status = "loading";
+    this.initialized = false;
+    this.emit();
+    await this.load();
+  }
+  async changeVaultPassword(password: string) {
+    if (this.recoverable.length) throw new Error("VAULT_PENDING_RECOVERY");
+    await this.flush();
+    await this.flushRecovery();
+    vaultSession.payload!.recovery = null;
+    await vaultSession.changePassword(password);
+  }
+
   data: Workspace = emptyWorkspace();
   revision = 0;
   path = "";
@@ -184,6 +375,14 @@ export class WorkspaceStore {
   private initialized = false;
   private persisted: Workspace | null = null;
   private forceHistory = new Set<string>();
+  private importedHistory: Record<string, HistoryEntry[]> = {};
+  async applyRestore(data: Workspace, history: Record<string, HistoryEntry[]>) {
+    workspaceSchema.parse(data);
+    this.importedHistory = history;
+    this.change(() => data);
+    await this.flush();
+    await this.flushRecovery();
+  }
   async restoreHistory(entry: HistoryEntry) {
     this.forceHistory.add(entry.document.id);
     this.change((s) => ({
@@ -212,6 +411,8 @@ export class WorkspaceStore {
     await this.flush();
   }
   recovery: Recovery | null = null;
+  recoveryWarning = false;
+  private recoveryBlocked = false;
   recoveryState: "saving" | "saved" | "error" = "saved";
   private recoveryQueue: Promise<void> = Promise.resolve();
   private recoveryTimer: ReturnType<typeof setTimeout> | undefined;
@@ -233,12 +434,15 @@ export class WorkspaceStore {
     this.recoveryState = "saving";
     this.recoveryQueue = this.recoveryQueue.then(async () => {
       try {
+        if (this.recoveryBlocked) throw new Error("RECOVERY_QUARANTINE");
         if (
           new TextEncoder().encode(JSON.stringify(journal)).length >
           64 * 1024 * 1024
         )
           throw new Error("RECOVERY_SIZE");
-        if (native) await invoke("write_recovery", { data: journal });
+        if (vaultSession.active)
+          await vaultSession.checkpoint(this.data, journal);
+        else if (native) await invoke("write_recovery", { data: journal });
         else await writeBrowserRecovery(journal);
         if (ticket === this.recoveryTicket) this.recoveryState = "saved";
       } catch {
@@ -285,6 +489,18 @@ export class WorkspaceStore {
     if (this.initialized) return;
     this.initialized = true;
     try {
+      this.vaultAvailable = await vaultSession.exists();
+      let preferVault = false;
+      try {
+        preferVault = localStorage.getItem("orvia-active-vault") === "1";
+      } catch {}
+      if (this.vaultAvailable && preferVault) {
+        this.vaultMode = "locked";
+        this.status = "saved";
+        this.ready = false;
+        this.emit();
+        return;
+      }
       const result = native
         ? await invoke<Stored>("load_workspace")
         : await readPreview();
@@ -314,6 +530,13 @@ export class WorkspaceStore {
           this.recovery = null;
       } catch {
         this.recoveryState = "error";
+        this.recoveryWarning = true;
+        try {
+          if (native) await invoke("quarantine_recovery");
+          else await quarantineBrowserRecovery();
+        } catch {
+          this.recoveryBlocked = true;
+        }
       }
       if (!result.data) {
         this.generation++;
@@ -356,6 +579,8 @@ export class WorkspaceStore {
       return;
     }
     if (!this.dirty) {
+      if (vaultSession.active && vaultSession.preferencesDirty)
+        await vaultSession.save(this.data);
       if (this.status === "error") throw new Error(this.error);
       return;
     }
@@ -371,18 +596,54 @@ export class WorkspaceStore {
     const generation = this.generation;
     const data = this.data;
     const forceHistory = [...this.forceHistory];
+    const imported = this.importedHistory;
     this.status = "saving";
     this.emit();
     try {
       await this.flushRecovery();
-      const delta = workspaceDelta(this.persisted, data);
-      this.revision = native
-        ? await invoke<number>("save_delta", {
-            delta,
-            forceHistory,
-            expectedRevision: this.revision,
-          })
-        : await writePreview(data, delta, this.revision, forceHistory);
+      const delta: WorkspaceDelta = {
+        ...workspaceDelta(this.persisted, data),
+        history: imported,
+      };
+      if (vaultSession.active) {
+        const histories = { ...vaultSession.payload!.history, ...imported };
+        const previous = new Map(
+          this.persisted?.documents.map((d) => [d.id, d]) ?? [],
+        );
+        for (const doc of data.documents) {
+          const old = previous.get(doc.id);
+          if (old && (old.body !== doc.body || old.title !== doc.title)) {
+            const entries = [...(histories[doc.id] ?? [])];
+            if (
+              forceHistory.includes(doc.id) ||
+              !entries.length ||
+              Date.now() - Date.parse(entries[0].savedAt) >= 60000
+            ) {
+              entries.unshift(
+                snapshot(old, this.persisted?.assets ?? [], Date.now()),
+              );
+              while (
+                entries.length > 20 ||
+                JSON.stringify(entries).length > 20_000_000
+              )
+                entries.pop();
+              histories[doc.id] = entries;
+            }
+          }
+        }
+        for (const id of Object.keys(histories))
+          if (!data.documents.some((d) => d.id === id)) delete histories[id];
+        this.revision = await vaultSession.save(data, histories);
+      } else {
+        this.revision = native
+          ? await invoke<number>("save_delta", {
+              delta,
+              forceHistory,
+              expectedRevision: this.revision,
+            })
+          : await writePreview(data, delta, this.revision, forceHistory);
+      }
+      if (this.importedHistory === imported) this.importedHistory = {};
       this.persisted = data;
       forceHistory.forEach((id) => this.forceHistory.delete(id));
       this.savedGeneration = generation;
@@ -405,8 +666,12 @@ export async function putAsset(
 ): Promise<Asset> {
   if (!bytes.length || bytes.length > 20 * 1024 * 1024)
     throw new Error("IMAGE_SIZE");
+  const verified = await validateImage(bytes);
+  if (verified.mime !== mime) throw new Error("IMAGE_MIME_MISMATCH");
   const id = await sha256(bytes);
-  if (native) {
+  if (vaultSession.active) {
+    vaultSession.putAsset(id, bytes);
+  } else if (native) {
     const returned = await invoke<string>("put_asset", {
       bytes: Array.from(bytes),
       mime,
@@ -426,7 +691,8 @@ export async function putAsset(
 }
 export async function getAsset(asset: Asset): Promise<Uint8Array> {
   let bytes: Uint8Array;
-  if (native)
+  if (vaultSession.active) bytes = vaultSession.getAsset(asset.id);
+  else if (native)
     bytes = new Uint8Array(
       await invoke<number[]>("read_asset", { id: asset.id }),
     );

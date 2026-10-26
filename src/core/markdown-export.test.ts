@@ -18,7 +18,12 @@ describe("single-file Markdown export", () => {
   it("embeds local images inside Markdown while preserving asset mentions in code", async () => {
     const data = emptyWorkspace(),
       asset = await putAsset(
-        new Uint8Array([137, 80, 78, 71, 1, 2, 3]),
+        Uint8Array.from(
+          atob(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aG3sAAAAASUVORK5CYII=",
+          ),
+          (c) => c.charCodeAt(0),
+        ),
         "image/png",
       );
     data.assets.push(asset);
@@ -31,7 +36,7 @@ describe("single-file Markdown export", () => {
     const result = await exportMarkdownDocument(data, doc.id),
       text = new TextDecoder().decode(result.bytes);
     expect(text).toContain(
-      '![示例](data:image/png;base64,iVBORwECAw== "说明")',
+      '![示例](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aG3sAAAAASUVORK5CYII= "说明")',
     );
     expect(text).toContain(`\`asset:${asset.id}\``);
     expect(text).not.toContain("../assets/");

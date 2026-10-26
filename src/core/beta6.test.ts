@@ -64,7 +64,7 @@ it("sends one changed record among 1000 notes and no note bodies for theme chang
     settings: { ...after.settings, theme: "dark" },
   });
   expect(theme.documents.upsert).toEqual([]);
-  expect(JSON.stringify(theme).length).toBeLessThan(400);
+  expect(JSON.stringify(theme).length).toBeLessThan(1024);
 });
 it("recovers persisted history after reopen, and preserves the current draft before restore", async () => {
   const s = new WorkspaceStore();

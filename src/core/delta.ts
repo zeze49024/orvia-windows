@@ -41,4 +41,6 @@ export function workspaceDelta(before: Workspace | null, after: Workspace) {
     settings: before?.settings === after.settings ? null : after.settings,
   };
 }
-export type WorkspaceDelta = ReturnType<typeof workspaceDelta>;
+export type WorkspaceDelta = ReturnType<typeof workspaceDelta> & {
+  history?: Record<string, import("./history").HistoryEntry[]>;
+};

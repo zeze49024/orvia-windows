@@ -62,7 +62,15 @@ it("exports all selected bodies with case insensitive duplicate names and no fol
 
 it("shares self-contained image HTML without executable content or remote fetches", async () => {
   const data = emptyWorkspace(),
-    asset = await putAsset(new Uint8Array([137, 80, 78, 71]), "image/png");
+    asset = await putAsset(
+      Uint8Array.from(
+        atob(
+          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aG3sAAAAASUVORK5CYII=",
+        ),
+        (c) => c.charCodeAt(0),
+      ),
+      "image/png",
+    );
   data.assets.push(asset);
   const doc = newDocument(
     data.libraries[0].id,
@@ -73,7 +81,9 @@ it("shares self-contained image HTML without executable content or remote fetche
   const html = new TextDecoder().decode(
     (await shareDocuments(data, [doc.id])).bytes,
   );
-  expect(html).toContain("data:image/png;base64,iVBORw==");
+  expect(html).toContain(
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aG3sAAAAASUVORK5CYII=",
+  );
   expect(html).toContain("Content-Security-Policy");
   expect(html).toContain("&lt;script&gt;bad()&lt;/script&gt;");
   expect(html).not.toContain("<script>");

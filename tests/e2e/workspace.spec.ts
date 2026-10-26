@@ -141,7 +141,7 @@ test("embedded images render after real file import, export and reimport", async
 }) => {
   await page.goto("/");
   const png =
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aG3sAAAAASUVORK5CYII=";
+    "iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAFUlEQVR4nGP0rrj0nwEJMCFziBMAAKj3ApyajjcEAAAAAElFTkSuQmCC";
   const bytes = Buffer.from(
     `# 图文往返\n\n![本地图片](data:image/png;base64,${png})`,
   );

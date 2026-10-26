@@ -26,6 +26,7 @@ import { FavoriteButton } from "./favorite-button";
 
 import type { Library, Workspace } from "@/core/model";
 export function EditorWorkspace({
+  searchRequest,
   active,
   confirm,
   data,
@@ -46,6 +47,7 @@ export function EditorWorkspace({
   importFiles,
   busy,
 }: {
+  searchRequest: { id: string; query: string; serial: number } | null;
   active: Document;
   confirm: Confirm;
   data: Workspace;
@@ -223,6 +225,9 @@ export function EditorWorkspace({
             </div>
           ) : (
             <MarkdownEditor
+              searchRequest={
+                searchRequest?.id === active.id ? searchRequest : null
+              }
               key={active.id}
               documentId={active.id}
               value={active.body}

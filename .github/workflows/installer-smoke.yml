@@ -46,7 +46,7 @@ jobs:
       - name: Build disposable candidate installer
         if: inputs.candidateTag == ''
         run: npx tauri build --config '{"bundle":{"createUpdaterArtifacts":false}}'
-      - name: Install beta1, seed local notes, upgrade and verify beta2
+      - name: Install beta2, seed local notes, upgrade and verify beta3
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -55,7 +55,7 @@ jobs:
           USE_UPDATER: ${{ inputs.useUpdater }}
         run: |
           $previousDir = Join-Path $env:RUNNER_TEMP 'previous'
-          gh release download v0.1.1-beta1 --pattern '*setup.exe' --dir $previousDir
+          gh release download v0.1.1-beta2 --pattern '*setup.exe' --dir $previousDir
           $previous = (Get-ChildItem (Join-Path $previousDir '*setup.exe')).FullName
           $install = Join-Path $env:RUNNER_TEMP 'Orvia-Acceptance'
           $env:WEBVIEW2_USER_DATA_FOLDER = Join-Path $env:LOCALAPPDATA 'Orvia-Acceptance-WebView2'
@@ -67,6 +67,7 @@ jobs:
           if (!(Test-Path -LiteralPath $languageKey)) { New-Item -Path $languageKey | Out-Null }
           New-ItemProperty -LiteralPath $languageKey -Name 'Installer Language' -Value '1033' -PropertyType String -Force | Out-Null
           $executable = Join-Path $install 'orvia.exe'
+          $env:ORVIA_ACCEPTANCE_EXE = $executable
           if (!(Test-Path -LiteralPath $executable)) {
             Get-ItemProperty 'HKCU:/Software/Microsoft/Windows/CurrentVersion/Uninstall/Orvia' -ErrorAction SilentlyContinue | Format-List
             Get-ChildItem -LiteralPath $install -ErrorAction SilentlyContinue

@@ -1,3 +1,9 @@
+import { StorageManagement } from "./storage-management";
+import { VaultPanel } from "./vault-panel";
+import { BackupSettings } from "./backup-settings";
+import { ProductivitySettings } from "./productivity-settings";
+import { words } from "@/core/productivity";
+import type { Confirm } from "@/hooks/use-confirmation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -26,6 +32,8 @@ import { ArrowDownToLine, RefreshCw } from "lucide-react";
 import type { Workspace } from "@/core/model";
 export function SettingsPanel({
   locale,
+  run,
+  confirm,
   data,
   change,
   currentTheme,
@@ -41,6 +49,8 @@ export function SettingsPanel({
   updateMessage,
   onBack,
 }: {
+  run: (a: () => Promise<void>) => Promise<void>;
+  confirm: Confirm;
   locale: Locale;
   data: Workspace;
   change: (fn: (s: Workspace) => Workspace) => void;
@@ -60,7 +70,24 @@ export function SettingsPanel({
   const t = translator(locale);
   const [category, setCategory] = useState("general"),
     [query, setQuery] = useState("");
+  const w = (a: string, b: string, c: string) => words(locale, a, b, c);
   const categories = [
+    {
+      id: "security",
+      label: w(
+        "安全与加密知识库",
+        "安全與加密知識庫",
+        "Security and encrypted vault",
+      ),
+      icon: HardDrive,
+      content: <VaultPanel busy={busy} run={run} confirm={confirm} />,
+    },
+    {
+      id: "productivity",
+      label: w("模板与快捷键", "範本與快速鍵", "Templates and shortcuts"),
+      icon: Files,
+      content: <ProductivitySettings busy={busy} confirm={confirm} />,
+    },
     {
       id: "general",
       label: t("general"),
@@ -201,6 +228,8 @@ export function SettingsPanel({
               {t("restoreBackup")}
             </Button>
           </div>
+          <BackupSettings busy={busy} run={run} />
+          <StorageManagement busy={busy} run={run} confirm={confirm} />
         </>
       ),
     },
@@ -232,6 +261,53 @@ export function SettingsPanel({
                 }))
               }
             />
+          </div>
+          <div className="settings-row">
+            <div>
+              <b>{w("更新通道", "更新通道", "Update channel")}</b>
+              <p>
+                {w(
+                  "稳定通道仅接收正式版；预览通道包含测试版。",
+                  "穩定通道僅接收正式版；預覽通道包含測試版。",
+                  "Stable receives official releases. Preview includes test releases.",
+                )}
+              </p>
+            </div>
+            <select
+              aria-label={w("更新通道", "更新通道", "Update channel")}
+              value={data.settings.updateChannel}
+              onChange={(e) => {
+                const updateChannel = e.target.value as "stable" | "preview";
+                void (async () => {
+                  if (
+                    updateChannel === "stable" ||
+                    (await confirm({
+                      title: w(
+                        "加入预览通道？",
+                        "加入預覽通道？",
+                        "Join preview channel?",
+                      ),
+                      description: w(
+                        "测试版可能不稳定。建议先备份数据。",
+                        "測試版可能不穩定。建議先備份資料。",
+                        "Test releases may be unstable. Back up your data first.",
+                      ),
+                    }))
+                  )
+                    change((s) => ({
+                      ...s,
+                      settings: { ...s.settings, updateChannel },
+                    }));
+                })();
+              }}
+            >
+              <option value="stable">
+                {w("稳定通道", "穩定通道", "Stable")}
+              </option>
+              <option value="preview">
+                {w("预览通道", "預覽通道", "Preview")}
+              </option>
+            </select>
           </div>
           <div className="settings-row">
             <div>

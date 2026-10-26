@@ -1,3 +1,4 @@
+import { vaultSession } from "./vault";
 export type WritingPosition = {
   mode: "source" | "rich";
   rich: { from: number; to: number };
@@ -9,6 +10,7 @@ const valid = (n: unknown) =>
   typeof n === "number" && Number.isFinite(n) && n >= 0;
 export function readPosition(id: string): WritingPosition | undefined {
   try {
+    if (vaultSession.active) return vaultSession.payload!.positions[id];
     const entry = JSON.parse(localStorage.getItem(key) ?? "{}")[id];
     if (
       entry &&
@@ -35,6 +37,11 @@ export function readPosition(id: string): WritingPosition | undefined {
 }
 export function savePosition(id: string, position: WritingPosition) {
   try {
+    if (vaultSession.active) {
+      vaultSession.payload!.positions[id] = position;
+      vaultSession.preferencesDirty = true;
+      return;
+    }
     let entries: Record<string, WritingPosition> = {};
     try {
       entries = JSON.parse(localStorage.getItem(key) ?? "{}");

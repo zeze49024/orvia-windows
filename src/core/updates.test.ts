@@ -12,7 +12,10 @@ it("background detection requests only update metadata without flushing or modif
   mocks.check.mockResolvedValue(null);
   expect(await checkUpdate()).toBe(null);
   expect(mocks.flush).not.toHaveBeenCalled();
-  expect(mocks.check).toHaveBeenCalledWith({ timeout: 20000 });
+  expect(mocks.check).toHaveBeenCalledWith({
+    timeout: 20000,
+    target: "stable",
+  });
 });
 it("saves before downloading and again before installing; blocks install if save/download fails", async () => {
   const steps: string[] = [],

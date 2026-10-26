@@ -204,7 +204,7 @@ export function LibraryHome({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
-            <kbd>Ctrl K</kbd>
+            <kbd>{data.settings.shortcuts.searchAll}</kbd>
           </div>
           {!query && selection === null && recents.length > 0 && (
             <>

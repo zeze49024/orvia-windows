@@ -25,6 +25,8 @@ const manifest = {
     },
   },
 };
+const channel = version.includes("-") ? "preview" : "stable";
+manifest.platforms[channel] = manifest.platforms["windows-x86_64"];
 const release = path.join("release", tag);
 fs.mkdirSync(release, { recursive: true });
 fs.mkdirSync("updates/windows", { recursive: true });
@@ -32,6 +34,7 @@ for (const name of [installer, installer + ".sig"])
   fs.copyFileSync(path.join(bundle, name), path.join(release, name));
 for (const file of [
   "updates/windows/latest.json",
+  `updates/windows/${channel}.json`,
   path.join(release, "latest.json"),
 ])
   fs.writeFileSync(file, JSON.stringify(manifest, null, 2) + "\n");

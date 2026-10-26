@@ -76,18 +76,17 @@ export async function preparePdf(data: Workspace, id: string) {
 export async function exportPdf(data: Workspace, id: string) {
   const doc = data.documents.find((d) => d.id === id && !d.deletedAt);
   if (!doc) throw new Error("DOCUMENT_NOT_FOUND");
-  let path: string | null = null;
+  let token: string | null = null;
   if (native) {
-    const { save } = await import("@tauri-apps/plugin-dialog");
-    path = await save({
-      defaultPath: safeFilename(doc.title) + ".pdf",
-      filters: [{ name: "PDF", extensions: ["pdf"] }],
+    token = await invoke<string | null>("pick_pdf_target", {
+      name: safeFilename(doc.title) + ".pdf",
     });
-    if (!path) return false;
+    if (!token) return false;
   }
-  const printed = await preparePdf(data, id);
+  let printed: Awaited<ReturnType<typeof preparePdf>> | undefined;
   try {
-    if (native) await invoke("export_pdf", { path });
+    printed = await preparePdf(data, id);
+    if (native) await invoke("export_pdf", { token });
     else
       await new Promise<void>((resolve, reject) => {
         const done = () => {
@@ -109,6 +108,7 @@ export async function exportPdf(data: Workspace, id: string) {
       });
     return true;
   } finally {
-    printed.cleanup();
+    printed?.cleanup();
+    if (token) await invoke("revoke_pdf_target", { token }).catch(() => {});
   }
 }

@@ -7,7 +7,7 @@ import { imageMime } from "./image-mime";
 export { imageMime } from "./image-mime";
 import { importMarkdownImages } from "./markdown-import";
 import { decodeTextFile } from "./text-file";
-export async function convertFile(
+async function convertFileBody(
   file: LocalFile,
   signal: AbortSignal,
 ): Promise<{ title: string; body: string; assets: Asset[] }> {
@@ -106,4 +106,34 @@ export async function convertFile(
   signal.throwIfAborted();
   if (body.length > 5_000_000) throw new Error("FILE_TOO_LARGE");
   return { title, body, assets };
+}
+
+export async function convertFile(file: LocalFile, signal: AbortSignal) {
+  const local = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const abort = () => local.abort(signal.reason);
+  signal.addEventListener("abort", abort, { once: true });
+  if (signal.aborted) abort();
+  try {
+    return await Promise.race([
+      convertFileBody(file, local.signal),
+      new Promise<never>((_, reject) => {
+        local.signal.addEventListener(
+          "abort",
+          () =>
+            reject(
+              local.signal.reason ?? new DOMException("Aborted", "AbortError"),
+            ),
+          { once: true },
+        );
+        timer = setTimeout(
+          () => local.abort(new Error("IMPORT_TIMEOUT")),
+          120000,
+        );
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+    signal.removeEventListener("abort", abort);
+  }
 }

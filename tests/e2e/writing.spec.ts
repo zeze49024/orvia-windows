@@ -137,7 +137,7 @@ test("selected folder resolves nested relative images and exports a single porta
     "# 图文\n\n![图片](../images/a%20b.png)",
   );
   const png =
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aG3sAAAAASUVORK5CYII=";
+    "iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAFUlEQVR4nGP0rrj0nwEJMCFziBMAAKj3ApyajjcEAAAAAElFTkSuQmCC";
   await fs.writeFile(
     path.join(root, "images", "a b.png"),
     Buffer.from(png, "base64"),

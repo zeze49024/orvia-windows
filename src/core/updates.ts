@@ -1,9 +1,11 @@
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { native, store } from "./storage";
 export const supportsUpdates = native;
-export async function checkUpdate(): Promise<Update | null> {
+export async function checkUpdate(
+  channel: "stable" | "preview" = "stable",
+): Promise<Update | null> {
   if (!native) throw new Error("DESKTOP_ONLY");
-  return check({ timeout: 20000 });
+  return check({ timeout: 20000, target: channel });
 }
 export async function installUpdate(
   update: Update,

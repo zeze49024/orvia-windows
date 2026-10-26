@@ -18,7 +18,12 @@ test.beforeEach(async ({ page }) => {
       color: "green",
     });
     const asset = await putAsset(
-      new Uint8Array([137, 80, 78, 71]),
+      Uint8Array.from(
+        atob(
+          "iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAFUlEQVR4nGP0rrj0nwEJMCFziBMAAKj3ApyajjcEAAAAAElFTkSuQmCC",
+        ),
+        (c) => c.charCodeAt(0),
+      ),
       "image/png",
     );
     data.assets.push(asset);
@@ -156,7 +161,7 @@ test("batch exports independent Markdown, ZIP and offline HTML; settings is sear
   await page.locator(".live-editor").fill("设置前的编辑内容");
   await page.keyboard.press("Control+,");
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.locator(".settings-nav nav button")).toHaveCount(6);
+  await expect(page.locator(".settings-nav nav button")).toHaveCount(8);
   await page.screenshot({ path: info.outputPath("rc1-settings-light.png") });
   await page
     .getByRole("textbox", { name: "搜索设置", exact: true })

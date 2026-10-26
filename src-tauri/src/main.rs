@@ -1,7 +1,11 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 use rusqlite::{Connection, OptionalExtension};
-mod persistence;
+mod backup_directory;
+mod image_guard;
+mod maintenance;
 mod pdf;
+mod persistence;
+mod private_records;
 use persistence::{apply_delta, open_db, save, validate_asset_id, Delta};
 use serde::Serialize;
 use serde_json::Value;
@@ -12,6 +16,8 @@ use tauri::{Manager, State};
 struct Storage {
     connection: Mutex<Connection>,
     root: PathBuf,
+    recovery_lock: Mutex<()>,
+    vault_lock: Mutex<()>,
 }
 #[derive(Serialize)]
 struct Loaded {
@@ -19,24 +25,66 @@ struct Loaded {
     data: Option<Value>,
     path: String,
 }
-#[tauri::command]
-fn read_recovery(storage: State<Storage>) -> Result<Option<Value>,String> {
- let file=storage.root.join("writing-recovery.json");
- if !file.exists(){return Ok(None);}
- if fs::metadata(&file).map_err(|_|"RECOVERY_READ")?.len()>64*1024*1024{return Err("RECOVERY_SIZE".into());}
- let bytes=fs::read(&file).map_err(|_|"RECOVERY_READ")?;
- serde_json::from_slice(&bytes).map(Some).map_err(|_|"RECOVERY_INVALID".into())
+fn quarantine_file(root: &std::path::Path, name: &str) -> Result<Option<String>, String> {
+    let source = root.join(name);
+    if !source.exists() {
+        return Ok(None);
+    }
+    let target = format!("writing-recovery.corrupt-{}.json", uuid::Uuid::new_v4());
+    fs::rename(source, root.join(&target)).map_err(|_| "RECOVERY_QUARANTINE")?;
+    Ok(Some(target))
 }
 #[tauri::command]
-fn write_recovery(storage: State<Storage>,data: Value) -> Result<(),String> {
- use std::io::Write;
- let bytes=serde_json::to_vec(&data).map_err(|_|"RECOVERY_INVALID")?;
- if bytes.len()>64*1024*1024{return Err("RECOVERY_SIZE".into());}
- let temp=storage.root.join("writing-recovery.tmp");
- let mut file=fs::File::create(&temp).map_err(|_|"RECOVERY_WRITE")?;
- file.write_all(&bytes).and_then(|_|file.sync_all()).map_err(|_|"RECOVERY_WRITE")?;
- drop(file);
- fs::rename(temp,storage.root.join("writing-recovery.json")).map_err(|_|"RECOVERY_WRITE".into())
+fn quarantine_recovery(storage: State<Storage>) -> Result<Option<String>, String> {
+    let _lock = storage.recovery_lock.lock().map_err(|_| "RECOVERY_LOCK")?;
+    quarantine_file(&storage.root, "writing-recovery.json")
+}
+#[tauri::command]
+fn read_recovery(storage: State<Storage>) -> Result<Option<Value>, String> {
+    let _lock = storage.recovery_lock.lock().map_err(|_| "RECOVERY_LOCK")?;
+    quarantine_file(&storage.root, "writing-recovery.tmp")?;
+    let file = storage.root.join("writing-recovery.json");
+    if !file.exists() {
+        return Ok(None);
+    }
+    if fs::metadata(&file).map_err(|_| "RECOVERY_READ")?.len() > 64 * 1024 * 1024 {
+        quarantine_file(&storage.root, "writing-recovery.json")?;
+        return Err("RECOVERY_SIZE_QUARANTINED".into());
+    }
+    let metadata = fs::symlink_metadata(&file).map_err(|_| "RECOVERY_READ")?;
+    if !metadata.is_file() || metadata.file_type().is_symlink() {
+        return Err("RECOVERY_PATH".into());
+    }
+    let bytes = fs::read(&file).map_err(|_| "RECOVERY_READ")?;
+    match serde_json::from_slice(&bytes) {
+        Ok(data) => Ok(Some(data)),
+        Err(_) => {
+            quarantine_file(&storage.root, "writing-recovery.json")?;
+            Err("RECOVERY_INVALID_QUARANTINED".into())
+        }
+    }
+}
+#[tauri::command]
+fn write_recovery(storage: State<Storage>, data: Value) -> Result<(), String> {
+    use std::io::Write;
+    let _lock = storage.recovery_lock.lock().map_err(|_| "RECOVERY_LOCK")?;
+    let bytes = serde_json::to_vec(&data).map_err(|_| "RECOVERY_INVALID")?;
+    if bytes.len() > 64 * 1024 * 1024 {
+        return Err("RECOVERY_SIZE".into());
+    }
+    quarantine_file(&storage.root, "writing-recovery.tmp")?;
+    let temp = storage.root.join("writing-recovery.tmp");
+    let mut file = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&temp)
+        .map_err(|_| "RECOVERY_WRITE")?;
+    file.write_all(&bytes)
+        .and_then(|_| file.sync_all())
+        .map_err(|_| "RECOVERY_WRITE")?;
+    drop(file);
+    fs::rename(temp, storage.root.join("writing-recovery.json"))
+        .map_err(|_| "RECOVERY_WRITE".into())
 }
 #[tauri::command]
 fn load_workspace(storage: State<Storage>) -> Result<Loaded, String> {
@@ -132,11 +180,21 @@ fn put_asset(storage: State<Storage>, bytes: Vec<u8>, mime: String) -> Result<St
     {
         return Err("IMAGE_SIZE_OR_TYPE".into());
     }
+    image_guard::validate(&bytes, &mime)?;
     let id = format!("{:x}", Sha256::digest(&bytes));
     let path = storage.root.join("assets").join(&id);
     if !path.exists() {
-        let temporary = path.with_extension("tmp");
-        fs::write(&temporary, &bytes).map_err(|_| "ASSET_WRITE")?;
+        use std::io::Write;
+        let temporary = path.with_extension(format!("{}.tmp", uuid::Uuid::new_v4()));
+        let mut file = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temporary)
+            .map_err(|_| "ASSET_WRITE")?;
+        file.write_all(&bytes)
+            .and_then(|_| file.sync_all())
+            .map_err(|_| "ASSET_WRITE")?;
+        drop(file);
         fs::rename(&temporary, &path).map_err(|_| "ASSET_COMMIT")?;
     }
     Ok(id)
@@ -144,7 +202,12 @@ fn put_asset(storage: State<Storage>, bytes: Vec<u8>, mime: String) -> Result<St
 #[tauri::command]
 fn read_asset(storage: State<Storage>, id: String) -> Result<Vec<u8>, String> {
     validate_asset_id(&id)?;
-    let bytes = fs::read(storage.root.join("assets").join(&id)).map_err(|_| "ASSET_READ")?;
+    let path = storage.root.join("assets").join(&id);
+    let meta = fs::symlink_metadata(&path).map_err(|_| "ASSET_READ")?;
+    if !meta.is_file() || meta.file_type().is_symlink() || meta.len() > 20 * 1024 * 1024 {
+        return Err("ASSET_PATH_OR_SIZE".into());
+    }
+    let bytes = fs::read(path).map_err(|_| "ASSET_READ")?;
     if format!("{:x}", Sha256::digest(&bytes)) != id {
         return Err("ASSET_INTEGRITY".into());
     }
@@ -179,6 +242,7 @@ fn main() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
+        .manage(pdf::PdfGrants::default())
         .setup(move |app| {
             // Explicit RGBA window icon avoids relying on Shell's cached icon or
             // a resource decoder's alpha/mask conversion for the running window.
@@ -196,10 +260,19 @@ fn main() {
             app.manage(Storage {
                 connection: Mutex::new(connection),
                 root,
+                recovery_lock: Mutex::new(()),
+                vault_lock: Mutex::new(()),
             });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            maintenance::storage_inventory,
+            maintenance::cleanup_assets,
+            maintenance::recovery_quarantines,
+            maintenance::read_quarantine,
+            backup_directory::pick_backup_directory,
+            backup_directory::backup_directory,
+            backup_directory::write_auto_backup,
             load_workspace,
             save_workspace,
             save_delta,
@@ -207,7 +280,14 @@ fn main() {
             put_asset,
             read_asset,
             read_recovery,
+            quarantine_recovery,
             write_recovery,
+            private_records::read_private_record,
+            private_records::write_private_record,
+            private_records::quarantine_private_recovery,
+            private_records::delete_private_recovery,
+            pdf::pick_pdf_target,
+            pdf::revoke_pdf_target,
             pdf::export_pdf
         ])
         .run(tauri::generate_context!())
@@ -240,20 +320,36 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let mut c = open_db(dir.path()).unwrap();
         save(&mut c,serde_json::json!({"schemaVersion":1,"libraries":[{"id":"one"},{"id":"two"}],"documents":[{"id":"a","libraryId":"one","title":"A","body":"original","starred":true},{"id":"b","libraryId":"one","title":"B","body":"original","starred":false}],"assets":[],"settings":{}}),0).unwrap();
-        let make_delta = |target: &str| -> Delta { serde_json::from_value(serde_json::json!({"libraries":{"upsert":[],"remove":[]},"documents":{"upsert":[{"id":"a","libraryId":"two","title":"A","body":"original","starred":true,"pinned":true,"deletedAt":"2026-10-23T00:00:00Z"},{"id":"b","libraryId":target,"title":"B","body":"original","starred":false,"pinned":true}],"remove":[]},"assets":{"upsert":[],"remove":[]},"settings":null})).unwrap() };
+        let make_delta = |target: &str| -> Delta {
+            serde_json::from_value(serde_json::json!({"libraries":{"upsert":[],"remove":[]},"documents":{"upsert":[{"id":"a","libraryId":"two","title":"A","body":"original","starred":true,"pinned":true,"deletedAt":"2026-10-23T00:00:00Z"},{"id":"b","libraryId":target,"title":"B","body":"original","starred":false,"pinned":true}],"remove":[]},"assets":{"upsert":[],"remove":[]},"settings":null})).unwrap()
+        };
         assert!(apply_delta(&mut c, make_delta("missing"), 1, &[]).is_err());
-        let before: String = c.query_row("SELECT payload FROM documents WHERE id='a'",[],|r|r.get(0)).unwrap();
+        let before: String = c
+            .query_row("SELECT payload FROM documents WHERE id='a'", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
         assert!(!before.contains("pinned"));
         apply_delta(&mut c, make_delta("two"), 1, &[]).unwrap();
         drop(c);
         let c = open_db(dir.path()).unwrap();
         for id in ["a", "b"] {
-            let payload:String = c.query_row("SELECT payload FROM documents WHERE id=?1",[id],|r|r.get(0)).unwrap();
-            let doc:Value=serde_json::from_str(&payload).unwrap();
-            assert_eq!(doc["libraryId"],"two"); assert_eq!(doc["pinned"],true);
-            assert_eq!(doc["starred"],id=="a");
+            let payload: String = c
+                .query_row("SELECT payload FROM documents WHERE id=?1", [id], |r| {
+                    r.get(0)
+                })
+                .unwrap();
+            let doc: Value = serde_json::from_str(&payload).unwrap();
+            assert_eq!(doc["libraryId"], "two");
+            assert_eq!(doc["pinned"], true);
+            assert_eq!(doc["starred"], id == "a");
         }
-        assert_eq!(c.query_row("SELECT count(*) FROM document_history",[],|r|r.get::<_,i64>(0)).unwrap(),0);
+        assert_eq!(
+            c.query_row("SELECT count(*) FROM document_history", [], |r| r
+                .get::<_, i64>(0))
+                .unwrap(),
+            0
+        );
     }
     #[test]
     fn sqlite_reopen_and_failed_transaction_preserve_document() {

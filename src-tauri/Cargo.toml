@@ -1,6 +1,6 @@
 [package]
 name = "orvia"
-version = "0.1.1-beta2"
+version = "0.1.1-beta3"
 description = "Orvia local personal knowledge library"
 authors = ["zeze49024"]
 edition = "2021"
@@ -19,6 +19,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 rusqlite = { version = "0.37", features = ["bundled"] }
 sha2 = "0.10"
+uuid = { version = "1", features = ["v4"] }
 
 [dev-dependencies]
 tempfile = "3"

@@ -1,3 +1,5 @@
+import { matchesShortcut } from "@/core/productivity";
+import { store } from "@/core/storage";
 import { useEffect, useRef, useState } from "react";
 import { closeHistory } from "@tiptap/pm/history";
 import { EditorContent, ReactNodeViewRenderer, useEditor } from "@tiptap/react";
@@ -54,6 +56,7 @@ const AssetImage = SafeImage.extend({
 });
 
 export function MarkdownEditor({
+  searchRequest,
   documentId,
   value,
   onChange,
@@ -63,6 +66,7 @@ export function MarkdownEditor({
   busy,
   notify,
 }: {
+  searchRequest?: { query: string; serial: number } | null;
   documentId: string;
   value: string;
   onChange: (value: string) => void;
@@ -279,12 +283,14 @@ export function MarkdownEditor({
       )
         return;
       if (
-        (event.ctrlKey || event.metaKey) &&
-        ["f", "h"].includes(event.key.toLowerCase())
+        matchesShortcut(event, store.data.settings.shortcuts.find) ||
+        matchesShortcut(event, store.data.settings.shortcuts.replace)
       ) {
         event.preventDefault();
         setFindOpen(true);
-        setReplaceOpen(event.key.toLowerCase() === "h");
+        setReplaceOpen(
+          matchesShortcut(event, store.data.settings.shortcuts.replace),
+        );
         requestAnimationFrame(() => {
           searchInput.current?.focus();
           searchInput.current?.select();
@@ -346,6 +352,27 @@ export function MarkdownEditor({
     } else editor?.chain().setTextSelection(match).scrollIntoView().run();
   };
 
+  const requestedSearch = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!searchRequest?.query) return;
+    requestedSearch.current = searchRequest.query;
+    setQuery(searchRequest.query);
+    setFindOpen(true);
+  }, [searchRequest?.serial]);
+  useEffect(() => {
+    if (
+      !editor ||
+      !requestedSearch.current ||
+      query !== requestedSearch.current ||
+      !matches.length
+    )
+      return;
+    const frame = requestAnimationFrame(() => {
+      jump(0);
+      requestedSearch.current = undefined;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [editor, query, matches.length, source, searchRequest?.serial]);
   useEffect(() => {
     if (!editor) return;
     if (source) {
@@ -746,7 +773,7 @@ export function MarkdownEditor({
           className="find-launch"
           type="button"
           aria-label={t("findReplace")}
-          title={`${t("findReplace")} · Ctrl+F / Ctrl+H`}
+          title={`${t("findReplace")} · ${store.data.settings.shortcuts.find} / ${store.data.settings.shortcuts.replace}`}
           onClick={() => {
             setFindOpen((open) => !open);
             setReplaceOpen(true);
