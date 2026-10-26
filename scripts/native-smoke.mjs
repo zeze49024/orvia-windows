@@ -3,7 +3,7 @@ import { promisify } from "node:util";
 // Runs ONLY against a disposable CI installation with WebView2 debugging enabled.
 import { chromium, expect } from "@playwright/test";
 import path from "node:path";
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, writeFile, mkdir, readdir } from "node:fs/promises";
 const phase = process.argv[2];
 if (
   !process.env.CI ||
@@ -613,6 +613,94 @@ if (phase === "seed") {
     )
   )
     throw new Error("Public workspace separation failed");
+  await page.keyboard.press("Control+,");
+  await page
+    .locator(".settings-nav nav")
+    .getByRole("button", { name: strings.storageBackup, exact: true })
+    .click();
+  const backupParent = path.resolve("native-auto-backup");
+  await mkdir(backupParent, { recursive: true });
+  const folderApproval = promisify(execFile)(
+    "powershell.exe",
+    [
+      "-NoProfile",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      "scripts/acceptance-save-dialog.ps1",
+      "-Mode",
+      "Folder",
+      "-Target",
+      backupParent,
+    ],
+    { timeout: 50000 },
+  );
+  await page
+    .getByRole("button", {
+      name: word("选择备份目录", "選擇備份目錄", "Choose backup folder"),
+      exact: true,
+    })
+    .click();
+  await folderApproval;
+  const pickedBackup = await invoke("backup_directory");
+  const backupFolder = pickedBackup.startsWith("\\\\?\\")
+    ? pickedBackup.slice(4)
+    : pickedBackup;
+  if (
+    !path
+      .resolve(backupFolder)
+      .toLowerCase()
+      .startsWith(backupParent.toLowerCase() + path.sep)
+  )
+    throw new Error("Backup picker escaped isolated fixture");
+  await page.locator(".settings-content input[type=number]").fill("3");
+  await page
+    .getByRole("button", {
+      name: word("立即备份到该目录", "立即備份到該目錄", "Back up now"),
+      exact: true,
+    })
+    .click();
+  await expect(
+    page
+      .locator(".settings-content [role=status]")
+      .filter({ hasText: "Orvia-auto-public-" }),
+  ).toBeVisible();
+  const backupName = (await readdir(backupFolder)).find((n) =>
+    n.endsWith(".orvia"),
+  );
+  if (!backupName) throw new Error("Native backup missing");
+  const backupBytes = await readFile(path.join(backupFolder, backupName));
+  await writeFile(path.join(backupFolder, "user-file.txt"), "keep");
+  for (let i = 0; i < 4; i++)
+    await invoke("write_auto_backup", {
+      bytes: [...backupBytes],
+      private: false,
+      keep: 3,
+    });
+  const beforeSchedule = await readdir(backupFolder);
+  if (
+    beforeSchedule.filter((n) => n.endsWith(".orvia")).length !== 3 ||
+    (await readFile(path.join(backupFolder, "user-file.txt"), "utf8")) !==
+      "keep"
+  )
+    throw new Error("Native retention violated file ownership");
+  await page
+    .getByRole("switch", { name: "Automatic backups", exact: true })
+    .check();
+  await expect
+    .poll(
+      async () =>
+        (await readdir(backupFolder)).some(
+          (n) => n.endsWith(".orvia") && !beforeSchedule.includes(n),
+        ),
+      { timeout: 45000 },
+    )
+    .toBe(true);
+  await page
+    .getByRole("switch", { name: "Automatic backups", exact: true })
+    .uncheck();
+  await page.keyboard.press("Control+s");
+  await page.keyboard.press("Escape");
   const protectedAssets = (await invoke("storage_inventory")).assets.filter(
     (a) => a.referenced,
   );
@@ -659,6 +747,9 @@ if (phase === "seed") {
         pdfExport: true,
         pdfAuthorization: true,
         encryptedVault: true,
+        authorizedBackupDirectory: true,
+        autoBackupRetention: true,
+        automaticBackupSchedule: true,
         publicPrivateSeparation: true,
         referencedAssetProtection: true,
         damagedRecoveryQuarantine: true,

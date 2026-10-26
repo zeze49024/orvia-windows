@@ -1,10 +1,12 @@
-param([Parameter(Mandatory=$true)][string]$Target)
+param([Parameter(Mandatory=$true)][string]$Target,[ValidateSet('Save','Folder')][string]$Mode='Save')
 $ErrorActionPreference='Stop'
 if ($env:CI -ne 'true' -or !$env:ORVIA_ACCEPTANCE_EXE) { throw 'Only allowed in the disposable CI acceptance fixture' }
 $fixtureExe=[IO.Path]::GetFullPath($env:ORVIA_ACCEPTANCE_EXE)
 $targetFile=[IO.Path]::GetFullPath($Target)
 $workspaceRoot=[IO.Path]::GetFullPath($env:GITHUB_WORKSPACE).TrimEnd('\')+'\'
 if (!$targetFile.StartsWith($workspaceRoot,[StringComparison]::OrdinalIgnoreCase)) { throw 'Target is outside the acceptance workspace' }
+if ($Mode -eq 'Folder' -and !(Test-Path -LiteralPath $targetFile -PathType Container)) { throw 'Folder fixture is missing' }
+$filenameId=if ($Mode -eq 'Folder') {'1152'} else {'1001'}
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 Add-Type @'
@@ -24,7 +26,7 @@ while ([DateTime]::UtcNow -lt $deadline) {
     $dialogs=@($owner.FindAll([Windows.Automation.TreeScope]::Subtree,([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ClassNameProperty,'#32770'))))
     foreach ($dialog in $dialogs) {
     if ($fixturePids -notcontains $dialog.Current.ProcessId) { continue }
-    $edit=$dialog.FindFirst([Windows.Automation.TreeScope]::Descendants,([Windows.Automation.AndCondition]::new(([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::AutomationIdProperty,'1001')),([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ClassNameProperty,'Edit')))))
+    $edit=$dialog.FindFirst([Windows.Automation.TreeScope]::Descendants,([Windows.Automation.AndCondition]::new(([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::AutomationIdProperty,$filenameId)),([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ClassNameProperty,'Edit')))))
     $save=$dialog.FindFirst([Windows.Automation.TreeScope]::Descendants,([Windows.Automation.AndCondition]::new(([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::AutomationIdProperty,'1')),([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ClassNameProperty,'Button')))))
     if ($null -eq $edit -or $null -eq $save) { continue }
     $editHandle=[IntPtr]$edit.Current.NativeWindowHandle
