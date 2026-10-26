@@ -83,10 +83,17 @@ export async function createBackup(
   const data: Workspace = structuredClone(original);
   if (options?.trash === false)
     data.documents = data.documents.filter((d) => !d.deletedAt);
+  const noteIds = new Set(data.documents.map((d) => d.id));
+  const chats = data.settings.aiConversations.filter((c) =>
+    noteIds.has(c.documentId),
+  );
   if (options?.settings === false)
     data.settings = structuredClone(
       (await import("./model")).emptyWorkspace(data.settings.locale).settings,
     );
+  // Conversations are note content, not preferences. Honor the trash boundary
+  // without dropping chats when the user excludes application settings.
+  data.settings = { ...data.settings, aiConversations: chats };
   const history = Object.fromEntries(
     Object.entries(options?.history ?? {}).filter(([id]) =>
       data.documents.some((d) => d.id === id),
@@ -205,12 +212,27 @@ export async function prepareRestore(
     data.libraries.map((l) => [l.id, crypto.randomUUID()]),
   );
   const ids = new Map(data.documents.map((d) => [d.id, crypto.randomUUID()]));
+  const chats = data.settings.aiConversations
+    .filter((c) => ids.has(c.documentId))
+    .map((c) => ({
+      ...c,
+      id: crypto.randomUUID(),
+      documentId: ids.get(c.documentId)!,
+      messages: c.messages.map((m) => ({
+        ...m,
+        id: crypto.randomUUID(),
+        fingerprint: undefined,
+        anchor: undefined,
+      })),
+    }));
   const next = workspaceSchema.parse({
     ...current,
-    settings:
-      restoreSettings && manifest.settingsIncluded !== false
+    settings: {
+      ...(restoreSettings && manifest.settingsIncluded !== false
         ? data.settings
-        : current.settings,
+        : current.settings),
+      aiConversations: [...current.settings.aiConversations, ...chats],
+    },
     libraries: [
       ...current.libraries,
       ...data.libraries.map((l) => ({ ...l, id: libraries.get(l.id)! })),

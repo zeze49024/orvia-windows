@@ -53,7 +53,7 @@ if (phase === "seed") {
     id: "af485e10-f680-4ff6-8b40-af799171e221",
     libraryId: data.libraries[0].id,
     title: "Upgrade preservation",
-    body: "# Native upgrade fixture\n\n中文内容 retained from beta3",
+    body: "# Native upgrade fixture\n\n中文内容 retained from beta4",
     tags: ["upgrade"],
     starred: true,
     createdAt: now,
@@ -96,7 +96,7 @@ if (phase === "seed") {
     .click();
   await page
     .getByRole("dialog")
-    .getByText("v0.1.1-beta3 → v0.1.1-beta4", { exact: true })
+    .getByText("v0.1.1-beta4 → v0.1.1-beta5", { exact: true })
     .waitFor({ timeout: 60000 });
   const closed = page.waitForEvent("close", { timeout: 120000 });
   await page
@@ -198,12 +198,12 @@ if (phase === "seed") {
     (d) => d.title === "Upgrade preservation",
   );
   if (
-    !doc?.body.includes("中文内容 retained from beta3") ||
+    !doc?.body.includes("中文内容 retained from beta4") ||
     !doc.starred ||
     doc.tags[0] !== "upgrade"
   )
     throw new Error("Upgrade lost data");
-  const changed = { ...doc, body: doc.body + "\n\nSaved by v0.1.1-beta4" };
+  const changed = { ...doc, body: doc.body + "\n\nSaved by v0.1.1-beta5" };
   const delta = {
     libraries: { upsert: [], remove: [] },
     documents: { upsert: [changed], remove: [] },
@@ -309,7 +309,7 @@ if (phase === "seed") {
     .click();
   if (
     !(await page.locator(".live-editor").innerText()).includes(
-      "Saved by v0.1.1-beta4",
+      "Saved by v0.1.1-beta5",
     )
   )
     throw new Error("Native editor reload failed");
@@ -806,7 +806,12 @@ if (phase === "seed") {
   await page
     .getByRole("button", { name: strings.aiSummarize, exact: true })
     .click();
-  await page.getByLabel(strings.aiConsent, { exact: true }).check();
+  await page
+    .getByRole("button", { name: strings.aiChatSend, exact: true })
+    .click();
+  await page
+    .getByRole("dialog", { name: strings.aiSendReview, exact: true })
+    .waitFor();
   const denyAuthorization = promisify(execFile)(
     "powershell.exe",
     [
@@ -822,10 +827,33 @@ if (phase === "seed") {
     ],
     { timeout: 50000 },
   );
-  await page.getByRole("button", { name: strings.aiSend, exact: true }).click();
+  await page
+    .getByRole("button", { name: strings.aiConfirmSend, exact: true })
+    .click();
   console.log((await denyAuthorization).stdout);
-  await expect(page.getByRole("alert")).toHaveText(strings.aiCancelled);
-  await page.keyboard.press("Escape");
+  await expect(page.locator(".ai-chat-error")).toHaveText(strings.aiCancelled);
+  const aiChats = (await invoke("load_workspace")).data.settings
+    .aiConversations;
+  if (
+    !aiChats.length ||
+    aiChats[0].messages[0].role !== "user" ||
+    JSON.stringify(aiChats).includes(syntheticKey)
+  )
+    throw new Error("AI local chat persistence or key separation failed");
+  await page.reload();
+  await page
+    .locator(".card-main")
+    .filter({ hasText: "Upgrade preservation" })
+    .click();
+  await page
+    .getByRole("button", { name: strings.aiTitle, exact: true })
+    .click();
+  await expect(
+    page.getByRole("log", { name: strings.aiChatMessages }),
+  ).toContainText(strings.aiSummarizePrompt);
+  await page
+    .getByRole("button", { name: strings.aiClosePanel, exact: true })
+    .click();
   await page.keyboard.press("Control+,");
   await page
     .locator(".settings-nav nav")
@@ -853,8 +881,8 @@ if (phase === "seed") {
     "native-validation.json",
     JSON.stringify(
       {
-        previous: "0.1.1-beta3",
-        current: "0.1.1-beta4",
+        previous: "0.1.1-beta4",
+        current: "0.1.1-beta5",
         installerUpgrade: true,
         signedGithubUpdater: process.env.USE_UPDATER === "true",
         sqlitePreserved: true,
@@ -882,6 +910,7 @@ if (phase === "seed") {
         aiDefaultOff: true,
         aiCredentialProtection: true,
         aiNativeConsentDenied: true,
+        aiChatHistoryPreserved: true,
         realProviderInference: false,
       },
       null,

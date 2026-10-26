@@ -1,5 +1,7 @@
 import { matchesShortcut } from "@/core/productivity";
 import { store } from "@/core/storage";
+import type { AiEditorBridge, AiSelectionRequest } from "@/core/ai-editor";
+import { Slice } from "@tiptap/pm/model";
 import { useEffect, useRef, useState } from "react";
 import { closeHistory } from "@tiptap/pm/history";
 import { EditorContent, ReactNodeViewRenderer, useEditor } from "@tiptap/react";
@@ -65,6 +67,8 @@ export function MarkdownEditor({
   onImageFiles,
   busy,
   notify,
+  onAi,
+  onAiBridge,
 }: {
   searchRequest?: { query: string; serial: number } | null;
   documentId: string;
@@ -75,6 +79,11 @@ export function MarkdownEditor({
   onImageFiles: (files: File[], insert: (markdown: string) => void) => void;
   busy: boolean;
   notify: (message: string) => void;
+  onAi?: (
+    action: AiSelectionRequest["action"],
+    anchor: ReturnType<AiEditorBridge["capture"]>,
+  ) => void;
+  onAiBridge?: (bridge: AiEditorBridge | null) => void;
 }) {
   const t = translator(locale),
     latest = useRef({ value, onChange, notify, t, busy });
@@ -262,6 +271,99 @@ export function MarkdownEditor({
   });
   const editorRef = useRef(editor);
   editorRef.current = editor;
+  const [aiMenu, setAiMenu] = useState<{
+    x: number;
+    y: number;
+    anchor: ReturnType<AiEditorBridge["capture"]>;
+  } | null>(null);
+  const aiBridge = useRef<AiEditorBridge | null>(null);
+  useEffect(() => {
+    const readRich = (from: number, to: number) => {
+      if (!editor || editor.isDestroyed || !editor.markdown)
+        throw new Error("AI_CONFLICT");
+      return editor.markdown.serialize({
+        type: "doc",
+        content: editor.state.doc.slice(from, to).content.toJSON(),
+      });
+    };
+    const bridge: AiEditorBridge = {
+      capture() {
+        if (composing.current) throw new Error("AI_CONFLICT");
+        if (source) {
+          const area = textarea.current;
+          if (!area) throw new Error("AI_CONFLICT");
+          return {
+            kind: "source",
+            from: area.selectionStart,
+            to: area.selectionEnd,
+            text: latest.current.value.slice(
+              area.selectionStart,
+              area.selectionEnd,
+            ),
+          };
+        }
+        if (!editor || editor.isDestroyed) throw new Error("AI_CONFLICT");
+        const { from, to } = editor.state.selection;
+        return { kind: "rich", from, to, text: readRich(from, to) };
+      },
+      preview(anchor, markdown, operation) {
+        if (composing.current || anchor.kind !== (source ? "source" : "rich"))
+          throw new Error("AI_CONFLICT");
+        const from = operation === "insert" ? anchor.to : anchor.from;
+        const to = anchor.to;
+        if (source) {
+          const body = latest.current.value;
+          if (
+            to > body.length ||
+            (operation === "replace" &&
+              body.slice(anchor.from, to) !== anchor.text)
+          )
+            throw new Error("AI_CONFLICT");
+          return body.slice(0, from) + markdown + body.slice(to);
+        }
+        if (
+          !editor ||
+          editor.isDestroyed ||
+          !editor.markdown ||
+          to > editor.state.doc.content.size ||
+          (operation === "replace" && readRich(anchor.from, to) !== anchor.text)
+        )
+          throw new Error("AI_CONFLICT");
+        const parsed = editor.markdown.parse(markdown);
+        if (!canEditRichly(markdown, editor.markdown.serialize(parsed)))
+          throw new Error("AI_SOURCE_REQUIRED");
+        const node = editor.schema.nodeFromJSON(parsed);
+        const content =
+          node.childCount === 1 && node.firstChild?.isTextblock
+            ? new Slice(node.firstChild.content, 0, 0)
+            : Slice.maxOpen(node.content);
+        return editor.markdown.serialize(
+          editor.state.tr.replaceRange(from, to, content).doc.toJSON(),
+        );
+      },
+    };
+    aiBridge.current = bridge;
+    onAiBridge?.(bridge);
+    return () => {
+      aiBridge.current = null;
+      onAiBridge?.(null);
+    };
+  }, [editor, source, onAiBridge]);
+  useEffect(() => {
+    if (!aiMenu) return;
+    const close = (e: PointerEvent) => {
+      if (!(e.target as Element).closest(".ai-selection-menu")) setAiMenu(null);
+    };
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setAiMenu(null);
+    };
+    document.addEventListener("pointerdown", close);
+    document.addEventListener("keydown", key);
+    return () => {
+      document.removeEventListener("pointerdown", close);
+      document.removeEventListener("keydown", key);
+    };
+  }, [aiMenu]);
   useWritingPosition(
     documentId,
     editor,
@@ -587,7 +689,79 @@ export function MarkdownEditor({
   );
 
   return (
-    <div className="markdown-editor" ref={root}>
+    <div
+      className="markdown-editor"
+      ref={root}
+      onContextMenu={(e) => {
+        if (
+          !onAi ||
+          busy ||
+          composing.current ||
+          !(e.target as Element).closest(".source-editor,.live-editor")
+        )
+          return;
+        try {
+          const anchor = aiBridge.current?.capture();
+          if (anchor && anchor.to > anchor.from && anchor.text.trim()) {
+            e.preventDefault();
+            setAiMenu({
+              x: Math.max(8, Math.min(e.clientX, innerWidth - 230)),
+              y: Math.max(8, Math.min(e.clientY, innerHeight - 300)),
+              anchor,
+            });
+          }
+        } catch {
+          notify(t("aiConflict"));
+        }
+      }}
+    >
+      {aiMenu && (
+        <div
+          className="ai-selection-menu"
+          role="menu"
+          aria-label={t("aiSelectedMenu")}
+          style={{ left: aiMenu.x, top: aiMenu.y }}
+          onMouseDown={(e) => e.preventDefault()}
+        >
+          <button
+            role="menuitem"
+            onClick={() => {
+              void navigator.clipboard
+                .writeText(aiMenu.anchor.text)
+                .then(() => notify(t("aiCopied")))
+                .catch(() => notify(t("failed")));
+              setAiMenu(null);
+            }}
+          >
+            {t("aiCopy")}
+          </button>
+          <span>{t("aiTitle")}</span>
+          {(["ask", "polish", "expand", "summarize", "translate"] as const).map(
+            (action) => (
+              <button
+                key={action}
+                role="menuitem"
+                onClick={() => {
+                  onAi?.(action, aiMenu.anchor);
+                  setAiMenu(null);
+                }}
+              >
+                {t(
+                  (
+                    {
+                      ask: "aiAskSelection",
+                      polish: "aiPolishSelection",
+                      expand: "aiExpandSelection",
+                      summarize: "aiSummarizeSelection",
+                      translate: "aiTranslateSelection",
+                    } as const
+                  )[action],
+                )}
+              </button>
+            ),
+          )}
+        </div>
+      )}
       <div
         className="format-bar live-format-bar"
         inert={busy}

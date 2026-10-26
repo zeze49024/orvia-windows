@@ -1,4 +1,6 @@
 import type { Confirm } from "@/hooks/use-confirmation";
+import { AiPanel } from "./ai-panel";
+import type { AiEditorBridge, AiSelectionRequest } from "@/core/ai-editor";
 import { DocumentOutline } from "@/components/document-outline";
 import { LocalImage } from "@/components/local-image";
 import { MarkdownEditor } from "@/components/markdown-editor";
@@ -19,7 +21,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useRef } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { DocumentOptions } from "./document-options";
@@ -47,6 +49,9 @@ export function EditorWorkspace({
   setModal,
   importFiles,
   busy,
+  run,
+  suspended,
+  configureAi,
 }: {
   searchRequest: { id: string; query: string; serial: number } | null;
   active: Document;
@@ -73,9 +78,45 @@ export function EditorWorkspace({
     files?: File[],
   ) => void;
   busy: boolean;
+  run: (action: () => Promise<void>) => Promise<void>;
+  suspended: boolean;
+  configureAi: () => void;
 }) {
   const t = translator(locale),
     paper = useRef<HTMLElement>(null);
+  const [aiOpen, setAiOpen] = useState(false),
+    [expanded, setExpanded] = useState(false),
+    [aiSeed, setAiSeed] = useState<AiSelectionRequest | null>(null);
+  const aiBridge = useRef<AiEditorBridge | null>(null),
+    serial = useRef(0);
+  const registerAiBridge = useCallback((next: AiEditorBridge | null) => {
+    aiBridge.current = next;
+  }, []);
+  const openAi = (
+    action: AiSelectionRequest["action"] = "ask",
+    anchor?: ReturnType<AiEditorBridge["capture"]>,
+  ) => {
+    if (busy || active.deletedAt) return;
+    try {
+      const target = anchor || aiBridge.current?.capture();
+      setAiSeed(
+        target && target.to > target.from
+          ? {
+              serial: ++serial.current,
+              action,
+              anchor: target,
+              body: active.body,
+            }
+          : null,
+      );
+      setAiOpen(true);
+    } catch {
+      notify(t("aiConflict"));
+    }
+  };
+  useEffect(() => {
+    if (suspended) setAiOpen(false);
+  }, [suspended]);
   return (
     <>
       <div className="editor-toolbar">
@@ -106,7 +147,7 @@ export function EditorWorkspace({
           disabled={busy || !!active.deletedAt}
           aria-label={t("aiTitle")}
           title={t("aiTitle")}
-          onClick={() => setModal("ai")}
+          onClick={() => openAi()}
         >
           <Sparkles size={17} />
           AI
@@ -177,7 +218,9 @@ export function EditorWorkspace({
           </Button>
         )}
       </div>
-      <div className="editor-layout">
+      <div
+        className={`editor-layout ${aiOpen ? "ai-layout" : ""} ${aiOpen && expanded ? "ai-expanded" : ""}`}
+      >
         <article className="editor-paper" ref={paper}>
           <div className="document-filename">
             <FileText size={14} />
@@ -252,10 +295,30 @@ export function EditorWorkspace({
               }
               busy={busy}
               notify={notify}
+              onAi={openAi}
+              onAiBridge={registerAiBridge}
             />
           )}
         </article>
-        <DocumentOutline body={active.body} locale={locale} paper={paper} />
+        {aiOpen && !suspended ? (
+          <aside className="ai-dock">
+            <AiPanel
+              doc={active}
+              locale={locale}
+              confirm={confirm}
+              notify={notify}
+              run={run}
+              bridge={() => aiBridge.current}
+              seed={aiSeed}
+              expanded={expanded}
+              onExpand={() => setExpanded(!expanded)}
+              onClose={() => setAiOpen(false)}
+              onConfigure={configureAi}
+            />
+          </aside>
+        ) : (
+          <DocumentOutline body={active.body} locale={locale} paper={paper} />
+        )}
       </div>
     </>
   );

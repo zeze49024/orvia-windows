@@ -1,10 +1,11 @@
 import { defaultShortcuts, validateShortcuts } from "./shortcuts";
 export { defaultShortcuts } from "./shortcuts";
 import { z } from "zod";
+import { conversationsSchema } from "./ai-history";
 import { localeCodes } from "../i18n/registry";
-export const APP_VERSION = "0.1.1-beta4";
+export const APP_VERSION = "0.1.1-beta5";
 export const RELEASE_NOTE =
-  "新增内置 AI 笔记助手，支持用户自带 DeepSeek／OpenAI API Key、授权读取当前笔记及确认后应用修改，完善密钥保护与调用控制";
+  "重构 AI 侧边聊天面板，新增选中文字快捷操作、连续对话与本地会话管理，优化修改审阅及上下文授权体验";
 export const colors = ["blue", "orange", "green", "purple", "rose"] as const;
 export const librarySchema = z.object({
   id: z.string().uuid(),
@@ -69,6 +70,7 @@ export const workspaceSchema = z
           trash: true,
         }),
       templates: z.array(templateSchema).max(100).default([]),
+      aiConversations: conversationsSchema.default([]),
       shortcuts: z
         .object(
           Object.fromEntries(
@@ -153,6 +155,7 @@ export function emptyWorkspace(locale: Locale = "zh-CN"): Workspace {
         trash: true,
       },
       templates: [],
+      aiConversations: [],
       shortcuts: { ...defaultShortcuts },
       vaultAutoLockMinutes: 5,
     },

@@ -290,6 +290,25 @@ export class WorkspaceStore {
     );
     const next = workspaceSchema.parse({
       ...this.data,
+      settings: {
+        ...this.data.settings,
+        aiConversations: [
+          ...this.data.settings.aiConversations,
+          ...payload.workspace.settings.aiConversations
+            .filter((c) => ids.has(c.documentId))
+            .map((c) => ({
+              ...c,
+              id: crypto.randomUUID(),
+              documentId: ids.get(c.documentId)!,
+              messages: c.messages.map((m) => ({
+                ...m,
+                id: crypto.randomUUID(),
+                fingerprint: undefined,
+                anchor: undefined,
+              })),
+            })),
+        ],
+      },
       libraries: [
         ...this.data.libraries,
         ...payload.workspace.libraries.map((l) => ({
@@ -566,7 +585,23 @@ export class WorkspaceStore {
   }
   change(update: (data: Workspace) => Workspace) {
     if (!this.ready) throw new Error("STORAGE_NOT_READY");
-    this.data = update(this.data);
+    const next = update(this.data);
+    // Permanently removed notes must not leave their quoted text in AI history.
+    const ids =
+      next.documents.length < this.data.documents.length &&
+      next.settings.aiConversations.length
+        ? new Set(next.documents.map((d) => d.id))
+        : null;
+    const chats = ids
+      ? next.settings.aiConversations.filter((c) => ids.has(c.documentId))
+      : next.settings.aiConversations;
+    this.data =
+      chats.length === next.settings.aiConversations.length
+        ? next
+        : {
+            ...next,
+            settings: { ...next.settings, aiConversations: chats },
+          };
     this.generation++;
     this.status = this.error ? "error" : "saving";
     this.recoveryTicket++;

@@ -58,7 +58,7 @@ export function validateProposal(
   if (
     !proposal.title.trim() ||
     proposal.title.length > 300 ||
-    proposal.body.length > 240000
+    proposal.body.length > 5_000_000
   )
     throw new Error("AI_PROPOSAL_FORMAT");
 }

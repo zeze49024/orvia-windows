@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { native } from "./storage";
+import type { AiScope, AiTurn } from "./ai-history";
 export const aiAvailable = native;
 export type AiConfig = {
   enabled: boolean;
@@ -23,6 +24,8 @@ export type AiRequest = {
   task: string;
   mode: "answer" | "edit";
   locale: string;
+  scope?: AiScope;
+  history?: AiTurn[];
 };
 export type AiOutput = {
   answer: string;
