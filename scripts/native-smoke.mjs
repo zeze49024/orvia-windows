@@ -474,7 +474,21 @@ if (phase === "seed") {
   );
   await page.keyboard.press("Control+s");
   await page.locator(".statusbar").filter({ hasText: strings.saved }).waitFor();
-  await page.evaluate(()=>{window.__pdfAudit=[];const observer=new MutationObserver(()=>{const text=[...document.querySelectorAll('.toast,[role=alert]')].map(e=>e.textContent).join(' | ');if(text && window.__pdfAudit.at(-1)!==text)window.__pdfAudit.push(text)});observer.observe(document.body,{childList:true,subtree:true,characterData:true});});
+  await page.evaluate(() => {
+    window.__pdfAudit = [];
+    const observer = new MutationObserver(() => {
+      const text = [...document.querySelectorAll(".toast,[role=alert]")]
+        .map((e) => e.textContent)
+        .join(" | ");
+      if (text && window.__pdfAudit.at(-1) !== text)
+        window.__pdfAudit.push(text);
+    });
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
+  });
   const pdfPath = path.resolve("native-writing.pdf");
   const dialogApproval = promisify(execFile)(
     "powershell.exe",
@@ -511,7 +525,7 @@ if (phase === "seed") {
     console.log(
       "PDF export diagnostic",
       await page.locator(".toast,[role=alert]").allTextContents(),
-      await page.evaluate(()=>window.__pdfAudit),
+      await page.evaluate(() => window.__pdfAudit),
     );
     await page.screenshot({ path: "native-pdf-error.png" });
     throw error;
@@ -567,10 +581,7 @@ if (phase === "seed") {
     .click();
   await page.locator(".live-editor").fill("Native private body 中文");
   await page.keyboard.press("Control+s");
-  await page
-    .locator(".statusbar")
-    .filter({ hasText: strings.saved })
-    .waitFor();
+  await page.locator(".statusbar").filter({ hasText: strings.saved }).waitFor();
   const cipher = await invoke("read_private_record", { record: "main" });
   const cipherText = Buffer.from(cipher.bytes).toString("utf8");
   if (
@@ -654,7 +665,9 @@ if (phase === "seed") {
     })
     .click();
   await folderApproval;
-  await expect.poll(()=>invoke("backup_directory").catch(()=>null)).toBeTruthy();
+  await expect
+    .poll(() => invoke("backup_directory").catch(() => null))
+    .toBeTruthy();
   const pickedBackup = await invoke("backup_directory");
   const backupFolder = pickedBackup.startsWith("\\\\?\\")
     ? pickedBackup.slice(4)
@@ -709,10 +722,14 @@ if (phase === "seed") {
       { timeout: 45000 },
     )
     .toBe(true);
+  const priorCheckpoint = (await invoke("read_recovery"))?.savedAt;
   await page
     .getByRole("switch", { name: "Automatic backups", exact: true })
     .uncheck();
   await page.keyboard.press("Control+s");
+  await expect
+    .poll(async () => (await invoke("read_recovery"))?.savedAt)
+    .not.toBe(priorCheckpoint);
   await page.keyboard.press("Escape");
   const protectedAssets = (await invoke("storage_inventory")).assets.filter(
     (a) => a.referenced,
