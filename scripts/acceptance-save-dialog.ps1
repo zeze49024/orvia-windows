@@ -9,11 +9,13 @@ if ($Mode -eq 'Folder' -and !(Test-Path -LiteralPath $targetFile -PathType Conta
 $filenameId=if ($Mode -eq 'Folder') {'1152'} else {'1001'}
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
+Add-Type -AssemblyName System.Windows.Forms
 Add-Type @'
 using System;
 using System.Runtime.InteropServices;
 public static class OrviaDialogMessages {
  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hwnd);
+ [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
  [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hwnd,int cmd);
  [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hwnd);
  [DllImport("user32.dll",CharSet=CharSet.Unicode)] public static extern IntPtr SendMessage(IntPtr hwnd,uint msg,IntPtr wParam,string lParam);
@@ -43,6 +45,15 @@ while ([DateTime]::UtcNow -lt $deadline) {
     if ($edit.TryGetCurrentPattern([Windows.Automation.ValuePattern]::Pattern,[ref]$valuePattern)) { $valuePattern.SetValue($targetFile) }
     else { [void][OrviaDialogMessages]::SendMessage($editHandle,0x000C,[IntPtr]::Zero,$targetFile) }
     Start-Sleep -Milliseconds 250
+    if ($Mode -eq 'Save') {
+      if ([OrviaDialogMessages]::GetForegroundWindow() -ne $dialogHandle) { throw 'Owned save dialog could not receive keyboard input' }
+      if ($targetFile.IndexOfAny('+^%~(){}[]'.ToCharArray()) -ge 0) { throw 'Unsupported keyboard characters in isolated fixture path' }
+      [Windows.Forms.SendKeys]::SendWait('%n')
+      [Windows.Forms.SendKeys]::SendWait('^a')
+      [Windows.Forms.SendKeys]::SendWait($targetFile)
+      [Windows.Forms.SendKeys]::SendWait('{TAB}')
+      Start-Sleep -Milliseconds 250
+    }
     try { $save.SetFocus() } catch {}
     $invokePattern=$null
     if ($save.TryGetCurrentPattern([Windows.Automation.InvokePattern]::Pattern,[ref]$invokePattern)) { $invokePattern.Invoke() }
