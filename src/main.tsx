@@ -1,3 +1,4 @@
+import "./ai.css";
 import "./beta3.css";
 import "./styles.css";
 import "./workspace.css";

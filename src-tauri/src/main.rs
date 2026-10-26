@@ -1,5 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 use rusqlite::{Connection, OptionalExtension};
+mod ai;
+mod ai_credentials;
 mod backup_directory;
 mod image_guard;
 mod maintenance;
@@ -243,6 +245,7 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .manage(pdf::PdfGrants::default())
+        .manage(ai::AiState::default())
         .setup(move |app| {
             // Explicit RGBA window icon avoids relying on Shell's cached icon or
             // a resource decoder's alpha/mask conversion for the running window.
@@ -266,6 +269,13 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            ai::ai_config,
+            ai::ai_save_config,
+            ai::ai_save_key,
+            ai::ai_delete_key,
+            ai::ai_models,
+            ai::ai_run,
+            ai::ai_cancel,
             maintenance::storage_inventory,
             maintenance::cleanup_assets,
             maintenance::recovery_quarantines,

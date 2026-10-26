@@ -1,3 +1,4 @@
+import { AiSettings } from "./ai-settings";
 import { StorageManagement } from "./storage-management";
 import { VaultPanel } from "./vault-panel";
 import { BackupSettings } from "./backup-settings";
@@ -72,6 +73,12 @@ export function SettingsPanel({
     [query, setQuery] = useState("");
   const w = (a: string, b: string, c: string) => words(locale, a, b, c);
   const categories = [
+    {
+      id: "ai",
+      label: t("aiSettings"),
+      icon: Settings,
+      content: <AiSettings locale={locale} confirm={confirm} />,
+    },
     {
       id: "security",
       label: w(

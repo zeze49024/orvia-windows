@@ -1,4 +1,4 @@
-param([Parameter(Mandatory=$true)][string]$Target,[ValidateSet('Save','Folder')][string]$Mode='Save')
+param([Parameter(Mandatory=$true)][string]$Target,[ValidateSet('Save','Folder','DenyAI')][string]$Mode='Save')
 $ErrorActionPreference='Stop'
 if ($env:CI -ne 'true' -or !$env:ORVIA_ACCEPTANCE_EXE) { throw 'Only allowed in the disposable CI acceptance fixture' }
 $fixtureExe=[IO.Path]::GetFullPath($env:ORVIA_ACCEPTANCE_EXE)
@@ -29,8 +29,25 @@ while ([DateTime]::UtcNow -lt $deadline) {
   foreach ($owner in $windows) {
     if ($fixturePids -notcontains $owner.Current.ProcessId) { continue }
     $dialogs=@($owner.FindAll([Windows.Automation.TreeScope]::Subtree,([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ClassNameProperty,'#32770'))))
+    if ($owner.Current.ClassName -eq '#32770') { $dialogs += $owner }
     foreach ($dialog in $dialogs) {
     if ($fixturePids -notcontains $dialog.Current.ProcessId) { continue }
+    if ($Mode -eq 'DenyAI') {
+      if (!$dialog.Current.Name.StartsWith('Orvia AI')) { continue }
+      $cancelButton=$dialog.FindFirst([Windows.Automation.TreeScope]::Descendants,([Windows.Automation.AndCondition]::new(([Windows.Automation.OrCondition]::new(([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::AutomationIdProperty,'2')),([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::AutomationIdProperty,'CommandButton_2')))),([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::Button)))))
+      if ($null -eq $cancelButton) {
+        # Legacy UIAutomation on Windows PowerShell may not expose TaskDialog's
+        # virtual buttons. WM_CLOSE on this exact owned OkCancel dialog is Cancel.
+        [void][OrviaDialogMessages]::SendMessage([IntPtr]$dialog.Current.NativeWindowHandle,0x0010,[IntPtr]::Zero,[IntPtr]::Zero)
+        Write-Output 'Closed AI authorization without approval in the isolated fixture'
+        exit 0
+      }
+      $cancelPattern=$null
+      if ($cancelButton.TryGetCurrentPattern([Windows.Automation.InvokePattern]::Pattern,[ref]$cancelPattern)) { $cancelPattern.Invoke() }
+      else { [void][OrviaDialogMessages]::SendMessage([IntPtr]$cancelButton.Current.NativeWindowHandle,0x00F5,[IntPtr]::Zero,[IntPtr]::Zero) }
+      Write-Output 'Denied AI authorization in the isolated acceptance fixture; no provider inference allowed'
+      exit 0
+    }
     $edit=$dialog.FindFirst([Windows.Automation.TreeScope]::Descendants,([Windows.Automation.AndCondition]::new(([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::AutomationIdProperty,$filenameId)),([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ClassNameProperty,'Edit')))))
     $save=$dialog.FindFirst([Windows.Automation.TreeScope]::Descendants,([Windows.Automation.AndCondition]::new(([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::AutomationIdProperty,'1')),([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ClassNameProperty,'Button')))))
     if ($null -eq $edit -or $null -eq $save) { continue }

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { type Document, type Locale } from "@/core/model";
 import { formatTime, translator } from "@/i18n";
 import {
+  Sparkles,
   ArrowLeft,
   CheckCircle2,
   AlertCircle,
@@ -98,6 +99,18 @@ export function EditorWorkspace({
           )}
         </span>
         <div className="flex-spacer" />
+        <Button
+          className="action-ai"
+          variant="ghost"
+          size="sm"
+          disabled={busy || !!active.deletedAt}
+          aria-label={t("aiTitle")}
+          title={t("aiTitle")}
+          onClick={() => setModal("ai")}
+        >
+          <Sparkles size={17} />
+          AI
+        </Button>
         <DocumentOptions
           confirm={confirm}
           doc={active}

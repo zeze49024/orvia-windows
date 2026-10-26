@@ -53,7 +53,7 @@ if (phase === "seed") {
     id: "af485e10-f680-4ff6-8b40-af799171e221",
     libraryId: data.libraries[0].id,
     title: "Upgrade preservation",
-    body: "# Native upgrade fixture\n\n中文内容 retained from beta2",
+    body: "# Native upgrade fixture\n\n中文内容 retained from beta3",
     tags: ["upgrade"],
     starred: true,
     createdAt: now,
@@ -80,12 +80,23 @@ if (phase === "seed") {
     .locator(".settings-nav nav")
     .getByRole("button", { name: strings.versionUpdates, exact: true })
     .click();
+  const channelLabel =
+    loaded.data.settings.locale === "en" ? "Update channel" : "更新通道";
+  const channel = page.getByRole("combobox", {
+    name: channelLabel,
+    exact: true,
+  });
+  await channel.selectOption("preview");
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: strings.confirm, exact: true })
+    .click();
   await page
     .getByRole("button", { name: strings.checkUpdates, exact: true })
     .click();
   await page
     .getByRole("dialog")
-    .getByText("v0.1.1-beta2 → v0.1.1-beta3", { exact: true })
+    .getByText("v0.1.1-beta3 → v0.1.1-beta4", { exact: true })
     .waitFor({ timeout: 60000 });
   const closed = page.waitForEvent("close", { timeout: 120000 });
   await page
@@ -187,12 +198,12 @@ if (phase === "seed") {
     (d) => d.title === "Upgrade preservation",
   );
   if (
-    !doc?.body.includes("中文内容 retained from beta2") ||
+    !doc?.body.includes("中文内容 retained from beta3") ||
     !doc.starred ||
     doc.tags[0] !== "upgrade"
   )
     throw new Error("Upgrade lost data");
-  const changed = { ...doc, body: doc.body + "\n\nSaved by v0.1.1-beta3" };
+  const changed = { ...doc, body: doc.body + "\n\nSaved by v0.1.1-beta4" };
   const delta = {
     libraries: { upsert: [], remove: [] },
     documents: { upsert: [changed], remove: [] },
@@ -298,7 +309,7 @@ if (phase === "seed") {
     .click();
   if (
     !(await page.locator(".live-editor").innerText()).includes(
-      "Saved by v0.1.1-beta3",
+      "Saved by v0.1.1-beta4",
     )
   )
     throw new Error("Native editor reload failed");
@@ -753,12 +764,97 @@ if (phase === "seed") {
     .getByRole("button", { name: strings.close, exact: true })
     .last()
     .count();
+  // Never authorize provider inference in acceptance: use a synthetic credential,
+  // verify native storage and explicitly deny the OS consent dialog.
+  const initialAi = await invoke("ai_config");
+  if (initialAi.config.enabled || initialAi.hasKey)
+    throw new Error("AI must start disabled without credentials");
+  await page.keyboard.press("Control+,");
+  await page
+    .locator(".settings-nav nav")
+    .getByRole("button", { name: strings.aiSettings, exact: true })
+    .click();
+  await expect(
+    page.getByRole("switch", { name: strings.aiEnabled, exact: true }),
+  ).not.toBeChecked();
+  const syntheticKey = "orvia-validation-only-not-a-real-key";
+  await page.getByLabel(strings.aiKey, { exact: true }).fill(syntheticKey);
+  await page
+    .getByRole("button", { name: strings.aiSaveKey, exact: true })
+    .click();
+  await expect(page.getByLabel(strings.aiKey, { exact: true })).toHaveValue("");
+  await expect.poll(async () => (await invoke("ai_config")).hasKey).toBe(true);
+  if (JSON.stringify(await invoke("load_workspace")).includes(syntheticKey))
+    throw new Error("Credential leaked to the workspace");
+  await page
+    .getByRole("switch", { name: strings.aiEnabled, exact: true })
+    .check();
+  await page
+    .getByRole("button", { name: strings.aiSaveConfig, exact: true })
+    .click();
+  await expect
+    .poll(async () => (await invoke("ai_config")).config.enabled)
+    .toBe(true);
+  await page.keyboard.press("Escape");
+  await page
+    .locator(".card-main")
+    .filter({ hasText: "Upgrade preservation" })
+    .click();
+  await page
+    .getByRole("button", { name: strings.aiTitle, exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: strings.aiSummarize, exact: true })
+    .click();
+  await page.getByLabel(strings.aiConsent, { exact: true }).check();
+  const denyAuthorization = promisify(execFile)(
+    "powershell.exe",
+    [
+      "-NoProfile",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      "scripts/acceptance-save-dialog.ps1",
+      "-Target",
+      path.resolve("native-validation.json"),
+      "-Mode",
+      "DenyAI",
+    ],
+    { timeout: 50000 },
+  );
+  await page.getByRole("button", { name: strings.aiSend, exact: true }).click();
+  console.log((await denyAuthorization).stdout);
+  await expect(page.getByRole("alert")).toHaveText(strings.aiCancelled);
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Control+,");
+  await page
+    .locator(".settings-nav nav")
+    .getByRole("button", { name: strings.aiSettings, exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: strings.aiDeleteKey, exact: true })
+    .click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: strings.confirm, exact: true })
+    .click();
+  await expect.poll(async () => (await invoke("ai_config")).hasKey).toBe(false);
+  await page
+    .getByRole("switch", { name: strings.aiEnabled, exact: true })
+    .uncheck();
+  await page
+    .getByRole("button", { name: strings.aiSaveConfig, exact: true })
+    .click();
+  await expect
+    .poll(async () => (await invoke("ai_config")).config.enabled)
+    .toBe(false);
+  await page.keyboard.press("Escape");
   await writeFile(
     "native-validation.json",
     JSON.stringify(
       {
-        previous: "0.1.1-beta2",
-        current: "0.1.1-beta3",
+        previous: "0.1.1-beta3",
+        current: "0.1.1-beta4",
         installerUpgrade: true,
         signedGithubUpdater: process.env.USE_UPDATER === "true",
         sqlitePreserved: true,
@@ -783,6 +879,10 @@ if (phase === "seed") {
         publicPrivateSeparation: true,
         referencedAssetProtection: true,
         damagedRecoveryQuarantine: true,
+        aiDefaultOff: true,
+        aiCredentialProtection: true,
+        aiNativeConsentDenied: true,
+        realProviderInference: false,
       },
       null,
       2,

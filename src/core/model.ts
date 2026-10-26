@@ -2,9 +2,9 @@ import { defaultShortcuts, validateShortcuts } from "./shortcuts";
 export { defaultShortcuts } from "./shortcuts";
 import { z } from "zod";
 import { localeCodes } from "../i18n/registry";
-export const APP_VERSION = "0.1.1-beta3";
+export const APP_VERSION = "0.1.1-beta4";
 export const RELEASE_NOTE =
-  "加强文件权限与导入防护，完善备份恢复和更新通道，新增加密知识库、存储管理、高级搜索、笔记模板及快捷键与无障碍支持";
+  "新增内置 AI 笔记助手，支持用户自带 DeepSeek／OpenAI API Key、授权读取当前笔记及确认后应用修改，完善密钥保护与调用控制";
 export const colors = ["blue", "orange", "green", "purple", "rose"] as const;
 export const librarySchema = z.object({
   id: z.string().uuid(),

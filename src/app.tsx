@@ -1,3 +1,4 @@
+import { AiPanel } from "./components/ai-panel";
 import { VaultPanel } from "./components/vault-panel";
 import { AdvancedSearch } from "./components/advanced-search";
 import { vaultSession } from "./core/vault";
@@ -1063,7 +1064,13 @@ export function App() {
       >
         <DialogContent
           closeLabel={t("close")}
-          className={modal === "settings" ? "settings-dialog" : "dialog"}
+          className={
+            modal === "ai"
+              ? "dialog ai-dialog"
+              : modal === "settings"
+                ? "settings-dialog"
+                : "dialog"
+          }
           onEscapeKeyDown={(e) => busy && e.preventDefault()}
           onPointerDownOutside={(e) => busy && e.preventDefault()}
         >
@@ -1072,6 +1079,7 @@ export function App() {
               {t(
                 (
                   {
+                    ai: "aiTitle",
                     new: "new",
                     search: "search",
                     import: "import",
@@ -1091,6 +1099,16 @@ export function App() {
               {modal === "new" ? t("newHint") : "Orvia · v" + APP_VERSION}
             </DialogDescription>
           </DialogHeader>
+          {modal === "ai" && active && !active.deletedAt && (
+            <AiPanel
+              key={active.id + store.vaultMode}
+              doc={active}
+              locale={locale}
+              confirm={confirm}
+              notify={notify}
+              run={run}
+            />
+          )}
           {modal === "markdownExport" && (
             <div className="modal-stack">
               <label>
