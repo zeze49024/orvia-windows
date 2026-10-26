@@ -1,15 +1,15 @@
 {
-  "version": "0.1.1-beta3",
-  "notes": "# Orvia v0.1.1-beta3\n\n加强文件权限与导入防护，完善备份恢复和更新通道，新增加密知识库、存储管理、高级搜索、笔记模板及快捷键与无障碍支持。\n\n- PDF 输出使用原生保存对话框批准的一次性令牌，拒绝任意输出路径和令牌重复使用。\n- 损坏恢复文件隔离保留，可导出诊断原件；资源清理保留笔记、回收站、历史和恢复草稿使用的图片。\n- 新增稳定/预览更新通道；稳定通道默认开启，预览通道需明确选择。更新包继续验签。\n- 支持自动备份目录授权、间隔与保留份数；普通完整备份包含历史、设置和回收站，恢复前可预览并选择是否恢复设置。\n- 加强图片像素和解码限制、ZIP 实际展开大小及路径检查，增加导入超时和取消保护。\n- 新增独立加密知识库，覆盖笔记、图片、历史、草稿、回收站及加密备份，支持手动/空闲锁定、密码更改和加密备份恢复。\n- 新增按内容范围、知识库、收藏与日期组合的高级搜索，以及摘要和正文命中定位。\n- 新增内置/自定义笔记模板、快捷键修改与冲突校验，改善键盘导航、状态播报及减少动画支持。\n\n加密知识库不会自动加密或删除普通知识库与旧备份，密码无法找回。自动备份仅在应用打开且空间已解锁时执行。具体边界见 [本地数据与备份安全](https://github.com/zeze49024/orvia-windows/blob/main/docs/SECURITY-AND-BACKUPS.md)。\n\nWindows Authenticode 代码签名已按开发者要求取消；本版本不包含该项签名，保留现有 Tauri 更新包签名。",
-  "pub_date": "2026-10-26T01:57:26.149Z",
+  "version": "0.1.1-beta4",
+  "notes": "# Orvia v0.1.1-beta4\r\n\r\n新增内置 AI 笔记助手，支持用户自带 DeepSeek／OpenAI API Key、授权读取当前笔记及确认后应用修改，完善密钥保护与调用控制。\r\n\r\n- 设置新增“AI 与模型”，默认关闭；支持 DeepSeek、OpenAI 官方接口，模型 ID 可配置，并可主动测试连接获取模型列表。\r\n- 编辑页新增 AI 入口，支持当前笔记问答、总结、润色和自定义写作指令。每次独立请求，读取范围限定为本篇笔记；原生授权框确认后才发送。\r\n- Key 由 Windows 凭据管理器保存，原生后台调用服务商；Key 不写入笔记、普通设置文件、备份、日志或模型上下文。\r\n- AI 修改仅为建议，展示 Markdown 差异及完整内容；用户确认后保存，并保留修改前的历史。笔记已变化、被删除或锁定时拒绝覆盖。\r\n- 限制输入字符、每轮输出 Token、调用轮数、响应大小和总时间。支持停止；拒绝未授权工具与跨笔记参数，不自动重试或自动保存。\r\n- 加密空间需明确授权解密文字的云端处理；不发送图片文件。关闭面板、切换笔记或锁定会清除临时回复并取消任务。\r\n\r\n使用方法：设置 → AI 与模型 → 选择服务商、保存自己的 Key、填写支持工具调用的文本模型 ID 并启用 → 打开笔记 → AI。\r\n\r\nAI 请求直接发送至用户选择的服务商，不经过 Orvia 服务器。API 费用由用户承担，云端数据处理遵守相应服务商规则；停止不能撤回已经发送的数据或已发生费用。本版本不包含跨知识库批量管理或后台无人值守任务。\r\n\r\nWindows Authenticode 代码签名保持取消；安装更新包继续使用既有 Ed25519 签名校验。",
+  "pub_date": "2026-10-26T05:59:04.750Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRTWVLTkMxVzBkTldiNWE3djRVSTlXMGs0VXk1eW43ai9ZQWtKbmhjSng1ZlhLZFhSdC9ldlNBVy9yZUZ1b3NjN2FuUjVNSm5Pc24ybmU3VFI5em9FRnR1TjJTcWZ1L3dRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyOTc5Nzg3CWZpbGU6T3J2aWFfMC4xLjEtYmV0YTNfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMS4xLWJldGEzCjFIL0tua280cFcyME5QTHZucW9YbU8zQmFrZjd1QTNLUy9tMDZvZEw1NzJndjQ3R05ZYllYYVdCcGJLblZDbWIwWWkyU2lEbjg1TXQrVTg3RW5HZ0RRPT0K",
-      "url": "https://github.com/zeze49024/orvia-windows/releases/download/v0.1.1-beta3/Orvia_0.1.1-beta3_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRTWVLTkMxVzBkTlFReDJ2WEVZbU54aGxIa0prVlAvNVd4ajVoZ245aWVpcGhTSDJ5QVJkU2tQNWpWMm13MFZ3cGM3RTFMczhvWHdWZ1g4MDFkS2UzNFU2TXlqMTBDeUFnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyOTk0MjA0CWZpbGU6T3J2aWFfMC4xLjEtYmV0YTRfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMS4xLWJldGE0CmlkYmZDK2hRNjAyT0N2dFRGRFh3OHZLR1BsOGhISmtGVEUwTVcvbXRrcFZCNnZMdllyTnNEOUNKUEI4NlNJZ3lTNFZlTUU2bkZQSHl5Qm5GUnBCZEFnPT0K",
+      "url": "https://github.com/zeze49024/orvia-windows/releases/download/v0.1.1-beta4/Orvia_0.1.1-beta4_x64-setup.exe"
     },
     "preview": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRTWVLTkMxVzBkTldiNWE3djRVSTlXMGs0VXk1eW43ai9ZQWtKbmhjSng1ZlhLZFhSdC9ldlNBVy9yZUZ1b3NjN2FuUjVNSm5Pc24ybmU3VFI5em9FRnR1TjJTcWZ1L3dRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyOTc5Nzg3CWZpbGU6T3J2aWFfMC4xLjEtYmV0YTNfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMS4xLWJldGEzCjFIL0tua280cFcyME5QTHZucW9YbU8zQmFrZjd1QTNLUy9tMDZvZEw1NzJndjQ3R05ZYllYYVdCcGJLblZDbWIwWWkyU2lEbjg1TXQrVTg3RW5HZ0RRPT0K",
-      "url": "https://github.com/zeze49024/orvia-windows/releases/download/v0.1.1-beta3/Orvia_0.1.1-beta3_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRTWVLTkMxVzBkTlFReDJ2WEVZbU54aGxIa0prVlAvNVd4ajVoZ245aWVpcGhTSDJ5QVJkU2tQNWpWMm13MFZ3cGM3RTFMczhvWHdWZ1g4MDFkS2UzNFU2TXlqMTBDeUFnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyOTk0MjA0CWZpbGU6T3J2aWFfMC4xLjEtYmV0YTRfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMS4xLWJldGE0CmlkYmZDK2hRNjAyT0N2dFRGRFh3OHZLR1BsOGhISmtGVEUwTVcvbXRrcFZCNnZMdllyTnNEOUNKUEI4NlNJZ3lTNFZlTUU2bkZQSHl5Qm5GUnBCZEFnPT0K",
+      "url": "https://github.com/zeze49024/orvia-windows/releases/download/v0.1.1-beta4/Orvia_0.1.1-beta4_x64-setup.exe"
     }
   }
 }
