@@ -1034,3 +1034,294 @@
   border: 1px solid var(--line, var(--border));
   border-radius: 7px;
 }
+
+/* Quiet surfaces, readable type and consistent shadcn controls. */
+.ai-chat {
+  font-size: 14px;
+}
+.ai-chat-header {
+  border-bottom: 1px solid var(--line, var(--border));
+  margin-bottom: 14px;
+}
+.ai-chat-title small {
+  font-size: 12px;
+  max-width: 190px;
+}
+.ai-icon svg {
+  stroke-width: 2;
+}
+.ai-chat-context {
+  width: calc(100% - 38px);
+  text-align: left;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 7px 10px;
+  flex-shrink: 0;
+}
+.ai-chat-context:hover {
+  border-color: var(--text-muted, var(--muted-foreground));
+}
+.ai-chat-context:disabled {
+  cursor: default;
+}
+.ai-chat-context [data-slot="badge"] {
+  font-size: 11px;
+}
+.ai-chat-context > svg {
+  flex-shrink: 0;
+}
+.ai-log-region {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.ai-chat-log {
+  padding-top: 4px;
+  padding-bottom: 24px;
+  overflow-anchor: none;
+}
+.ai-jump-latest[data-slot="button"] {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  border-radius: 999px;
+  gap: 6px;
+  font-size: 12px;
+  height: 32px;
+  background: var(--surface, var(--background));
+  border-color: var(--line, var(--border));
+  color: var(--text, var(--foreground));
+  box-shadow: 0 3px 12px #141c2b12;
+}
+.ai-chat-empty {
+  min-height: 240px;
+  padding: 32px 12px;
+}
+.ai-chat-empty > svg {
+  padding: 12px;
+  width: 58px;
+  height: 58px;
+  border: 1px solid var(--line, var(--border));
+  border-radius: 18px;
+}
+.ai-chat-empty h2 {
+  font-size: 23px;
+  letter-spacing: -0.5px;
+}
+.ai-chat-empty > p {
+  font-size: 13px;
+}
+.ai-chat-empty [data-slot="button"] {
+  font-size: 12px;
+  border-color: var(--line, var(--border));
+  border-radius: 10px;
+  height: 38px;
+}
+.ai-user-bubble {
+  background: var(--surface-alt, var(--muted));
+  border: 1px solid var(--line, var(--border));
+  font-size: 14px;
+}
+.ai-user-bubble blockquote,
+.ai-selected-reference > p {
+  font-size: 12px;
+  color: var(--text-secondary, var(--muted-foreground));
+}
+.ai-assistant-label [data-slot="badge"],
+.ai-proposal [data-slot="badge"] {
+  font-size: 10px;
+}
+.ai-answer {
+  line-height: 1.9;
+}
+.ai-answer h1 {
+  font-size: 21px;
+}
+.ai-answer h2 {
+  font-size: 18px;
+}
+.ai-answer h3 {
+  font-size: 16px;
+}
+.ai-answer hr {
+  border-color: var(--line, var(--border));
+  margin: 18px 0;
+}
+.ai-message-actions [data-slot="button"] {
+  font-size: 12px;
+  height: 31px;
+  padding: 0 8px;
+  font-weight: 500;
+  color: var(--text-secondary, var(--muted-foreground));
+}
+.ai-usage {
+  font-size: 11px;
+}
+.ai-proposal [data-slot="card-header"] {
+  font-size: 12px;
+}
+.ai-proposal [data-slot="card-content"] {
+  max-height: 280px;
+  overflow: auto;
+}
+.ai-proposal [data-slot="card-footer"] > button {
+  height: 40px;
+  font-size: 12px;
+  font-weight: 550;
+}
+.ai-compose-zone {
+  padding-top: 12px;
+  border-top: 1px solid var(--line, var(--border));
+}
+.ai-composer {
+  border-radius: 16px;
+  box-shadow: 0 2px 10px #171d2b04;
+}
+.ai-composer:focus-within {
+  border-color: var(--ai-purple);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ai-purple) 10%, transparent);
+}
+.ai-composer-bottom .ai-model-trigger {
+  font-size: 12px;
+}
+.ai-input-hint {
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  padding: 0 6px 8px;
+  color: var(--text-muted, var(--muted-foreground));
+  font-size: 11px;
+  line-height: 1.5;
+}
+.ai-input-hint > span:last-child {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.ai-composer-foot,
+.ai-composer-foot button,
+.ai-composer-foot span {
+  font-size: 10px;
+}
+.ai-selected-reference > button:first-child {
+  font-size: 12px;
+}
+.ai-selected-reference span {
+  font-size: 11px;
+}
+.ai-chat-notice {
+  font-size: 12px;
+  color: var(--text-secondary, var(--muted-foreground));
+  padding: 0 5px 8px;
+  margin: 0;
+}
+.ai-chat-error {
+  font-size: 12px;
+  border-radius: 5px;
+}
+.ai-chat-error p {
+  margin: 0;
+}
+.ai-chat-error [data-slot="button"] {
+  height: 28px;
+  font-size: 12px;
+  margin-top: 5px;
+  padding: 0 6px;
+}
+.ai-thinking {
+  font-size: 12px;
+  padding: 8px 0 16px;
+}
+.ai-history-search[data-slot="input"] {
+  margin-bottom: 10px;
+  height: 34px;
+  font-size: 12px;
+}
+.ai-session > button:first-child {
+  font-size: 12px;
+}
+.ai-session > button:first-child > span {
+  display: block;
+  min-width: 0;
+}
+.ai-session strong {
+  display: block;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+.ai-session small {
+  display: block;
+  font-size: 10px;
+  color: var(--text-muted, var(--muted-foreground));
+  margin-top: 2px;
+}
+.ai-session .ai-icon {
+  opacity: 0.65;
+}
+.ai-session:hover,
+.ai-session:focus-within {
+  background: var(--surface-alt, var(--muted));
+}
+.ai-session.selected {
+  box-shadow: inset 2px 0 var(--ai-purple);
+}
+.ai-history-popover [data-slot="card-header"],
+.ai-history-popover [data-slot="card-content"],
+.ai-model-popover [data-slot="card-content"] > button {
+  font-size: 12px;
+}
+.ai-code-block {
+  border: 1px solid var(--line, var(--border));
+  border-radius: 10px;
+  overflow: hidden;
+  margin: 12px 0;
+}
+.ai-code-block > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 3px 10px;
+  background: var(--surface-alt, var(--muted));
+  border-bottom: 1px solid var(--line, var(--border));
+  font-size: 11px;
+  color: var(--text-secondary, var(--muted-foreground));
+}
+.ai-code-block [data-slot="button"] {
+  font-size: 11px;
+  height: 27px;
+  padding: 0 5px;
+  gap: 5px;
+}
+.ai-answer .ai-code-block pre,
+.ai-proposal .ai-code-block pre {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  padding: 12px;
+}
+.ai-chat button:focus-visible {
+  outline: 2px solid var(--ai-purple);
+  outline-offset: 2px;
+}
+.ai-code-block pre {
+  font-size: 13px;
+}
+.ai-answer .ai-code-block code,
+.ai-proposal .ai-code-block code {
+  font-size: inherit;
+}
+@media (max-width: 1100px) {
+  .ai-chat-title small {
+    max-width: 130px;
+  }
+  .ai-input-hint {
+    font-size: 10px;
+  }
+  .ai-composer-foot span {
+    display: none;
+  }
+}

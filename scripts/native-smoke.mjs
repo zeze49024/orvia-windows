@@ -45,6 +45,23 @@ const invoke = (command, args) =>
       window.__TAURI_INTERNALS__.invoke(command, args),
     { command, args },
   );
+const setupDialog = (mode) =>
+  promisify(execFile)(
+    "powershell.exe",
+    [
+      "-NoProfile",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      "scripts/acceptance-save-dialog.ps1",
+      "-Target",
+      path.resolve("native-validation.json"),
+      "-Mode",
+      mode,
+    ],
+    { timeout: 50000 },
+  );
+
 if (phase === "seed") {
   const loaded = await invoke("load_workspace");
   const data = loaded.data;
@@ -53,7 +70,7 @@ if (phase === "seed") {
     id: "af485e10-f680-4ff6-8b40-af799171e221",
     libraryId: data.libraries[0].id,
     title: "Upgrade preservation",
-    body: "# Native upgrade fixture\n\n中文内容 retained from beta5",
+    body: "# Native upgrade fixture\n\n中文内容 retained from beta6",
     tags: ["upgrade"],
     starred: true,
     createdAt: now,
@@ -61,11 +78,33 @@ if (phase === "seed") {
     openedAt: null,
     deletedAt: null,
   });
+  data.settings.motion = "elegant";
+  data.settings.aiConversations = [
+    {
+      id: crypto.randomUUID(),
+      documentId: "af485e10-f680-4ff6-8b40-af799171e221",
+      title: "Upgrade AI conversation",
+      createdAt: now,
+      updatedAt: now,
+      messages: [
+        {
+          id: crypto.randomUUID(),
+          role: "user",
+          content: "Synthetic conversation retained from beta6",
+          createdAt: now,
+          scope: "none",
+        },
+      ],
+    },
+  ];
   await invoke("save_workspace", { data, expectedRevision: loaded.revision });
+  const approval = setupDialog("ApproveAISetup");
   await invoke("ai_save_key", {
     provider: "deepseek",
     key: "orvia-upgrade-only-not-a-real-key",
+    locale: "en",
   });
+  console.log((await approval).stdout);
 } else if (phase === "update") {
   await page.reload();
   await page.waitForSelector(".app-shell");
@@ -100,7 +139,7 @@ if (phase === "seed") {
     .click();
   await page
     .getByRole("dialog")
-    .getByText("v0.1.1-beta5 → v0.1.1-beta6", { exact: true })
+    .getByText("v0.1.1-beta6 → v0.1.1-beta7", { exact: true })
     .waitFor({ timeout: 60000 });
   const closed = page.waitForEvent("close", { timeout: 120000 });
   await page
@@ -202,12 +241,20 @@ if (phase === "seed") {
     (d) => d.title === "Upgrade preservation",
   );
   if (
-    !doc?.body.includes("中文内容 retained from beta5") ||
+    !doc?.body.includes("中文内容 retained from beta6") ||
     !doc.starred ||
     doc.tags[0] !== "upgrade"
   )
     throw new Error("Upgrade lost data");
-  const changed = { ...doc, body: doc.body + "\n\nSaved by v0.1.1-beta6" };
+  if (
+    !loaded.data.settings.aiConversations.some(
+      (c) =>
+        c.title === "Upgrade AI conversation" &&
+        c.messages[0]?.content === "Synthetic conversation retained from beta6",
+    )
+  )
+    throw new Error("Upgrade lost AI history");
+  const changed = { ...doc, body: doc.body + "\n\nSaved by v0.1.1-beta7" };
   const delta = {
     libraries: { upsert: [], remove: [] },
     documents: { upsert: [changed], remove: [] },
@@ -313,7 +360,7 @@ if (phase === "seed") {
     .click();
   if (
     !(await page.locator(".live-editor").innerText()).includes(
-      "Saved by v0.1.1-beta6",
+      "Saved by v0.1.1-beta7",
     )
   )
     throw new Error("Native editor reload failed");
@@ -774,9 +821,9 @@ if (phase === "seed") {
     throw new Error("AI must remain disabled after upgrade");
   if (
     process.env.EXPECT_LEGACY_AI_KEY === "true" &&
-    (!initialAi.hasKey || initialAi.authorized)
+    (!initialAi.hasKey || !initialAi.authorized)
   )
-    throw new Error("Legacy key was lost or silently authorized");
+    throw new Error("Existing key or once-only authorization was lost");
   const nativeDoc = (await invoke("load_workspace")).data.documents.find(
     (d) => d.title === "Upgrade preservation",
   );
@@ -799,6 +846,12 @@ if (phase === "seed") {
     await invoke("ai_save_config", {
       config: { ...initialAi.config, enabled: true },
     });
+    const cancelledUpgrade = request();
+    await invoke("ai_cancel", { id: cancelledUpgrade.id });
+    await expect(
+      invoke("ai_run", { request: cancelledUpgrade }),
+    ).rejects.toThrow("AI_CANCELLED");
+    await invoke("ai_revoke_authorization", { provider: "deepseek" });
     await expect(invoke("ai_run", { request: request() })).rejects.toThrow(
       "AI_AUTHORIZATION_REQUIRED",
     );
@@ -812,7 +865,7 @@ if (phase === "seed") {
     .click();
   await expect(
     page.getByRole("combobox", { name: strings.motionTitle, exact: true }),
-  ).toHaveValue("moderate");
+  ).toHaveValue("elegant");
   await page
     .getByRole("combobox", { name: strings.motionTitle, exact: true })
     .selectOption("rapid");
@@ -824,22 +877,6 @@ if (phase === "seed") {
     .getByRole("button", { name: strings.aiSettings, exact: true })
     .click();
   const syntheticKey = "orvia-validation-only-not-a-real-key";
-  const setupDialog = (mode) =>
-    promisify(execFile)(
-      "powershell.exe",
-      [
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        "scripts/acceptance-save-dialog.ps1",
-        "-Target",
-        path.resolve("native-validation.json"),
-        "-Mode",
-        mode,
-      ],
-      { timeout: 50000 },
-    );
   await page.getByLabel(strings.aiKey, { exact: true }).fill(syntheticKey);
   const denial = setupDialog("DenyAI");
   await page
@@ -963,8 +1000,8 @@ if (phase === "seed") {
     "native-validation.json",
     JSON.stringify(
       {
-        previous: "0.1.1-beta5",
-        current: "0.1.1-beta6",
+        previous: "0.1.1-beta6",
+        current: "0.1.1-beta7",
         installerUpgrade: true,
         signedGithubUpdater: process.env.USE_UPDATER === "true",
         sqlitePreserved: true,
@@ -995,6 +1032,8 @@ if (phase === "seed") {
         aiSetupConsentAccepted: true,
         aiAuthorizationRevoked: true,
         aiLegacyKeyPreserved: process.env.EXPECT_LEGACY_AI_KEY === "true",
+        aiExistingAuthorizationPreserved: true,
+        aiCrossVersionChatPreserved: true,
         motionPreferencePreserved: true,
         aiChatHistoryPreserved: true,
         realProviderInference: false,

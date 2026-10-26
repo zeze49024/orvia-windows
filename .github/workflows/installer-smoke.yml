@@ -46,7 +46,7 @@ jobs:
       - name: Build disposable candidate installer
         if: inputs.candidateTag == ''
         run: npx tauri build --config '{"bundle":{"createUpdaterArtifacts":false}}'
-      - name: Install beta5, seed local notes, upgrade and verify beta6
+      - name: Install beta6, seed local notes, upgrade and verify beta7
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -56,7 +56,7 @@ jobs:
           EXPECT_LEGACY_AI_KEY: "true"
         run: |
           $previousDir = Join-Path $env:RUNNER_TEMP 'previous'
-          gh release download v0.1.1-beta5 --pattern '*setup.exe' --dir $previousDir
+          gh release download v0.1.1-beta6 --pattern '*setup.exe' --dir $previousDir
           $previous = (Get-ChildItem (Join-Path $previousDir '*setup.exe')).FullName
           $install = Join-Path $env:RUNNER_TEMP 'Orvia-Acceptance'
           $env:WEBVIEW2_USER_DATA_FOLDER = Join-Path $env:LOCALAPPDATA 'Orvia-Acceptance-WebView2'
@@ -86,10 +86,10 @@ jobs:
             node scripts/native-smoke.mjs update
             if ($LASTEXITCODE -ne 0) { throw "Signed in-app updater failed" }
             for ($i=0; $i -lt 120; $i++) {
-              if ((Get-Item $executable).VersionInfo.ProductVersion -eq '0.1.1-beta6') { break }
+              if ((Get-Item $executable).VersionInfo.ProductVersion -eq '0.1.1-beta7') { break }
               Start-Sleep -Seconds 1
             }
-            if ((Get-Item $executable).VersionInfo.ProductVersion -ne '0.1.1-beta6') {
+            if ((Get-Item $executable).VersionInfo.ProductVersion -ne '0.1.1-beta7') {
               Get-Process | Where-Object { $_.MainWindowTitle -like '*Orvia*' -or $_.MainWindowTitle -like '*Installer*' } | Select-Object Id,ProcessName,MainWindowTitle
               Get-ItemProperty -LiteralPath $languageKey | Format-List
               $defaultExecutable = Join-Path $env:LOCALAPPDATA 'Orvia/orvia.exe'

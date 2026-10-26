@@ -421,3 +421,24 @@ async fn oversized_model_responses_are_rejected() {
     );
     h.join().unwrap();
 }
+
+#[tokio::test]
+async fn stopping_releases_the_slot_and_old_cleanup_cannot_cancel_a_new_request() {
+    let state = AiState::default();
+    let first = uuid::Uuid::new_v4().to_string();
+    let old_cancel = begin_job(&state, &first).unwrap();
+    let old_running = Running(&state, first.clone());
+    assert_eq!(
+        begin_job(&state, &uuid::Uuid::new_v4().to_string()).unwrap_err(),
+        "AI_BUSY"
+    );
+    cancel_job(&state, first);
+    old_cancel.await.unwrap();
+    let next = uuid::Uuid::new_v4().to_string();
+    let next_cancel = begin_job(&state, &next).unwrap();
+    drop(old_running);
+    assert_eq!(state.0.lock().unwrap().job.as_ref().unwrap().id, next);
+    stop_active(&state);
+    next_cancel.await.unwrap();
+    assert!(state.0.lock().unwrap().job.is_none());
+}

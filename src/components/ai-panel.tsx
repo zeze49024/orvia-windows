@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
   ArrowUp,
+  ArrowDown,
   Check,
   ChevronDown,
   ChevronRight,
@@ -54,7 +55,7 @@ import { chatScrollBehavior } from "@/core/motion";
 import { resolveTheme } from "@/core/themes";
 import type { Document, Locale } from "@/core/model";
 import type { Confirm } from "@/hooks/use-confirmation";
-import { translator } from "@/i18n";
+import { translator, formatTime } from "@/i18n";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Input } from "./ui/input";
@@ -104,13 +105,59 @@ function IconButton({
     </Tooltip>
   );
 }
-function SafeAnswer({ text }: { text: string }) {
+function CodeBlock({
+  children,
+  locale,
+}: {
+  children: React.ReactNode;
+  locale: Locale;
+}) {
+  const t = translator(locale);
+  const [copied, setCopied] = useState(false);
+  const block = useRef<HTMLPreElement>(null);
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 2000);
+    return () => clearTimeout(timer);
+  }, [copied]);
+  return (
+    <div className="ai-code-block">
+      <div>
+        <span>{t("aiCode")}</span>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            void navigator.clipboard
+              .writeText(block.current?.textContent || "")
+              .then(() => setCopied(true))
+              .catch(() => setCopied(false));
+          }}
+        >
+          {copied ? <Check size={13} /> : <Copy size={13} />}
+          {t(copied ? "aiCopied" : "aiCopyCode")}
+        </Button>
+      </div>
+      <pre ref={block}>{children}</pre>
+    </div>
+  );
+}
+const SafeAnswer = memo(function SafeAnswer({
+  text,
+  locale,
+}: {
+  text: string;
+  locale: Locale;
+}) {
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
       skipHtml
       urlTransform={() => ""}
       components={{
+        pre: ({ children }) => (
+          <CodeBlock locale={locale}>{children}</CodeBlock>
+        ),
         img: ({ alt }) => <span>[{alt || "image"}]</span>,
         a: ({ children }) => <span>{children}</span>,
       }}
@@ -118,7 +165,7 @@ function SafeAnswer({ text }: { text: string }) {
       {text}
     </ReactMarkdown>
   );
-}
+});
 type Review = {
   base: AiSnapshot;
   proposal: { title: string; body: string };
@@ -176,6 +223,23 @@ export function AiPanel({
   const [models, setModels] = useState<string[]>([]),
     [modelsOpen, setModelsOpen] = useState(false),
     [modelsBusy, setModelsBusy] = useState(false);
+  const [historyQuery, setHistoryQuery] = useState("");
+  const [awayFromBottom, setAwayFromBottom] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [copiedMessage, setCopiedMessage] = useState("");
+  const [failedTask, setFailedTask] = useState("");
+  const followBottom = useRef(true);
+  const drafts = useRef(new Map<string, string>());
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+  function scrollToLatest(behavior: ScrollBehavior = chatScrollBehavior()) {
+    followBottom.current = true;
+    setAwayFromBottom(false);
+    timeline.current?.scrollTo({
+      top: timeline.current.scrollHeight,
+      behavior,
+    });
+  }
   const anchorBody = useRef<string | null>(null);
   const session = sessions.find((c) => c.id === activeId),
     messages = session?.messages || [];
@@ -221,6 +285,7 @@ export function AiPanel({
   };
   useEffect(() => {
     alive.current = true;
+    const focusFrame = requestAnimationFrame(() => input.current?.focus());
     if (aiAvailable)
       void aiTransport
         .load()
@@ -231,6 +296,7 @@ export function AiPanel({
           if (alive.current) setError(aiError(e, t));
         });
     return () => {
+      cancelAnimationFrame(focusFrame);
       alive.current = false;
       if (job.current) void aiTransport.cancel(job.current).catch(() => {});
       job.current = null;
@@ -256,11 +322,16 @@ export function AiPanel({
     requestAnimationFrame(() => input.current?.focus());
   }, [seed?.serial]);
   useEffect(() => {
-    timeline.current?.scrollTo({
-      top: timeline.current.scrollHeight,
-      behavior: chatScrollBehavior(),
-    });
-  }, [messages.length, pending, activeId]);
+    if (followBottom.current) scrollToLatest();
+  }, [messages.length, pending]);
+  useEffect(() => {
+    scrollToLatest("auto");
+  }, [activeId]);
+  useEffect(() => {
+    if (!copiedMessage) return;
+    const timer = setTimeout(() => setCopiedMessage(""), 2000);
+    return () => clearTimeout(timer);
+  }, [copiedMessage]);
   useEffect(() => {
     if (input.current) {
       input.current.style.height = "72px";
@@ -269,6 +340,12 @@ export function AiPanel({
   }, [draft]);
   useEffect(() => {
     const close = (e: KeyboardEvent) => {
+      if (
+        e.defaultPrevented ||
+        (e.target instanceof Element &&
+          e.target.closest('[role="dialog"], [role="alertdialog"]'))
+      )
+        return;
       if (e.key === "Escape") {
         if (historyOpen || modelsOpen) {
           setHistoryOpen(false);
@@ -285,7 +362,9 @@ export function AiPanel({
   const fail = (e: unknown) => setError(aiError(e, t));
   async function newChat() {
     stop();
+    setReview(null);
     setError("");
+    setFailedTask("");
     try {
       const now = new Date().toISOString(),
         c: AiConversation = {
@@ -298,30 +377,42 @@ export function AiPanel({
         };
       await save((s) => [c, ...s]);
       if (alive.current) {
+        drafts.current.set(activeId, draftRef.current);
         setActiveId(c.id);
         setDraft("");
         setHistoryOpen(false);
+        setNotice("");
+        requestAnimationFrame(() => input.current?.focus());
       }
     } catch (e) {
       fail(e);
     }
   }
   function choose(id: string) {
+    if (id === activeId) {
+      setHistoryOpen(false);
+      return;
+    }
+    drafts.current.set(activeId, draftRef.current);
     stop();
     setReview(null);
     setError("");
-    setDraft("");
+    setDraft(drafts.current.get(id) || "");
     setActiveId(id);
     setHistoryOpen(false);
+    setNotice("");
+    setFailedTask("");
+    requestAnimationFrame(() => input.current?.focus());
   }
-  const sending = useRef(false);
   async function prepareSend() {
-    if (pending || sending.current || !usable || !draft.trim()) return;
-    sending.current = true;
+    if (pending || job.current || !usable || !draft.trim()) return;
     const preparedId = crypto.randomUUID();
     job.current = preparedId;
     setPending(true);
     setError("");
+    setNotice("");
+    setFailedTask("");
+    followBottom.current = true;
     try {
       const base = await aiSnapshot(currentDoc());
       if (!alive.current || job.current !== preparedId) return;
@@ -371,7 +462,6 @@ export function AiPanel({
     } catch (e) {
       if (alive.current && job.current === preparedId) fail(e);
     } finally {
-      sending.current = false;
       if (alive.current && job.current === preparedId) {
         job.current = null;
         setPending(false);
@@ -428,7 +518,8 @@ export function AiPanel({
       });
       if (!alive.current || job.current !== request.id) return;
       setActiveId(sessionId);
-      setDraft("");
+      drafts.current.delete(sessionId);
+      setDraft((current) => (current.trim() === request.task ? "" : current));
       const output = aiOutputSchema.parse(await aiTransport.run(request));
       if (!alive.current || job.current !== request.id) return;
       assertCurrent(base);
@@ -463,7 +554,10 @@ export function AiPanel({
         ),
       );
     } catch (e) {
-      if (alive.current && job.current === request.id) fail(e);
+      if (alive.current && job.current === request.id) {
+        setFailedTask(request.task);
+        fail(e);
+      }
     } finally {
       if (alive.current && job.current === request.id) {
         job.current = null;
@@ -544,9 +638,10 @@ export function AiPanel({
       }
     });
   }
-  async function copy(text: string) {
+  async function copy(text: string, id: string) {
     try {
       await navigator.clipboard.writeText(text);
+      setCopiedMessage(id);
       notify(t("aiCopied"));
     } catch {
       notify(t("failed"));
@@ -564,6 +659,7 @@ export function AiPanel({
     ) {
       try {
         await save((items) => items.filter((c) => c.id !== id));
+        drafts.current.delete(id);
         if (activeId === id) setActiveId("");
       } catch (e) {
         fail(e);
@@ -599,9 +695,11 @@ export function AiPanel({
             </div>
           </div>
           <div className="ai-header-actions">
-            {icon(t("aiChatHistory"), <History />, () =>
-              setHistoryOpen(!historyOpen),
-            )}
+            {icon(t("aiChatHistory"), <History />, () => {
+              setModelsOpen(false);
+              setHistoryQuery("");
+              setHistoryOpen(!historyOpen);
+            })}
             {icon(t("aiChatNew"), <Plus />, () => void newChat(), pending)}
             <Separator orientation="vertical" />
             {icon(
@@ -615,13 +713,37 @@ export function AiPanel({
             })}
           </div>
         </header>
-        <div className="ai-chat-context">
-          <FileText size={14} />
-          <span>{doc.title}</span>
-          <Badge variant="outline">{t("aiSourceLabel")}</Badge>
-        </div>
+        <button
+          className="ai-chat-context"
+          onClick={() => setScopeOpen(true)}
+          disabled={pending}
+          aria-label={`${t("aiScopeLabel")}: ${scopeLabel}`}
+        >
+          {scope === "selection" ? (
+            <TextQuote size={14} />
+          ) : scope === "none" ? (
+            <MessageSquare size={14} />
+          ) : (
+            <FileText size={14} />
+          )}
+          <span title={scope === "note" ? doc.title : scopeLabel}>
+            {scope === "note" ? doc.title : scopeLabel}
+          </span>
+          <Badge variant="outline">
+            {scope === "none"
+              ? t("aiNoAttachment")
+              : scope === "selection"
+                ? `${anchor?.text.length || 0} ${t("chars")}`
+                : scopeLabel}
+          </Badge>
+          <ChevronDown size={12} />
+        </button>
         {!aiAvailable ? (
           <p className="ai-setup">{t("aiDesktop")}</p>
+        ) : !status && !error ? (
+          <p className="ai-setup" role="status">
+            {t("aiLoadingConfig")}
+          </p>
         ) : !usable ? (
           <div className="ai-setup">
             <p>
@@ -659,32 +781,59 @@ export function AiPanel({
               {icon(t("aiChatNew"), <Plus />, () => void newChat(), pending)}
             </CardHeader>
             <CardContent>
-              {sessions.length ? (
-                sessions.map((c) => (
-                  <div
-                    className={`ai-session ${c.id === activeId ? "selected" : ""}`}
-                    key={c.id}
-                  >
-                    <button onClick={() => choose(c.id)}>
-                      <MessageSquare size={14} />
-                      <span>{c.title}</span>
-                    </button>
-                    {icon(
-                      t("aiChatRename") + " " + c.title,
-                      <Pencil />,
-                      () => setRename({ id: c.id, title: c.title }),
-                      pending,
-                    )}
-                    {icon(
-                      t("aiChatDelete") + " " + c.title,
-                      <Trash2 />,
-                      () => void removeChat(c.id),
-                      pending,
-                    )}
-                  </div>
-                ))
+              <Input
+                aria-label={t("aiSearchChats")}
+                placeholder={t("aiSearchChats")}
+                value={historyQuery}
+                onChange={(e) => setHistoryQuery(e.target.value)}
+                className="ai-history-search"
+                autoFocus
+              />
+              {sessions.filter((c) =>
+                c.title
+                  .toLocaleLowerCase()
+                  .includes(historyQuery.trim().toLocaleLowerCase()),
+              ).length ? (
+                sessions
+                  .filter((c) =>
+                    c.title
+                      .toLocaleLowerCase()
+                      .includes(historyQuery.trim().toLocaleLowerCase()),
+                  )
+                  .map((c) => (
+                    <div
+                      className={`ai-session ${c.id === activeId ? "selected" : ""}`}
+                      key={c.id}
+                    >
+                      <button
+                        onClick={() => choose(c.id)}
+                        aria-current={c.id === activeId ? "true" : undefined}
+                      >
+                        <MessageSquare size={14} />
+                        <span>
+                          <strong>{c.title}</strong>
+                          <small>
+                            {formatTime(c.updatedAt, locale)} ·{" "}
+                            {c.messages.length} {t("aiMessageCount")}
+                          </small>
+                        </span>
+                      </button>
+                      {icon(
+                        t("aiChatRename") + " " + c.title,
+                        <Pencil />,
+                        () => setRename({ id: c.id, title: c.title }),
+                        pending,
+                      )}
+                      {icon(
+                        t("aiChatDelete") + " " + c.title,
+                        <Trash2 />,
+                        () => void removeChat(c.id),
+                        pending,
+                      )}
+                    </div>
+                  ))
               ) : (
-                <p>{t("aiNoMessages")}</p>
+                <p>{t(historyQuery ? "aiNoChatResults" : "aiNoMessages")}</p>
               )}
             </CardContent>
             <CardFooter>
@@ -695,181 +844,248 @@ export function AiPanel({
             </CardFooter>
           </Card>
         )}
-        <div
-          className="ai-chat-log"
-          ref={timeline}
-          role="log"
-          aria-label={t("aiChatMessages")}
-          aria-live="polite"
-        >
-          {!messages.length ? (
-            <div className="ai-chat-empty">
-              <Sparkles size={30} />
-              <h2>{t("aiChatWelcome")}</h2>
-              <p>{t("aiChatWelcomeHint")}</p>
-              <div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setDraft(t("aiSummarizePrompt"));
-                    input.current?.focus();
-                  }}
-                >
-                  {t("aiSummarize")}
-                  <ArrowUp size={13} />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setDraft(t("aiPolishPrompt"));
-                    input.current?.focus();
-                  }}
-                >
-                  {t("aiPolish")}
-                  <ArrowUp size={13} />
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className="ai-conversation-divider">
-                <span />
-                {t("aiConversation")}
-                <span />
-              </div>
-              {messages.map((m) => (
-                <div className={`ai-message ai-${m.role}`} key={m.id}>
-                  {m.role === "user" ? (
-                    <div className="ai-user-bubble">
-                      {m.quote && (
-                        <blockquote>
-                          <TextQuote size={13} />
-                          <p>{m.quote}</p>
-                        </blockquote>
-                      )}
-                      <p>{m.content}</p>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="ai-assistant-label">
-                        <img
-                          src={
-                            resolveTheme(store.data.settings.theme)
-                              .appearance === "dark"
-                              ? "/brand/orvia-symbol-dark.svg"
-                              : "/brand/orvia-symbol.svg"
-                          }
-                          alt=""
-                        />
-                        <strong>Orvia</strong>
-                        <Badge variant="outline">AI</Badge>
-                      </div>
-                      <div className="ai-answer">
-                        <SafeAnswer text={m.content} />
-                      </div>
-                      {m.proposal && (
-                        <Card className="ai-proposal">
-                          <CardHeader>
-                            <div>
-                              <Pencil size={14} />
-                              {t("aiDraftLabel")}
-                            </div>
-                            <Badge variant="outline">
-                              {m.applied ? (
-                                <>
-                                  <Check size={11} />
-                                  {t("aiAppliedShort")}
-                                </>
-                              ) : (
-                                t("aiPendingApproval")
-                              )}
-                            </Badge>
-                          </CardHeader>
-                          <CardContent>
-                            <SafeAnswer text={m.proposal.body} />
-                          </CardContent>
-                          <CardFooter>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              disabled={m.applied || !m.fingerprint || pending}
-                              onClick={() => void prepareReview(m)}
-                            >
-                              <Replace size={14} />
-                              {m.applied
-                                ? t("aiAppliedShort")
-                                : !m.fingerprint
-                                  ? t("aiOldProposal")
-                                  : t("aiReview")}
-                              <ChevronRight size={13} />
-                            </Button>
-                          </CardFooter>
-                        </Card>
-                      )}
-                      <div className="ai-message-actions">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() =>
-                            void copy(m.proposal?.body ?? m.content)
-                          }
-                        >
-                          <Copy size={14} />
-                          {t("aiCopy")}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="ai-insert"
-                          disabled={pending}
-                          onClick={() => void prepareReview(m, true)}
-                        >
-                          <CornerDownLeft size={14} />
-                          {t("aiInsert")}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          disabled={pending}
-                          onClick={() => {
-                            setDraft(t("aiFollowupPrompt"));
-                            input.current?.focus();
-                          }}
-                        >
-                          <MessageSquare size={14} />
-                          {t("aiFollowup")}
-                        </Button>
-                      </div>
-                      {m.usage && (
-                        <details className="ai-usage">
-                          <summary>{t("aiUsageShort")}</summary>
-                          {m.usage.input} input / {m.usage.output} output ·{" "}
-                          {m.usage.requests} requests
-                        </details>
-                      )}
-                    </>
-                  )}
+        <div className="ai-log-region">
+          <div
+            className="ai-chat-log"
+            ref={timeline}
+            role="log"
+            aria-label={t("aiChatMessages")}
+            aria-live="polite"
+            aria-busy={pending}
+            onScroll={(e) => {
+              const el = e.currentTarget;
+              const away =
+                el.scrollHeight - el.scrollTop - el.clientHeight > 90;
+              followBottom.current = !away;
+              setAwayFromBottom(away);
+            }}
+          >
+            {!messages.length ? (
+              <div className="ai-chat-empty">
+                <Sparkles size={30} />
+                <h2>{t("aiChatWelcome")}</h2>
+                <p>{t("aiChatWelcomeHint")}</p>
+                <div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setDraft(
+                        t(
+                          scope === "none"
+                            ? "aiBrainstormPrompt"
+                            : "aiSummarizePrompt",
+                        ),
+                      );
+                      input.current?.focus();
+                    }}
+                  >
+                    {t(
+                      scope === "none"
+                        ? "aiBrainstorm"
+                        : scope === "selection"
+                          ? "aiSummarizeSelection"
+                          : "aiSummarize",
+                    )}
+                    <ArrowUp size={13} />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setDraft(
+                        t(
+                          scope === "none"
+                            ? "aiOutlinePrompt"
+                            : "aiPolishPrompt",
+                        ),
+                      );
+                      input.current?.focus();
+                    }}
+                  >
+                    {t(scope === "none" ? "aiOutline" : "aiPolish")}
+                    <ArrowUp size={13} />
+                  </Button>
                 </div>
-              ))}
-            </>
-          )}
-          {pending && (
-            <div className="ai-thinking">
-              <Sparkles size={16} />
-              {t("aiPending")}
-              <i />
-              <i />
-              <i />
-            </div>
+              </div>
+            ) : (
+              <>
+                <div className="ai-conversation-divider">
+                  <span />
+                  {t("aiConversation")}
+                  <span />
+                </div>
+                {messages.map((m) => (
+                  <div className={`ai-message ai-${m.role}`} key={m.id}>
+                    {m.role === "user" ? (
+                      <div className="ai-user-bubble">
+                        {m.quote && (
+                          <blockquote>
+                            <TextQuote size={13} />
+                            <p>{m.quote}</p>
+                          </blockquote>
+                        )}
+                        <p>{m.content}</p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="ai-assistant-label">
+                          <img
+                            src={
+                              resolveTheme(store.data.settings.theme)
+                                .appearance === "dark"
+                                ? "/brand/orvia-symbol-dark.svg"
+                                : "/brand/orvia-symbol.svg"
+                            }
+                            alt=""
+                          />
+                          <strong>Orvia</strong>
+                          <Badge variant="outline">AI</Badge>
+                        </div>
+                        <div className="ai-answer">
+                          <SafeAnswer text={m.content} locale={locale} />
+                        </div>
+                        {m.proposal && (
+                          <Card className="ai-proposal">
+                            <CardHeader>
+                              <div>
+                                <Pencil size={14} />
+                                {t("aiDraftLabel")}
+                              </div>
+                              <Badge variant="outline">
+                                {m.applied ? (
+                                  <>
+                                    <Check size={11} />
+                                    {t("aiAppliedShort")}
+                                  </>
+                                ) : (
+                                  t("aiPendingApproval")
+                                )}
+                              </Badge>
+                            </CardHeader>
+                            <CardContent>
+                              <SafeAnswer
+                                text={m.proposal.body}
+                                locale={locale}
+                              />
+                            </CardContent>
+                            <CardFooter>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                disabled={
+                                  m.applied || !m.fingerprint || pending
+                                }
+                                onClick={() => void prepareReview(m)}
+                              >
+                                <Replace size={14} />
+                                {m.applied
+                                  ? t("aiAppliedShort")
+                                  : !m.fingerprint
+                                    ? t("aiOldProposal")
+                                    : t("aiReview")}
+                                <ChevronRight size={13} />
+                              </Button>
+                            </CardFooter>
+                          </Card>
+                        )}
+                        <div className="ai-message-actions">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              void copy(m.proposal?.body ?? m.content, m.id)
+                            }
+                          >
+                            {copiedMessage === m.id ? (
+                              <Check size={14} />
+                            ) : (
+                              <Copy size={14} />
+                            )}
+                            {t(copiedMessage === m.id ? "aiCopied" : "aiCopy")}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="ai-insert"
+                            disabled={pending}
+                            onClick={() => void prepareReview(m, true)}
+                          >
+                            <CornerDownLeft size={14} />
+                            {t("aiInsert")}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={pending}
+                            onClick={() => {
+                              setDraft(t("aiFollowupPrompt"));
+                              input.current?.focus();
+                            }}
+                          >
+                            <MessageSquare size={14} />
+                            {t("aiFollowup")}
+                          </Button>
+                        </div>
+                        {m.usage && (
+                          <details className="ai-usage">
+                            <summary>{t("aiUsageShort")}</summary>
+                            {m.usage.input} input / {m.usage.output} output ·{" "}
+                            {m.usage.requests} requests
+                          </details>
+                        )}
+                      </>
+                    )}
+                  </div>
+                ))}
+              </>
+            )}
+            {pending && (
+              <div className="ai-thinking">
+                <Sparkles size={16} />
+                {t("aiPending")}
+                <i />
+                <i />
+                <i />
+              </div>
+            )}
+          </div>
+          {awayFromBottom && messages.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="ai-jump-latest"
+              onClick={() => scrollToLatest("instant" as ScrollBehavior)}
+            >
+              <ArrowDown size={14} />
+              {t("aiJumpLatest")}
+            </Button>
           )}
         </div>
         <div className="ai-compose-zone">
-          {error && (
-            <p className="ai-chat-error" role="alert">
-              {error}
+          {notice && !error && (
+            <p className="ai-chat-notice" role="status">
+              {notice}
             </p>
+          )}
+          {error && (
+            <div className="ai-chat-error" role="alert">
+              <p>{error}</p>
+              {failedTask && !draft.trim() && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setDraft(failedTask);
+                    setError("");
+                    setFailedTask("");
+                    input.current?.focus();
+                  }}
+                >
+                  {t("aiRestorePrompt")}
+                </Button>
+              )}
+            </div>
           )}
           <div className="ai-composer">
             {scope === "selection" && anchor && (
@@ -907,20 +1123,25 @@ export function AiPanel({
               placeholder={t("aiChatPlaceholder")}
               value={draft}
               maxLength={4000}
-              disabled={pending}
               rows={2}
+              aria-describedby="ai-input-hint"
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
                 if (
                   e.key === "Enter" &&
                   !e.shiftKey &&
-                  !e.nativeEvent.isComposing
+                  !e.nativeEvent.isComposing &&
+                  e.keyCode !== 229
                 ) {
                   e.preventDefault();
-                  void prepareSend();
+                  if (!pending) void prepareSend();
                 }
               }}
             />
+            <div className="ai-input-hint" id="ai-input-hint">
+              <span>{t(pending ? "aiDraftWhileWaiting" : "aiSendHint")}</span>
+              <span>{draft.length} / 4000</span>
+            </div>
             <div className="ai-composer-bottom">
               {icon(
                 t("aiScopeLabel"),
@@ -933,7 +1154,10 @@ export function AiPanel({
                 size="sm"
                 className="ai-model-trigger"
                 disabled={pending || !status}
-                onClick={() => setModelsOpen(!modelsOpen)}
+                onClick={() => {
+                  setHistoryOpen(false);
+                  setModelsOpen(!modelsOpen);
+                }}
               >
                 {status
                   ? `${status.config.provider === "deepseek" ? "DeepSeek" : "OpenAI"} · ${status.config.model}`
@@ -951,7 +1175,7 @@ export function AiPanel({
                 pending
                   ? () => {
                       stop();
-                      setError(t("aiCancelled"));
+                      setNotice(t("aiStoppedHint"));
                     }
                   : () => void prepareSend(),
                 !pending && (!usable || !draft.trim()),
@@ -959,7 +1183,7 @@ export function AiPanel({
             </div>
           </div>
           <div className="ai-composer-foot">
-            <button onClick={() => setScopeOpen(true)}>
+            <button disabled={pending} onClick={() => setScopeOpen(true)}>
               <ShieldCheck size={12} />
               {scopeLabel} · {t("aiDirectSend")}
             </button>

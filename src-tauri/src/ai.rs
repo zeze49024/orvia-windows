@@ -165,7 +165,7 @@ pub async fn ai_authorize(
 }
 fn stop_active(state: &AiState) {
     if let Ok(mut lock) = state.0.lock() {
-        if let Some(job) = lock.job.as_mut() {
+        if let Some(mut job) = lock.job.take() {
             if let Some(tx) = job.cancel.take() {
                 let _ = tx.send(());
             }
@@ -239,13 +239,13 @@ fn cancel_job(state: &AiState, id: String) {
         return;
     }
     if let Ok(mut lock) = state.0.lock() {
-        if let Some(job) = lock.job.as_mut() {
-            if job.id == id {
+        if lock.job.as_ref().is_some_and(|job| job.id == id) {
+            if let Some(mut job) = lock.job.take() {
                 if let Some(cancel) = job.cancel.take() {
                     let _ = cancel.send(());
                 }
-                return;
             }
+            return;
         }
         lock.cancelled.push_back(id);
         while lock.cancelled.len() > 32 {

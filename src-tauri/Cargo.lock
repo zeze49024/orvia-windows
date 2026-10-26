@@ -2507,7 +2507,7 @@ dependencies = [
 
 [[package]]
 name = "orvia"
-version = "0.1.1-beta6"
+version = "0.1.1-beta7"
 dependencies = [
  "reqwest",
  "rusqlite",

@@ -3,7 +3,7 @@ async function setup(page: Page) {
   await page.route("**/src/core/ai-transport.ts", (route) =>
     route.fulfill({
       contentType: "application/javascript",
-      body: `export const aiAvailable=true;let config={enabled:false,provider:'deepseek',model:'deepseek-flash',maxOutputTokens:2048,maxInputChars:32000,maxRounds:3},hasKey=false,authorized=false;window.aiTest={requests:[],cancelled:[],mode:'normal'};export const aiTransport={load:async()=>({config:{...config},hasKey,authorized}),save:async(c)=>{config={...c}},saveKey:async()=>{hasKey=true;authorized=true},authorize:async()=>{authorized=true},revokeAuthorization:async()=>{authorized=false},deleteKey:async()=>{hasKey=false;authorized=false},models:async()=>['deepseek-flash'],cancel:async(id)=>{window.aiTest.cancelled.push(id)},run:async(request)=>{window.aiTest.requests.push(request);if(window.aiTest.mode==='slow')await new Promise(r=>setTimeout(r,1500));const proposal=request.mode==='edit'&&/润色|精简|扩写|翻译/.test(request.task)?{title:request.snapshot.title,body:window.aiTest.mode==='image'?'![bad](asset:'+'b'.repeat(64)+')':request.snapshot.body.replace('Original','Improved')}:null;return {answer:window.aiTest.mode==='plain'?'## Result\\n\\nSafe answer':'## Summary\\n\\n**Safe answer** <img src="https://example.invalid/track">',proposal,inputTokens:100,outputTokens:50,requests:2,actions:request.scope==='none'?[]:['read_current_note',...(proposal?['propose_note_edit']:[])]}}};`,
+      body: `export const aiAvailable=true;let config={enabled:false,provider:'deepseek',model:'deepseek-flash',maxOutputTokens:2048,maxInputChars:32000,maxRounds:3},hasKey=false,authorized=false;window.aiTest={requests:[],cancelled:[],mode:'normal'};export const aiTransport={load:async()=>({config:{...config},hasKey,authorized}),save:async(c)=>{config={...c}},saveKey:async()=>{hasKey=true;authorized=true},authorize:async()=>{authorized=true},revokeAuthorization:async()=>{authorized=false},deleteKey:async()=>{hasKey=false;authorized=false},models:async()=>['deepseek-flash'],cancel:async(id)=>{window.aiTest.cancelled.push(id)},run:async(request)=>{window.aiTest.requests.push(request);if(window.aiTest.mode==='slow')await new Promise(r=>setTimeout(r,1500));if(window.aiTest.mode==='failure')throw new Error('AI_NETWORK');const proposal=request.mode==='edit'&&/润色|精简|扩写|翻译/.test(request.task)?{title:request.snapshot.title,body:window.aiTest.mode==='image'?'![bad](asset:'+'b'.repeat(64)+')':request.snapshot.body.replace('Original','Improved')}:null;return {answer:window.aiTest.answer??(window.aiTest.mode==='plain'?'## Result\\n\\nSafe answer':'## Summary\\n\\n**Safe answer** <img src="https://example.invalid/track">'),proposal,inputTokens:100,outputTokens:50,requests:2,actions:request.scope==='none'?[]:['read_current_note',...(proposal?['propose_note_edit']:[])]}}};`,
     }),
   );
   await page.goto("/");
@@ -304,4 +304,190 @@ test("rapid repeated send cannot register duplicate requests", async ({
   expect(
     await page.evaluate(() => (window as any).aiTest.requests.length),
   ).toBe(1);
+});
+
+test("reading position stays put when a reply arrives, with an explicit jump to latest", async ({
+  page,
+}) => {
+  await setup(page);
+  await page.evaluate(() => {
+    (window as any).aiTest.answer = Array.from(
+      { length: 45 },
+      (_, i) => `Paragraph ${i}: readable response.`,
+    ).join("\n\n");
+  });
+  await send(page, "给我一段长回复");
+  await expect(page.locator(".ai-assistant")).toHaveCount(1);
+  await page.evaluate(() => {
+    (window as any).aiTest.mode = "slow";
+  });
+  await send(page, "再解释一下");
+  await expect(
+    page.getByRole("button", { name: "停止", exact: true }),
+  ).toBeVisible();
+  const log = page.getByRole("log");
+  await log.evaluate((el) => {
+    el.scrollTop = 0;
+    el.dispatchEvent(new Event("scroll"));
+  });
+  await expect(page.locator(".ai-assistant")).toHaveCount(2);
+  expect(await log.evaluate((el) => el.scrollTop)).toBeLessThan(30);
+  await page.getByRole("button", { name: "回到最新回复", exact: true }).click();
+  await expect
+    .poll(() =>
+      log.evaluate((el) => el.scrollHeight - el.scrollTop - el.clientHeight),
+    )
+    .toBeLessThan(10);
+});
+
+test("drafts survive session switching and history is searchable without making any request", async ({
+  page,
+}) => {
+  await setup(page);
+  await send(page, "第一条对话");
+  await expect(page.locator(".ai-assistant")).toHaveCount(1);
+  const input = page.getByRole("textbox", { name: "发送给 AI 的消息" });
+  await input.fill("这是一条未发送的草稿");
+  await page.getByRole("button", { name: "新建对话", exact: true }).click();
+  await expect(input).toHaveValue("");
+  await input.fill("第二个会话的草稿");
+  await page.getByRole("button", { name: "对话记录", exact: true }).click();
+  const search = page.getByRole("textbox", { name: "搜索本篇笔记的对话" });
+  await search.fill("不存在");
+  await expect(page.locator(".ai-history-popover")).toContainText(
+    "没有找到匹配的对话",
+  );
+  await search.fill("第一条");
+  await expect(page.locator(".ai-session")).toHaveCount(1);
+  await page.locator(".ai-session > button").first().click();
+  await expect(input).toHaveValue("这是一条未发送的草稿");
+  expect(
+    await page.evaluate(() => (window as any).aiTest.requests.length),
+  ).toBe(1);
+});
+
+test("pending drafts, IME Enter, stopping and explicit failure recovery avoid unintended sends", async ({
+  page,
+}) => {
+  await setup(page);
+  const input = page.getByRole("textbox", { name: "发送给 AI 的消息" });
+  await input.fill("中文输入中");
+  await input.dispatchEvent("keydown", {
+    key: "Enter",
+    code: "Enter",
+    keyCode: 229,
+    isComposing: true,
+  });
+  expect(
+    await page.evaluate(() => (window as any).aiTest.requests.length),
+  ).toBe(0);
+  await page.evaluate(() => {
+    (window as any).aiTest.mode = "slow";
+  });
+  await send(page);
+  await expect
+    .poll(() => page.evaluate(() => (window as any).aiTest.requests.length))
+    .toBe(1);
+  await input.fill("等待时继续写的草稿");
+  await input.press("Enter");
+  expect(
+    await page.evaluate(() => (window as any).aiTest.requests.length),
+  ).toBe(1);
+  await page.getByRole("button", { name: "停止", exact: true }).click();
+  await expect(page.locator(".ai-chat-notice")).toContainText("已停止生成");
+  await expect(page.locator(".ai-chat-error")).toHaveCount(0);
+  await expect(input).toHaveValue("等待时继续写的草稿");
+  // The stopped transport finishes late; it must never append a reply or clear the draft.
+  await page.waitForTimeout(1700);
+  await expect(page.locator(".ai-assistant")).toHaveCount(0);
+  await page.evaluate(() => {
+    (window as any).aiTest.mode = "failure";
+  });
+  await send(page);
+  await expect(page.locator(".ai-chat-error")).toBeVisible();
+  await page
+    .getByRole("button", { name: "重新编辑这条提问", exact: true })
+    .click();
+  await expect(input).toHaveValue("等待时继续写的草稿");
+  expect(
+    await page.evaluate(() => (window as any).aiTest.requests.length),
+  ).toBe(2);
+});
+
+test("context reflects no-note mode; code copying and dark narrow layout remain usable", async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await setup(page);
+  await page.getByRole("button", { name: "选择发送范围", exact: true }).click();
+  await page
+    .getByRole("combobox", { name: "选择发送范围", exact: true })
+    .selectOption("none");
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "关闭", exact: true })
+    .last()
+    .click();
+  await expect(page.locator(".ai-chat-context")).not.toContainText(
+    "AI fixture",
+  );
+  await page.evaluate(() => {
+    (window as any).aiTest.answer = "## 示例\n\n```ts\nconst value = 1;\n```";
+  });
+  await send(page, "给我一段代码");
+  await page.getByRole("button", { name: "复制代码", exact: true }).click();
+  await expect(page.locator(".ai-code-block")).toContainText("已复制");
+  expect(
+    await page.evaluate(async () =>
+      (await navigator.clipboard.readText()).replace(/\r\n/g, "\n"),
+    ),
+  ).toBe("const value = 1;\n");
+  await page.evaluate(async () => {
+    const path = "/src/core/storage.ts";
+    const { store } = await import(path);
+    store.change((s) => ({ ...s, settings: { ...s.settings, theme: "dark" } }));
+  });
+  await page.screenshot({ path: "test-results/ai-beta7-dark.png" });
+  await page.setViewportSize({ width: 820, height: 780 });
+  const chat = page.getByRole("region", { name: "AI 笔记助手" });
+  const bounds = await chat.boundingBox();
+  expect(bounds!.x).toBeGreaterThanOrEqual(0);
+  expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(821);
+  await expect(
+    page.getByRole("textbox", { name: "发送给 AI 的消息" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "发送消息", exact: true }),
+  ).toBeVisible();
+  expect(
+    await chat.evaluate((el) => el.scrollWidth <= el.clientWidth + 1),
+  ).toBe(true);
+  await page.screenshot({ path: "test-results/ai-beta7-narrow.png" });
+});
+
+test("a stopped request cannot block a new message or overwrite its result", async ({
+  page,
+}) => {
+  await setup(page);
+  await page.evaluate(() => {
+    (window as any).aiTest.mode = "slow";
+  });
+  await send(page, "旧请求");
+  await expect
+    .poll(() => page.evaluate(() => (window as any).aiTest.requests.length))
+    .toBe(1);
+  await page.getByRole("button", { name: "停止", exact: true }).click();
+  await page.evaluate(() => {
+    (window as any).aiTest.mode = "normal";
+    (window as any).aiTest.answer = "New request result";
+  });
+  await send(page, "新请求");
+  await expect(page.locator(".ai-assistant")).toHaveCount(1);
+  await expect(page.locator(".ai-answer")).toHaveText("New request result");
+  await page.waitForTimeout(1700);
+  await expect(page.locator(".ai-assistant")).toHaveCount(1);
+  expect(
+    await page.evaluate(() => (window as any).aiTest.requests.length),
+  ).toBe(2);
 });
