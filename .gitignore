@@ -42,3 +42,8 @@ $null
 /playwright-report/
 /native-validation.json
 /native-upgrade.png
+
+/native-auto-backup/
+/native-writing.pdf
+/native-pdf-error.png
+/native-crash-baseline.json

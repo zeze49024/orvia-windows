@@ -654,6 +654,7 @@ if (phase === "seed") {
     })
     .click();
   await folderApproval;
+  await expect.poll(()=>invoke("backup_directory").catch(()=>null)).toBeTruthy();
   const pickedBackup = await invoke("backup_directory");
   const backupFolder = pickedBackup.startsWith("\\\\?\\")
     ? pickedBackup.slice(4)

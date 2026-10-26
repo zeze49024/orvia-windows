@@ -38,7 +38,12 @@ while ([DateTime]::UtcNow -lt $deadline) {
     $dialogHandle=[IntPtr]$dialog.Current.NativeWindowHandle
     [void][OrviaDialogMessages]::ShowWindow($dialogHandle,5)
     [void][OrviaDialogMessages]::SetForegroundWindow($dialogHandle)
-    [void][OrviaDialogMessages]::SendMessage($editHandle,0x000C,[IntPtr]::Zero,$targetFile)
+    try { $edit.SetFocus() } catch {}
+    $valuePattern=$null
+    if ($edit.TryGetCurrentPattern([Windows.Automation.ValuePattern]::Pattern,[ref]$valuePattern)) { $valuePattern.SetValue($targetFile) }
+    else { [void][OrviaDialogMessages]::SendMessage($editHandle,0x000C,[IntPtr]::Zero,$targetFile) }
+    Start-Sleep -Milliseconds 250
+    try { $save.SetFocus() } catch {}
     $invokePattern=$null
     if ($save.TryGetCurrentPattern([Windows.Automation.InvokePattern]::Pattern,[ref]$invokePattern)) { $invokePattern.Invoke() }
     else { [void][OrviaDialogMessages]::SendMessage($saveHandle,0x00F5,[IntPtr]::Zero,[IntPtr]::Zero) }
