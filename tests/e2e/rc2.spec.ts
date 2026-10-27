@@ -241,6 +241,13 @@ test("automatic failures stay quiet, retry on schedule; disabled setting persist
   await expect(toggle).toBeChecked();
   await toggle.uncheck();
   await page.keyboard.press("Control+s");
+  // Saving is asynchronous; a forced reload must wait for the persistence boundary,
+  // rather than racing the queued IndexedDB transaction on slower Windows runners.
+  await page.evaluate(async () => {
+    const storagePath = "/src/core/storage.ts";
+    const { store } = await import(storagePath);
+    await store.flush();
+  });
   await page.reload();
   await expect(page.locator(".page-content")).toBeVisible();
   await page.clock.fastForward(10_000);
