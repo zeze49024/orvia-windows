@@ -51,6 +51,18 @@ test("stable manifest selects the exact installer when beta and rc bundles coexi
   expect(manifest.platforms["windows-x86_64"].signature).toBe(
     "signature-0.1.0",
   );
+  for (const channel of ["stable", "preview"]) {
+    const feed = JSON.parse(
+      fs.readFileSync(
+        path.join(root, `updates/windows/${channel}.json`),
+        "utf8",
+      ),
+    );
+    expect(feed.version).toBe("0.1.0");
+    expect(feed.platforms[channel]).toEqual(
+      manifest.platforms["windows-x86_64"],
+    );
+  }
   expect(
     fs.readFileSync(
       path.join(root, "release/v0.1.0/Orvia_0.1.0_x64-setup.exe"),

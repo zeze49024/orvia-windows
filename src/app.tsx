@@ -58,6 +58,7 @@ import {
   FileText,
   Files,
   Folder,
+  FlaskConical,
   HardDrive,
   Minus,
   MoreHorizontal,
@@ -128,10 +129,10 @@ export function App() {
     t = translator(locale),
     active = data.documents.find((d) => d.id === selected),
     library = data.libraries.find((l) => l.id === active?.libraryId);
-  const notify = (message: string) => {
+  const notify = (message: string, duration = 6000) => {
     setToast(message);
     clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(""), 6000);
+    toastTimer.current = setTimeout(() => setToast(""), duration);
   };
   const error = (e: unknown) => {
     const message = String(e);
@@ -453,6 +454,7 @@ export function App() {
     }));
   const markdownExport = (id: string) =>
     run(async () => {
+      await store.flush();
       if (!(await allowPlaintext())) return;
       const file = await exportMarkdownDocument(
         structuredClone(store.data),
@@ -462,6 +464,7 @@ export function App() {
     });
   const pdfExport = (id: string) =>
     run(async () => {
+      await store.flush();
       if (!(await allowPlaintext())) return;
       if (await exportPdf(structuredClone(store.data), id))
         notify(t(native ? "exported" : "pdfPrintClosed"));
@@ -803,6 +806,13 @@ export function App() {
                   </small>
                 </button>
               ))}
+              <button
+                className="nav-row feature-preview-entry"
+                onClick={() => notify(t("featureInDevelopmentHint"), 2500)}
+              >
+                <FlaskConical size={17} />
+                <span>{t("featureInDevelopment")}</span>
+              </button>
             </div>
             <div className="group-heading">
               <span>{t("libraries")}</span>
@@ -1461,7 +1471,7 @@ export function App() {
       </Dialog>
       {toast && (
         <div className="toast" role="status">
-          <CheckCircle2 size={17} />
+          {!toast.startsWith("⚠️") && <CheckCircle2 size={17} />}
           <span>{toast}</span>
           <button aria-label={t("close")} onClick={() => setToast("")}>
             <X size={14} />

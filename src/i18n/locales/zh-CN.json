@@ -400,5 +400,7 @@
   "aiBrainstormPrompt": "请先询问我的写作主题、目标读者和用途，再帮我梳理写作思路。",
   "aiOutline": "拟定内容提纲",
   "aiOutlinePrompt": "请先询问我想写的主题，再帮我拟定一份清晰的内容提纲。",
-  "aiCallControls": "调用控制"
+  "aiCallControls": "调用控制",
+  "featureInDevelopment": "新功能开发中",
+  "featureInDevelopmentHint": "⚠️新功能开发中，敬请期待！"
 }

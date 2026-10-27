@@ -27,6 +27,9 @@ const manifest = {
 };
 const channel = version.includes("-") ? "preview" : "stable";
 manifest.platforms[channel] = manifest.platforms["windows-x86_64"];
+// A stable release is also the newest eligible version for preview users.
+if (channel === "stable")
+  manifest.platforms.preview = manifest.platforms["windows-x86_64"];
 const release = path.join("release", tag);
 fs.mkdirSync(release, { recursive: true });
 fs.mkdirSync("updates/windows", { recursive: true });
@@ -35,6 +38,7 @@ for (const name of [installer, installer + ".sig"])
 for (const file of [
   "updates/windows/latest.json",
   `updates/windows/${channel}.json`,
+  ...(channel === "stable" ? ["updates/windows/preview.json"] : []),
   path.join(release, "latest.json"),
 ])
   fs.writeFileSync(file, JSON.stringify(manifest, null, 2) + "\n");

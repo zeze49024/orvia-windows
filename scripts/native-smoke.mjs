@@ -5,6 +5,11 @@ import { chromium, expect } from "@playwright/test";
 import path from "node:path";
 import { readFile, writeFile, mkdir, readdir } from "node:fs/promises";
 const phase = process.argv[2];
+const previousVersion = (process.env.PREVIOUS_TAG || "v0.1.1-rc2").replace(
+  /^v/,
+  "",
+);
+const legacyStable = previousVersion === "0.1.0";
 if (
   !process.env.CI ||
   !["seed", "verify", "update", "crash", "recover"].includes(phase)
@@ -70,7 +75,7 @@ if (phase === "seed") {
     id: "af485e10-f680-4ff6-8b40-af799171e221",
     libraryId: data.libraries[0].id,
     title: "Upgrade preservation",
-    body: "# Native upgrade fixture\n\n中文内容 retained from rc1",
+    body: `# Native upgrade fixture\n\n中文内容 retained from ${previousVersion}`,
     tags: ["upgrade"],
     starred: true,
     createdAt: now,
@@ -78,33 +83,37 @@ if (phase === "seed") {
     openedAt: null,
     deletedAt: null,
   });
-  data.settings.motion = "elegant";
-  data.settings.aiConversations = [
-    {
-      id: crypto.randomUUID(),
-      documentId: "af485e10-f680-4ff6-8b40-af799171e221",
-      title: "Upgrade AI conversation",
-      createdAt: now,
-      updatedAt: now,
-      messages: [
-        {
-          id: crypto.randomUUID(),
-          role: "user",
-          content: "Synthetic conversation retained from rc1",
-          createdAt: now,
-          scope: "none",
-        },
-      ],
-    },
-  ];
+  if (!legacyStable) {
+    data.settings.motion = "elegant";
+    data.settings.aiConversations = [
+      {
+        id: crypto.randomUUID(),
+        documentId: "af485e10-f680-4ff6-8b40-af799171e221",
+        title: "Upgrade AI conversation",
+        createdAt: now,
+        updatedAt: now,
+        messages: [
+          {
+            id: crypto.randomUUID(),
+            role: "user",
+            content: "Synthetic conversation retained from rc2",
+            createdAt: now,
+            scope: "none",
+          },
+        ],
+      },
+    ];
+  }
   await invoke("save_workspace", { data, expectedRevision: loaded.revision });
-  const approval = setupDialog("ApproveAISetup");
-  await invoke("ai_save_key", {
-    provider: "deepseek",
-    key: "orvia-upgrade-only-not-a-real-key",
-    locale: "en",
-  });
-  console.log((await approval).stdout);
+  if (!legacyStable) {
+    const approval = setupDialog("ApproveAISetup");
+    await invoke("ai_save_key", {
+      provider: "deepseek",
+      key: "orvia-upgrade-only-not-a-real-key",
+      locale: "en",
+    });
+    console.log((await approval).stdout);
+  }
 } else if (phase === "update") {
   await page.reload();
   await page.waitForSelector(".app-shell");
@@ -129,17 +138,19 @@ if (phase === "seed") {
     name: channelLabel,
     exact: true,
   });
-  await channel.selectOption("preview");
-  await page
-    .getByRole("alertdialog")
-    .getByRole("button", { name: strings.confirm, exact: true })
-    .click();
+  if (!legacyStable) {
+    await channel.selectOption("preview");
+    await page
+      .getByRole("alertdialog")
+      .getByRole("button", { name: strings.confirm, exact: true })
+      .click();
+  }
   await page
     .getByRole("button", { name: strings.checkUpdates, exact: true })
     .click();
   await page
     .getByRole("dialog")
-    .getByText(/→ v0\.1\.1-rc2$/)
+    .getByText(/→ v0\.1\.1$/)
     .waitFor({ timeout: 60000 });
   const closed = page.waitForEvent("close", { timeout: 120000 });
   await page
@@ -236,27 +247,28 @@ if (phase === "seed") {
   evidence.crashRecovery = true;
   await writeFile("native-validation.json", JSON.stringify(evidence, null, 2));
 } else {
-  await expect(page).toHaveTitle("Orvia v0.1.1-rc2");
-  await expect(page.locator(".sidebar-foot")).toContainText("v0.1.1-rc2");
+  await expect(page).toHaveTitle("Orvia v0.1.1");
+  await expect(page.locator(".sidebar-foot")).toContainText("v0.1.1");
   const loaded = await invoke("load_workspace");
   const doc = loaded.data.documents.find(
     (d) => d.title === "Upgrade preservation",
   );
   if (
-    !doc?.body.includes("中文内容 retained from rc1") ||
+    !doc?.body.includes(`中文内容 retained from ${previousVersion}`) ||
     !doc.starred ||
     doc.tags[0] !== "upgrade"
   )
     throw new Error("Upgrade lost data");
   if (
+    !legacyStable &&
     !loaded.data.settings.aiConversations.some(
       (c) =>
         c.title === "Upgrade AI conversation" &&
-        c.messages[0]?.content === "Synthetic conversation retained from rc1",
+        c.messages[0]?.content === "Synthetic conversation retained from rc2",
     )
   )
     throw new Error("Upgrade lost AI history");
-  const changed = { ...doc, body: doc.body + "\n\nSaved by v0.1.1-rc2" };
+  const changed = { ...doc, body: doc.body + "\n\nSaved by v0.1.1" };
   const delta = {
     libraries: { upsert: [], remove: [] },
     documents: { upsert: [changed], remove: [] },
@@ -282,6 +294,16 @@ if (phase === "seed") {
       "utf8",
     ),
   );
+  if (phase === "verify") {
+    await page
+      .getByRole("button", { name: strings.featureInDevelopment, exact: true })
+      .click();
+    await expect(page.locator(".toast span")).toHaveText(
+      strings.featureInDevelopmentHint,
+    );
+    await expect(page.locator(".page-content")).toBeVisible();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+  }
   await page
     .locator(".document-card")
     .filter({ hasText: "Upgrade preservation" })
@@ -362,7 +384,7 @@ if (phase === "seed") {
     .click();
   if (
     !(await page.locator(".live-editor").innerText()).includes(
-      "Saved by v0.1.1-rc2",
+      "Saved by v0.1.1",
     )
   )
     throw new Error("Native editor reload failed");
@@ -527,9 +549,71 @@ if (phase === "seed") {
   await expect
     .poll(() => area.evaluate((el) => [el.selectionStart, el.selectionEnd]))
     .toEqual([3, 5]);
+  // Hold only the save-target IPC, then exercise the real native CloseRequested
+  // handler while export is busy. No real dialog, provider or user data is used.
+  const exportGuardBody =
+    written.body + "\n\nEXPORT EXIT SAFETY: latest unsaved paragraph";
+  await area.fill(exportGuardBody);
+  await page.evaluate(() => {
+    const original = window.fetch.bind(window);
+    window.__exportOriginalFetch = original;
+    window.fetch = (input, init) => {
+      const command = decodeURIComponent(
+        new URL(typeof input === "string" ? input : input.url).pathname.slice(
+          1,
+        ),
+      );
+      if (command === "pick_pdf_target")
+        return new Promise((resolve) => {
+          window.__releaseExportTarget = () =>
+            resolve(
+              new Response("null", {
+                headers: {
+                  "Content-Type": "application/json",
+                  "Tauri-Response": "ok",
+                },
+              }),
+            );
+        });
+      return original(input, init);
+    };
+  });
+  await page
+    .getByRole("button", { name: strings.exportPdf, exact: true })
+    .click();
+  await expect
+    .poll(() => page.evaluate(() => typeof window.__releaseExportTarget))
+    .toBe("function");
+  const exportCheckpoint = (await invoke("load_workspace")).data.documents.find(
+    (d) => d.id === doc.id,
+  );
+  if (exportCheckpoint?.body !== exportGuardBody)
+    throw new Error("Export started before latest note was durable");
+  await page
+    .locator(".window-actions")
+    .getByRole("button", { name: strings.close, exact: true })
+    .click();
+  await expect(page.locator(".toast span")).toHaveText(strings.working);
+  if (page.isClosed())
+    throw new Error("Export allowed the native window to close");
+  await page.evaluate(() => {
+    window.fetch = window.__exportOriginalFetch;
+    window.__releaseExportTarget();
+    delete window.__exportOriginalFetch;
+    delete window.__releaseExportTarget;
+  });
+  await expect(
+    page.getByRole("button", { name: strings.exportPdf, exact: true }),
+  ).toBeEnabled();
+  await page.reload();
+  await page
+    .locator(".card-main")
+    .filter({ hasText: "Upgrade preservation" })
+    .click();
+  await expect(area).toHaveValue(exportGuardBody);
   // Exercise the actual PDF renderer. Only the save-dialog selection is supplied by this CI fixture.
   await area.fill(
-    written.body +
+    exportGuardBody +
       "\n\n## PDF 中文分页\n\n- 列表一\n- 列表二\n\n| Key | Value |\n| --- | --- |\n| 中文 | 123 |\n\n" +
       Array.from(
         { length: 75 },
@@ -867,7 +951,7 @@ if (phase === "seed") {
     .click();
   await expect(
     page.getByRole("combobox", { name: strings.motionTitle, exact: true }),
-  ).toHaveValue("elegant");
+  ).toHaveValue(legacyStable ? "moderate" : "elegant");
   await page
     .getByRole("combobox", { name: strings.motionTitle, exact: true })
     .selectOption("rapid");
@@ -1002,9 +1086,11 @@ if (phase === "seed") {
     "native-validation.json",
     JSON.stringify(
       {
-        previous: "0.1.1-rc1",
-        current: "0.1.1-rc2",
+        previous: previousVersion,
+        current: "0.1.1",
         uiVersionMatchesInstaller: true,
+        featurePreviewDoesNotNavigate: true,
+        exportCloseBlockedAndNotePreserved: true,
         installerUpgrade: true,
         signedGithubUpdater: process.env.USE_UPDATER === "true",
         sqlitePreserved: true,
@@ -1034,9 +1120,11 @@ if (phase === "seed") {
         aiSetupConsentDenied: true,
         aiSetupConsentAccepted: true,
         aiAuthorizationRevoked: true,
-        aiLegacyKeyPreserved: process.env.EXPECT_LEGACY_AI_KEY === "true",
-        aiExistingAuthorizationPreserved: true,
-        aiCrossVersionChatPreserved: true,
+        aiLegacyKeyPreserved: legacyStable
+          ? null
+          : process.env.EXPECT_LEGACY_AI_KEY === "true",
+        aiExistingAuthorizationPreserved: legacyStable ? null : true,
+        aiCrossVersionChatPreserved: legacyStable ? null : true,
         motionPreferencePreserved: true,
         aiChatHistoryPreserved: true,
         realProviderInference: false,

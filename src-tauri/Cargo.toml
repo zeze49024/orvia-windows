@@ -1,6 +1,6 @@
 [package]
 name = "orvia"
-version = "0.1.1-rc2"
+version = "0.1.1"
 description = "Orvia local personal knowledge library"
 authors = ["zeze49024"]
 edition = "2021"
