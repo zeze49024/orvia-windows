@@ -70,7 +70,7 @@ if (phase === "seed") {
     id: "af485e10-f680-4ff6-8b40-af799171e221",
     libraryId: data.libraries[0].id,
     title: "Upgrade preservation",
-    body: "# Native upgrade fixture\n\n中文内容 retained from beta7",
+    body: "# Native upgrade fixture\n\n中文内容 retained from rc1",
     tags: ["upgrade"],
     starred: true,
     createdAt: now,
@@ -90,7 +90,7 @@ if (phase === "seed") {
         {
           id: crypto.randomUUID(),
           role: "user",
-          content: "Synthetic conversation retained from beta7",
+          content: "Synthetic conversation retained from rc1",
           createdAt: now,
           scope: "none",
         },
@@ -139,7 +139,7 @@ if (phase === "seed") {
     .click();
   await page
     .getByRole("dialog")
-    .getByText(/→ v0\.1\.1-rc1$/)
+    .getByText(/→ v0\.1\.1-rc2$/)
     .waitFor({ timeout: 60000 });
   const closed = page.waitForEvent("close", { timeout: 120000 });
   await page
@@ -236,14 +236,14 @@ if (phase === "seed") {
   evidence.crashRecovery = true;
   await writeFile("native-validation.json", JSON.stringify(evidence, null, 2));
 } else {
-  await expect(page).toHaveTitle("Orvia v0.1.1-rc1");
-  await expect(page.locator(".sidebar-foot")).toContainText("v0.1.1-rc1");
+  await expect(page).toHaveTitle("Orvia v0.1.1-rc2");
+  await expect(page.locator(".sidebar-foot")).toContainText("v0.1.1-rc2");
   const loaded = await invoke("load_workspace");
   const doc = loaded.data.documents.find(
     (d) => d.title === "Upgrade preservation",
   );
   if (
-    !doc?.body.includes("中文内容 retained from beta7") ||
+    !doc?.body.includes("中文内容 retained from rc1") ||
     !doc.starred ||
     doc.tags[0] !== "upgrade"
   )
@@ -252,11 +252,11 @@ if (phase === "seed") {
     !loaded.data.settings.aiConversations.some(
       (c) =>
         c.title === "Upgrade AI conversation" &&
-        c.messages[0]?.content === "Synthetic conversation retained from beta7",
+        c.messages[0]?.content === "Synthetic conversation retained from rc1",
     )
   )
     throw new Error("Upgrade lost AI history");
-  const changed = { ...doc, body: doc.body + "\n\nSaved by v0.1.1-rc1" };
+  const changed = { ...doc, body: doc.body + "\n\nSaved by v0.1.1-rc2" };
   const delta = {
     libraries: { upsert: [], remove: [] },
     documents: { upsert: [changed], remove: [] },
@@ -362,7 +362,7 @@ if (phase === "seed") {
     .click();
   if (
     !(await page.locator(".live-editor").innerText()).includes(
-      "Saved by v0.1.1-rc1",
+      "Saved by v0.1.1-rc2",
     )
   )
     throw new Error("Native editor reload failed");
@@ -1002,8 +1002,8 @@ if (phase === "seed") {
     "native-validation.json",
     JSON.stringify(
       {
-        previous: "0.1.1-beta7",
-        current: "0.1.1-rc1",
+        previous: "0.1.1-rc1",
+        current: "0.1.1-rc2",
         uiVersionMatchesInstaller: true,
         installerUpgrade: true,
         signedGithubUpdater: process.env.USE_UPDATER === "true",

@@ -1,6 +1,6 @@
 {
   "name": "orvia-windows",
-  "version": "0.1.1-rc1",
+  "version": "0.1.1-rc2",
   "private": true,
   "type": "module",
   "scripts": {

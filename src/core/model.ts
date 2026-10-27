@@ -6,7 +6,7 @@ import { localeCodes } from "../i18n/registry";
 import appPackage from "../../package.json";
 export const APP_VERSION = appPackage.version;
 export const RELEASE_NOTE =
-  "优化设置各页面布局，统一分组、间距与表单样式，提升界面紧凑度和可读性";
+  "优化编辑工具栏磨砂玻璃悬浮效果，调整搜索框圆角、边框与背景对比";
 export const colors = ["blue", "orange", "green", "purple", "rose"] as const;
 export const librarySchema = z.object({
   id: z.string().uuid(),
