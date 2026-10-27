@@ -12,7 +12,7 @@ if (
   throw new Error("Disposable CI environment required");
 let browser;
 let connectionError;
-for (let attempt = 0; attempt < 40; attempt++) {
+for (let attempt = 0; attempt < 120; attempt++) {
   try {
     browser = await chromium.connectOverCDP("http://127.0.0.1:9226");
     break;
@@ -70,7 +70,7 @@ if (phase === "seed") {
     id: "af485e10-f680-4ff6-8b40-af799171e221",
     libraryId: data.libraries[0].id,
     title: "Upgrade preservation",
-    body: "# Native upgrade fixture\n\n中文内容 retained from beta6",
+    body: "# Native upgrade fixture\n\n中文内容 retained from beta7",
     tags: ["upgrade"],
     starred: true,
     createdAt: now,
@@ -90,7 +90,7 @@ if (phase === "seed") {
         {
           id: crypto.randomUUID(),
           role: "user",
-          content: "Synthetic conversation retained from beta6",
+          content: "Synthetic conversation retained from beta7",
           createdAt: now,
           scope: "none",
         },
@@ -139,7 +139,7 @@ if (phase === "seed") {
     .click();
   await page
     .getByRole("dialog")
-    .getByText("v0.1.1-beta6 → v0.1.1-beta7", { exact: true })
+    .getByText(/→ v0\.1\.1-rc1$/)
     .waitFor({ timeout: 60000 });
   const closed = page.waitForEvent("close", { timeout: 120000 });
   await page
@@ -241,7 +241,7 @@ if (phase === "seed") {
     (d) => d.title === "Upgrade preservation",
   );
   if (
-    !doc?.body.includes("中文内容 retained from beta6") ||
+    !doc?.body.includes("中文内容 retained from beta7") ||
     !doc.starred ||
     doc.tags[0] !== "upgrade"
   )
@@ -250,11 +250,11 @@ if (phase === "seed") {
     !loaded.data.settings.aiConversations.some(
       (c) =>
         c.title === "Upgrade AI conversation" &&
-        c.messages[0]?.content === "Synthetic conversation retained from beta6",
+        c.messages[0]?.content === "Synthetic conversation retained from beta7",
     )
   )
     throw new Error("Upgrade lost AI history");
-  const changed = { ...doc, body: doc.body + "\n\nSaved by v0.1.1-beta7" };
+  const changed = { ...doc, body: doc.body + "\n\nSaved by v0.1.1-rc1" };
   const delta = {
     libraries: { upsert: [], remove: [] },
     documents: { upsert: [changed], remove: [] },
@@ -360,7 +360,7 @@ if (phase === "seed") {
     .click();
   if (
     !(await page.locator(".live-editor").innerText()).includes(
-      "Saved by v0.1.1-beta7",
+      "Saved by v0.1.1-rc1",
     )
   )
     throw new Error("Native editor reload failed");
@@ -1000,8 +1000,8 @@ if (phase === "seed") {
     "native-validation.json",
     JSON.stringify(
       {
-        previous: "0.1.1-beta6",
-        current: "0.1.1-beta7",
+        previous: "0.1.1-beta7",
+        current: "0.1.1-rc1",
         installerUpgrade: true,
         signedGithubUpdater: process.env.USE_UPDATER === "true",
         sqlitePreserved: true,

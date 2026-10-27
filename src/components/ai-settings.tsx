@@ -1,3 +1,4 @@
+import { SettingsGroup } from "./settings-group";
 import { useEffect, useState } from "react";
 import {
   aiAvailable,
@@ -61,242 +62,262 @@ export function AiSettings({
     );
   const patch = (next: Partial<AiConfig>) => setConfig({ ...config, ...next });
   return (
-    <div className="modal-stack">
-      <p>{t("aiPrivacy")}</p>
-      <label className="settings-row">
-        <b>{t("aiEnabled")}</b>
-        <Switch
-          checked={config.enabled}
-          disabled={busy}
-          aria-label={t("aiEnabled")}
-          onCheckedChange={(enabled) => patch({ enabled })}
-        />
-      </label>
-      <label>
-        {t("aiProvider")}
-        <select
-          aria-label={t("aiProvider")}
-          value={config.provider}
-          disabled={busy}
-          onChange={(e) => {
-            const provider = e.target.value as AiConfig["provider"];
-            patch({
-              provider,
-              model: provider === "deepseek" ? "deepseek-flash" : "",
-            });
-            setStatus(null);
-            setKey("");
-            setModels([]);
-          }}
-        >
-          <option value="deepseek">DeepSeek</option>
-          <option value="openai">OpenAI</option>
-        </select>
-      </label>
-      <p className="data-path">
-        {config.provider === "deepseek"
-          ? "https://api.deepseek.com"
-          : "https://api.openai.com"}
-      </p>
-      <label>
-        {t("aiModel")}
-        <Input
-          aria-label={t("aiModel")}
-          value={config.model}
-          list="ai-model-list"
-          maxLength={160}
-          disabled={busy}
-          onChange={(e) => patch({ model: e.target.value })}
-        />
-        <datalist id="ai-model-list">
-          {models.map((id) => (
-            <option key={id} value={id} />
-          ))}
-        </datalist>
-      </label>
-      <p>{t("aiModelHint")}</p>
-      <label>
-        {t("aiKey")}
-        <Input
-          aria-label={t("aiKey")}
-          type="password"
-          autoComplete="new-password"
-          spellCheck={false}
-          value={key}
-          maxLength={2048}
-          disabled={busy}
-          onChange={(e) => setKey(e.target.value)}
-        />
-      </label>
-      <p>{t("aiKeyHint")}</p>
-      {status?.hasKey && status.config.provider === config.provider && (
-        <p>{t("aiKeySaved")}</p>
-      )}
-      <div className="modal-actions">
-        <Button
-          variant="outline"
-          disabled={busy || key.length < 16}
-          onClick={() =>
-            void run(async () => {
-              await aiTransport.saveKey(config.provider, key, locale);
-              setStatus({ config, hasKey: true, authorized: true });
-              setMessage(t("aiKeySaved"));
-            })
-          }
-        >
-          {t("aiSaveKey")}
-        </Button>
-        <Button
-          variant="outline"
-          disabled={busy}
-          onClick={() =>
-            void run(async () => {
-              if (
-                await confirm({
-                  title: t("aiDeleteKey"),
-                  description: config.provider,
-                  danger: true,
-                })
-              ) {
-                await aiTransport.deleteKey(config.provider);
-                setStatus({ config, hasKey: false, authorized: false });
-                setMessage(t("aiDeleteKey"));
-              }
-            })
-          }
-        >
-          {t("aiDeleteKey")}
-        </Button>
-      </div>
-      <div className="ai-authorization-settings">
-        <p>{t("aiAuthorizationHint")}</p>
-        <p className="ai-grant-status" aria-live="polite">
-          {t(
-            status?.authorized && status.config.provider === config.provider
-              ? "aiAuthorized"
-              : "aiAuthorizationRequired",
-          )}
-        </p>
-        <div className="modal-actions">
+    <div className="settings-stack ai-settings-form">
+      <SettingsGroup title={t("aiSettings")}>
+        <p>{t("aiPrivacy")}</p>
+        <label className="settings-row">
+          <b>{t("aiEnabled")}</b>
+          <Switch
+            checked={config.enabled}
+            disabled={busy}
+            aria-label={t("aiEnabled")}
+            onCheckedChange={(enabled) => patch({ enabled })}
+          />
+        </label>
+        <div className="settings-field-grid">
+          <div className="settings-field">
+            <label>
+              {t("aiProvider")}
+              <select
+                aria-label={t("aiProvider")}
+                value={config.provider}
+                disabled={busy}
+                onChange={(e) => {
+                  const provider = e.target.value as AiConfig["provider"];
+                  patch({
+                    provider,
+                    model: provider === "deepseek" ? "deepseek-flash" : "",
+                  });
+                  setStatus(null);
+                  setKey("");
+                  setModels([]);
+                }}
+              >
+                <option value="deepseek">DeepSeek</option>
+                <option value="openai">OpenAI</option>
+              </select>
+            </label>
+            <p className="data-path">
+              {config.provider === "deepseek"
+                ? "https://api.deepseek.com"
+                : "https://api.openai.com"}
+            </p>
+          </div>
+          <div className="settings-field">
+            <label>
+              {t("aiModel")}
+              <Input
+                aria-label={t("aiModel")}
+                value={config.model}
+                list="ai-model-list"
+                maxLength={160}
+                disabled={busy}
+                onChange={(e) => patch({ model: e.target.value })}
+              />
+              <datalist id="ai-model-list">
+                {models.map((id) => (
+                  <option key={id} value={id} />
+                ))}
+              </datalist>
+            </label>
+            <p>{t("aiModelHint")}</p>
+          </div>
+        </div>
+        <div className="settings-inline-action">
           <Button
             variant="outline"
-            disabled={
-              busy ||
-              !status?.hasKey ||
-              status.config.provider !== config.provider ||
-              status.authorized
-            }
+            disabled={busy}
             onClick={() =>
               void run(async () => {
-                await aiTransport.authorize(config.provider, locale);
-                setStatus({ config, hasKey: true, authorized: true });
-                setMessage(t("aiAuthorized"));
+                const ids = await aiTransport.models(config.provider);
+                setModels(ids);
+                setMessage(`${ids.length} · ${t("aiConnect")}`);
               })
             }
           >
-            {t("aiAuthorize")}
+            {t("aiConnect")}
+          </Button>
+          <p>{t("aiConnectHint")}</p>
+        </div>
+      </SettingsGroup>
+      <SettingsGroup title={t("aiKey")}>
+        <label>
+          {t("aiKey")}
+          <Input
+            aria-label={t("aiKey")}
+            type="password"
+            autoComplete="new-password"
+            spellCheck={false}
+            value={key}
+            maxLength={2048}
+            disabled={busy}
+            onChange={(e) => setKey(e.target.value)}
+          />
+        </label>
+        <p>{t("aiKeyHint")}</p>
+        {status?.hasKey && status.config.provider === config.provider && (
+          <p>{t("aiKeySaved")}</p>
+        )}
+        <div className="modal-actions">
+          <Button
+            variant="outline"
+            disabled={busy || key.length < 16}
+            onClick={() =>
+              void run(async () => {
+                await aiTransport.saveKey(config.provider, key, locale);
+                setStatus({ config, hasKey: true, authorized: true });
+                setMessage(t("aiKeySaved"));
+              })
+            }
+          >
+            {t("aiSaveKey")}
           </Button>
           <Button
             variant="outline"
-            disabled={
-              busy ||
-              !status?.authorized ||
-              status.config.provider !== config.provider
-            }
+            disabled={busy}
             onClick={() =>
               void run(async () => {
                 if (
                   await confirm({
-                    title: t("aiRevokeAuthorization"),
-                    description: t("aiRevokeHint"),
+                    title: t("aiDeleteKey"),
+                    description: config.provider,
+                    danger: true,
                   })
                 ) {
-                  await aiTransport.revokeAuthorization(config.provider);
-                  setStatus({ config, hasKey: true, authorized: false });
-                  setMessage(t("aiAuthorizationRequired"));
+                  await aiTransport.deleteKey(config.provider);
+                  setStatus({ config, hasKey: false, authorized: false });
+                  setMessage(t("aiDeleteKey"));
                 }
               })
             }
           >
-            {t("aiRevokeAuthorization")}
+            {t("aiDeleteKey")}
           </Button>
         </div>
+        <div className="ai-authorization-settings">
+          <p>{t("aiAuthorizationHint")}</p>
+          <p className="ai-grant-status" aria-live="polite">
+            {t(
+              status?.authorized && status.config.provider === config.provider
+                ? "aiAuthorized"
+                : "aiAuthorizationRequired",
+            )}
+          </p>
+          <div className="modal-actions">
+            <Button
+              variant="outline"
+              disabled={
+                busy ||
+                !status?.hasKey ||
+                status.config.provider !== config.provider ||
+                status.authorized
+              }
+              onClick={() =>
+                void run(async () => {
+                  await aiTransport.authorize(config.provider, locale);
+                  setStatus({ config, hasKey: true, authorized: true });
+                  setMessage(t("aiAuthorized"));
+                })
+              }
+            >
+              {t("aiAuthorize")}
+            </Button>
+            <Button
+              variant="outline"
+              disabled={
+                busy ||
+                !status?.authorized ||
+                status.config.provider !== config.provider
+              }
+              onClick={() =>
+                void run(async () => {
+                  if (
+                    await confirm({
+                      title: t("aiRevokeAuthorization"),
+                      description: t("aiRevokeHint"),
+                    })
+                  ) {
+                    await aiTransport.revokeAuthorization(config.provider);
+                    setStatus({ config, hasKey: true, authorized: false });
+                    setMessage(t("aiAuthorizationRequired"));
+                  }
+                })
+              }
+            >
+              {t("aiRevokeAuthorization")}
+            </Button>
+          </div>
+        </div>
+      </SettingsGroup>
+      <SettingsGroup title={t("aiCallControls")} description={t("aiCost")}>
+        <div className="settings-field-grid settings-limits-grid">
+          <label>
+            {t("aiInputLimit")}
+            <select
+              aria-label={t("aiInputLimit")}
+              value={config.maxInputChars}
+              disabled={busy}
+              onChange={(e) => patch({ maxInputChars: Number(e.target.value) })}
+            >
+              {[16000, 32000, 64000].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            {t("aiOutputLimit")}
+            <select
+              aria-label={t("aiOutputLimit")}
+              value={config.maxOutputTokens}
+              disabled={busy}
+              onChange={(e) =>
+                patch({ maxOutputTokens: Number(e.target.value) })
+              }
+            >
+              {[1024, 2048, 4096, 8192].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            {t("aiRounds")}
+            <select
+              aria-label={t("aiRounds")}
+              value={config.maxRounds}
+              disabled={busy}
+              onChange={(e) => patch({ maxRounds: Number(e.target.value) })}
+            >
+              {[2, 3, 4].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </SettingsGroup>
+      <div className="settings-save-bar">
+        {" "}
+        <Button
+          disabled={busy || (config.enabled && !config.model.trim())}
+          onClick={() =>
+            void run(async () => {
+              await aiTransport.save(config);
+              await load();
+              setMessage(t("aiSaved"));
+            })
+          }
+        >
+          {t("aiSaveConfig")}
+        </Button>
+        <p role="status" aria-live="polite">
+          {message}
+        </p>
       </div>
-      <Button
-        variant="outline"
-        disabled={busy}
-        onClick={() =>
-          void run(async () => {
-            const ids = await aiTransport.models(config.provider);
-            setModels(ids);
-            setMessage(`${ids.length} · ${t("aiConnect")}`);
-          })
-        }
-      >
-        {t("aiConnect")}
-      </Button>
-      <p>{t("aiConnectHint")}</p>
-      <label>
-        {t("aiInputLimit")}
-        <select
-          aria-label={t("aiInputLimit")}
-          value={config.maxInputChars}
-          disabled={busy}
-          onChange={(e) => patch({ maxInputChars: Number(e.target.value) })}
-        >
-          {[16000, 32000, 64000].map((n) => (
-            <option key={n} value={n}>
-              {n}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        {t("aiOutputLimit")}
-        <select
-          aria-label={t("aiOutputLimit")}
-          value={config.maxOutputTokens}
-          disabled={busy}
-          onChange={(e) => patch({ maxOutputTokens: Number(e.target.value) })}
-        >
-          {[1024, 2048, 4096, 8192].map((n) => (
-            <option key={n} value={n}>
-              {n}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        {t("aiRounds")}
-        <select
-          aria-label={t("aiRounds")}
-          value={config.maxRounds}
-          disabled={busy}
-          onChange={(e) => patch({ maxRounds: Number(e.target.value) })}
-        >
-          {[2, 3, 4].map((n) => (
-            <option key={n} value={n}>
-              {n}
-            </option>
-          ))}
-        </select>
-      </label>
-      <p>{t("aiCost")}</p>
-      <Button
-        disabled={busy || (config.enabled && !config.model.trim())}
-        onClick={() =>
-          void run(async () => {
-            await aiTransport.save(config);
-            await load();
-            setMessage(t("aiSaved"));
-          })
-        }
-      >
-        {t("aiSaveConfig")}
-      </Button>
-      <p role="status" aria-live="polite">
-        {message}
-      </p>
     </div>
   );
 }

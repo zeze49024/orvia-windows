@@ -1,3 +1,4 @@
+import { SettingsGroup } from "./settings-group";
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { inventory, cleanup, type Inventory } from "@/core/storage-management";
@@ -27,14 +28,13 @@ export function StorageManagement({
   };
   const unused = preview?.assets.filter((a) => !a.referenced) ?? [];
   return (
-    <div className="modal-stack">
-      <h3>
-        {w(
-          "存储分析与安全清理",
-          "儲存分析與安全清理",
-          "Storage and safe cleanup",
-        )}
-      </h3>
+    <SettingsGroup
+      title={w(
+        "存储分析与安全清理",
+        "儲存分析與安全清理",
+        "Storage and safe cleanup",
+      )}
+    >
       <p>
         {w(
           "保留正文、回收站、历史版本及待恢复草稿引用的图片。不会删除备份、损坏草稿或数据库。",
@@ -133,6 +133,6 @@ export function StorageManagement({
         </>
       )}
       <p role="status">{status}</p>
-    </div>
+    </SettingsGroup>
   );
 }

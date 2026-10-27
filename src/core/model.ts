@@ -3,9 +3,10 @@ export { defaultShortcuts } from "./shortcuts";
 import { z } from "zod";
 import { conversationsSchema } from "./ai-history";
 import { localeCodes } from "../i18n/registry";
-export const APP_VERSION = "0.1.1-beta6";
+import appPackage from "../../package.json";
+export const APP_VERSION = appPackage.version;
 export const RELEASE_NOTE =
-  "优化编辑工具栏布局，新增三档全局动画，调整 AI 为配置密钥时一次授权、后续直接对话";
+  "优化设置各页面布局，统一分组、间距与表单样式，提升界面紧凑度和可读性";
 export const colors = ["blue", "orange", "green", "purple", "rose"] as const;
 export const librarySchema = z.object({
   id: z.string().uuid(),

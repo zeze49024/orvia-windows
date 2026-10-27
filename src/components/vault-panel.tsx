@@ -36,7 +36,7 @@ export function VaultPanel({
       }
     });
   return (
-    <div className={gate ? "vault-gate" : "modal-stack"}>
+    <div className={gate ? "vault-gate" : "settings-group vault-settings"}>
       <h2>{w("加密知识库", "加密知識庫", "Encrypted vault")}</h2>
       <p>
         {w(

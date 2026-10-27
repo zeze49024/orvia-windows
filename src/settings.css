@@ -1,0 +1,447 @@
+/* Settings-specific layout. Keep density independent from editor and dialogs. */
+.settings-page .settings-nav {
+  width: 224px;
+  padding: 18px 12px;
+  scrollbar-width: thin;
+}
+.settings-nav > [data-slot="button"] {
+  height: 32px;
+  font-size: 12px;
+  padding: 0 10px;
+}
+.settings-page .settings-nav h1 {
+  font-size: 20px;
+  margin: 18px 10px 14px;
+}
+.settings-page .settings-search {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  margin-bottom: 16px;
+  padding: 8px 10px;
+  background: var(--surface);
+}
+.settings-page .settings-search input {
+  font-size: 12px;
+}
+.settings-page .settings-nav nav {
+  gap: 3px;
+}
+.settings-page .settings-nav nav button {
+  min-height: 38px;
+  padding: 8px 10px;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  border-radius: 8px;
+}
+.settings-nav nav button svg {
+  flex-shrink: 0;
+  stroke-width: 1.9;
+}
+.settings-page .settings-nav nav button[aria-current="page"] {
+  box-shadow: inset 2px 0 var(--blue);
+  background: var(--surface-hover);
+}
+.settings-page .settings-content {
+  padding: 28px clamp(20px, 4vw, 64px) 40px;
+  scrollbar-width: thin;
+}
+.settings-content > section {
+  max-width: 900px;
+  margin: 0 auto 26px;
+}
+.settings-page-heading {
+  margin-bottom: 18px;
+}
+.settings-content .settings-page-heading h2 {
+  font-size: 22px;
+  line-height: 1.4;
+  font-weight: 650;
+  margin: 0 0 5px;
+  letter-spacing: -0.3px;
+}
+.settings-page-heading p {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+  margin: 0;
+}
+.settings-page .settings-card {
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  overflow: visible;
+  display: grid;
+  gap: 16px;
+}
+.settings-stack {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.settings-group {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  min-width: 0;
+  background: var(--surface);
+}
+.settings-group-heading {
+  padding: 13px 18px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-alt);
+  border-radius: 12px 12px 0 0;
+}
+.settings-group-heading h3 {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  margin: 0;
+  color: var(--text);
+}
+.settings-group-heading p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--text-secondary);
+}
+.settings-group-body {
+  display: grid;
+  gap: 12px;
+  padding: 16px 18px;
+  min-width: 0;
+}
+.settings-group-body > [data-slot="button"] {
+  justify-self: start;
+  max-width: 100%;
+}
+.settings-group-body > label:has([data-slot="switch"]) {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.settings-group-body > select {
+  max-width: 400px;
+  width: 100%;
+}
+.settings-group-body > p,
+.settings-field > p,
+.settings-inline-action > p {
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.settings-page .settings-card .settings-row {
+  padding: 10px 0;
+  min-height: 52px;
+  gap: 20px;
+  flex-wrap: nowrap;
+  font-size: 13px;
+  margin: 0;
+}
+.settings-page .settings-card .settings-row:first-child {
+  padding-top: 0;
+}
+.settings-page .settings-card .settings-row:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+.settings-page .settings-row > div:first-child {
+  flex: 1;
+}
+.settings-page .settings-row b {
+  font-weight: 550;
+  line-height: 1.5;
+}
+.settings-page .settings-card .settings-row p {
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+.settings-page .settings-row > b {
+  min-width: 0;
+  flex: 1;
+}
+.settings-page .settings-card select,
+.settings-page .settings-card input[type="number"] {
+  height: 34px;
+  min-width: 110px;
+  max-width: 100%;
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+}
+.settings-page .settings-row > select,
+.settings-page .settings-row > input {
+  width: 200px;
+  flex: 0 0 auto;
+}
+.settings-page .settings-card [data-slot="button"] {
+  min-height: 32px;
+  height: auto;
+  padding: 6px 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.settings-page .settings-card [data-slot="input"] {
+  height: 34px;
+  font-size: 13px;
+  border-color: var(--line);
+  background: var(--surface);
+  box-shadow: none;
+}
+.settings-group-body > label:not(.settings-row),
+.settings-field > label {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  min-width: 0;
+}
+.settings-group-body > label:has(input[type="checkbox"]) {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  line-height: 1.7;
+  font-weight: 400;
+}
+.settings-group-body input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  margin-top: 2px;
+  accent-color: var(--blue);
+  flex-shrink: 0;
+}
+.settings-page .modal-actions {
+  justify-content: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0;
+}
+.settings-page .settings-card [role="status"],
+.settings-page .settings-card [role="alert"] {
+  padding: 8px 10px;
+  margin: 0;
+  border-radius: 7px;
+  font-size: 12px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+.settings-page .settings-card [role="status"]:empty,
+.settings-page .settings-card [role="alert"]:empty {
+  display: none;
+}
+.settings-page .settings-card [role="status"]:not(:empty) {
+  background: var(--surface-alt);
+  color: var(--text-secondary);
+}
+.settings-page .data-path {
+  max-width: none;
+  font-size: 11px;
+  line-height: 1.7;
+  font-family: Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+.settings-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.settings-field {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+}
+.settings-field select,
+.settings-field-grid > label > select {
+  width: 100%;
+}
+.settings-limits-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.settings-limits-grid > label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  min-width: 0;
+}
+.settings-inline-action {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.settings-inline-action > p {
+  flex: 1;
+  min-width: 200px;
+}
+.settings-page .ai-authorization-settings {
+  padding: 12px;
+  background: var(--surface-alt);
+  border-radius: 8px;
+  border: 1px solid var(--line);
+}
+.settings-page .ai-authorization-settings p {
+  font-size: 12px;
+  margin: 0 0 8px;
+}
+.settings-page .ai-grant-status {
+  font-weight: 550;
+}
+.settings-save-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 0 0 4px;
+}
+.settings-save-bar > [role="status"] {
+  flex: 1;
+}
+.settings-page .motion-settings-preview {
+  padding: 0;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+}
+.settings-page .motion-settings-preview small {
+  font-size: 11px;
+}
+.settings-page .about-mark {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+}
+.settings-page .vault-settings {
+  display: grid;
+  gap: 12px;
+  padding: 16px 18px;
+}
+.settings-content .vault-settings > h2 {
+  font-size: 14px;
+  margin: 0;
+  font-weight: 600;
+}
+.settings-page .vault-settings > p {
+  font-size: 12px;
+  line-height: 1.7;
+  margin: 0;
+  color: var(--text-secondary);
+}
+.vault-settings > label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+}
+.vault-settings > label:has(input[type="checkbox"]) {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.vault-settings > label > input[type="password"] {
+  max-width: 400px;
+}
+.settings-page .productivity-settings textarea {
+  min-height: 140px;
+  max-height: 360px;
+  font-size: 12px;
+  line-height: 1.7;
+  padding: 10px;
+  border-color: var(--line);
+}
+.settings-page .productivity-settings .settings-row {
+  min-height: 42px;
+  padding: 5px 0;
+}
+.settings-page :is(button, input, select, textarea):focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+@media (max-width: 1050px) {
+  .settings-page .settings-nav {
+    width: 210px;
+  }
+  .settings-page .settings-content {
+    padding: 24px;
+  }
+  .settings-page .settings-row {
+    gap: 12px;
+  }
+  .settings-page .settings-row > select,
+  .settings-page .settings-row > input {
+    width: 160px;
+  }
+}
+@media (max-width: 760px) {
+  .settings-page .settings-nav {
+    width: 185px;
+    padding: 14px 9px;
+  }
+  .settings-page .settings-nav nav button {
+    font-size: 12px;
+    gap: 8px;
+    padding: 8px;
+  }
+  .settings-page .settings-content {
+    padding: 20px 16px;
+  }
+  .settings-group-body,
+  .settings-page .vault-settings {
+    padding: 14px;
+  }
+  .settings-group-heading {
+    padding: 12px 14px;
+  }
+  .settings-field-grid,
+  .settings-limits-grid {
+    grid-template-columns: 1fr;
+  }
+  .settings-page .settings-card .settings-row {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .settings-page .settings-row > div:first-child {
+    min-width: min(200px, 100%);
+  }
+  .settings-page .settings-row > select,
+  .settings-page .settings-row > input {
+    width: 140px;
+  }
+  .settings-page .settings-row > [data-slot="switch"] {
+    margin-left: auto;
+  }
+}
+.settings-page .settings-group-body > label:has([data-slot="switch"]) {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.settings-page .settings-field-grid > label {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  font-size: 12px;
+  font-weight: 500;
+  min-width: 0;
+}
+.settings-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 24px;
+}
+.settings-checks label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}

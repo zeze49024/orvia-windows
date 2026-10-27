@@ -399,5 +399,6 @@
   "aiBrainstorm": "Explore writing ideas",
   "aiBrainstormPrompt": "Ask me about my topic, audience and purpose, then help me explore writing ideas.",
   "aiOutline": "Plan an outline",
-  "aiOutlinePrompt": "Ask me what I want to write about, then help me plan a clear outline."
+  "aiOutlinePrompt": "Ask me what I want to write about, then help me plan a clear outline.",
+  "aiCallControls": "Request limits"
 }

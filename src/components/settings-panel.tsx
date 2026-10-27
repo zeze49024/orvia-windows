@@ -1,3 +1,4 @@
+import { SettingsGroup } from "./settings-group";
 import { AiSettings } from "./ai-settings";
 import { useViewMotion } from "@/hooks/use-view-motion";
 import type { MotionPreference } from "@/core/motion";
@@ -20,6 +21,9 @@ import {
   Files,
   HardDrive,
   Info,
+  Sparkles,
+  ShieldCheck,
+  Keyboard,
 } from "lucide-react";
 import {
   APP_VERSION,
@@ -79,7 +83,7 @@ export function SettingsPanel({
     {
       id: "ai",
       label: t("aiSettings"),
-      icon: Settings,
+      icon: Sparkles,
       content: <AiSettings locale={locale} confirm={confirm} />,
     },
     {
@@ -89,13 +93,13 @@ export function SettingsPanel({
         "安全與加密知識庫",
         "Security and encrypted vault",
       ),
-      icon: HardDrive,
+      icon: ShieldCheck,
       content: <VaultPanel busy={busy} run={run} confirm={confirm} />,
     },
     {
       id: "productivity",
       label: w("模板与快捷键", "範本與快速鍵", "Templates and shortcuts"),
-      icon: Files,
+      icon: Keyboard,
       content: <ProductivitySettings busy={busy} confirm={confirm} />,
     },
     {
@@ -240,32 +244,34 @@ export function SettingsPanel({
       icon: HardDrive,
       content: (
         <>
-          <div className="settings-row">
-            <div>
-              <b>{t("dataPath")}</b>
-              <p className="data-path">{store.path}</p>
+          <SettingsGroup title={w("本地数据", "本機資料", "Local data")}>
+            <div className="settings-row">
+              <div>
+                <b>{t("dataPath")}</b>
+                <p className="data-path">{store.path}</p>
+              </div>
+              <Badge variant="secondary">{sizeLabel}</Badge>
             </div>
-            <Badge variant="secondary">{sizeLabel}</Badge>
-          </div>
-          <div className="settings-row">
-            <div>
-              <b>{t("backupExport")}</b>
-              <p>{t("backupHint")}</p>
+            <div className="settings-row">
+              <div>
+                <b>{t("backupExport")}</b>
+                <p>{t("backupHint")}</p>
+              </div>
+              <Button variant="outline" disabled={busy} onClick={exportBackup}>
+                <ArrowDownToLine size={14} />
+                {t("backupExport")}
+              </Button>
             </div>
-            <Button variant="outline" disabled={busy} onClick={exportBackup}>
-              <ArrowDownToLine size={14} />
-              {t("backupExport")}
-            </Button>
-          </div>
-          <div className="settings-row">
-            <div>
-              <b>{t("restoreBackup")}</b>
-              <p>{t("restoreHint")}</p>
+            <div className="settings-row">
+              <div>
+                <b>{t("restoreBackup")}</b>
+                <p>{t("restoreHint")}</p>
+              </div>
+              <Button variant="outline" disabled={busy} onClick={restoreSelect}>
+                {t("restoreBackup")}
+              </Button>
             </div>
-            <Button variant="outline" disabled={busy} onClick={restoreSelect}>
-              {t("restoreBackup")}
-            </Button>
-          </div>
+          </SettingsGroup>
           <BackupSettings busy={busy} run={run} />
           <StorageManagement busy={busy} run={run} confirm={confirm} />
         </>
@@ -381,6 +387,72 @@ export function SettingsPanel({
       ),
     },
   ];
+  const order = [
+    "general",
+    "appearance",
+    "ai",
+    "productivity",
+    "security",
+    "importExport",
+    "storage",
+    "version",
+    "about",
+  ];
+  categories.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+  const descriptions: Record<string, string> = {
+    general: w(
+      "调整应用语言与工作空间偏好。",
+      "調整應用語言與工作空間偏好。",
+      "Language and workspace preferences.",
+    ),
+    appearance: w(
+      "选择主题与动画节奏，打造舒适的写作环境。",
+      "選擇主題與動畫節奏，打造舒適的寫作環境。",
+      "Choose a theme and motion speed for your workspace.",
+    ),
+    ai: w(
+      "配置服务商、密钥与调用限制。",
+      "設定服務商、金鑰與呼叫限制。",
+      "Configure your provider, credentials and request limits.",
+    ),
+    productivity: w(
+      "管理常用笔记模板与键盘操作。",
+      "管理常用筆記範本與鍵盤操作。",
+      "Manage note templates and keyboard shortcuts.",
+    ),
+    security: w(
+      "管理独立加密空间、密码与锁定。",
+      "管理獨立加密空間、密碼與鎖定。",
+      "Manage your encrypted space, password and locking.",
+    ),
+    importExport: w(
+      "导入已有资料，或导出笔记供其他工具使用。",
+      "匯入現有資料，或匯出筆記供其他工具使用。",
+      "Bring in existing content or export your notes.",
+    ),
+    storage: w(
+      "查看本地数据、设置备份并安全整理资源。",
+      "檢視本機資料、設定備份並安全整理資源。",
+      "Review local data, configure backups and manage assets.",
+    ),
+    version: w(
+      "查看当前版本，管理更新通道与检测方式。",
+      "檢視目前版本，管理更新通道與檢查方式。",
+      "Review your version, update channel and update preferences.",
+    ),
+    about: w(
+      "认识 Orvia 与本地优先的设计理念。",
+      "認識 Orvia 與本機優先的設計理念。",
+      "About Orvia and its local-first approach.",
+    ),
+  };
+  const groupTitles: Record<string, string> = {
+    general: w("工作空间偏好", "工作空間偏好", "Workspace preferences"),
+    appearance: w("界面与动效", "介面與動效", "Interface and motion"),
+    importExport: w("文档传输", "文件傳輸", "Document transfer"),
+    version: w("软件更新", "軟體更新", "Software updates"),
+    about: w("应用信息", "應用資訊", "Application information"),
+  };
   const keyword = query.trim().toLocaleLowerCase();
   const textOf = (node: unknown): string => {
     if (typeof node === "string" || typeof node === "number")
@@ -433,8 +505,19 @@ export function SettingsPanel({
       <div className="settings-content">
         {shown.map((c) => (
           <section key={c.id}>
-            <h2>{c.label}</h2>
-            <div className="settings-card">{c.content}</div>
+            <header className="settings-page-heading">
+              <h2>{c.label}</h2>
+              <p>{descriptions[c.id]}</p>
+            </header>
+            <div className="settings-card">
+              {groupTitles[c.id] ? (
+                <SettingsGroup title={groupTitles[c.id]}>
+                  {c.content}
+                </SettingsGroup>
+              ) : (
+                c.content
+              )}
+            </div>
           </section>
         ))}
         {!shown.length && <p>{t("noSettings")}</p>}

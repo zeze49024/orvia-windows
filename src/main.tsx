@@ -12,6 +12,7 @@ import "./writing-tools.css";
 import "./pdf-export.css";
 import "./recovery.css";
 import "./motion.css";
+import "./settings.css";
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./app";

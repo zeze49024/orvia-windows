@@ -399,5 +399,6 @@
   "aiBrainstorm": "整理寫作思路",
   "aiBrainstormPrompt": "請先詢問我的寫作主題、目標讀者和用途，再幫我整理寫作思路。",
   "aiOutline": "擬定內容提綱",
-  "aiOutlinePrompt": "請先詢問我想寫的主題，再幫我擬定一份清晰的內容提綱。"
+  "aiOutlinePrompt": "請先詢問我想寫的主題，再幫我擬定一份清晰的內容提綱。",
+  "aiCallControls": "呼叫控制"
 }
