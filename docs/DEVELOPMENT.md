@@ -1,6 +1,6 @@
 # 开发与发布
 
-版本：v0.1.1-beta7。已确认日志见 [本版日志](RELEASE-v0.1.1-beta7.md)；验证见 [本版验收](V0.1.1-BETA7-VALIDATION.md)。
+版本：v0.1.1-rc1。已确认日志见 [本版日志](RELEASE-v0.1.1-rc1.md)；验证见 [本版验收](V0.1.1-RC1-VALIDATION.md)。
 
 ## 启动
 
@@ -89,7 +89,7 @@ Tauri updater 校验 Ed25519 签名后才运行安装包。更新签名不等同
 
 ## 当前质量与验收
 
-`npm run test:e2e` 运行 43 项端到端回归；首次运行需 `npx playwright install chromium`。安装升级验证由 `.github/workflows/installer-smoke.yml` 在一次性 Windows runner 中执行，执行 v0.1.1-beta6 安装与 beta7 覆盖升级，并通过真实 WebView2 → IPC → SQLite 验证数据保留。不得将此脚本用于用户的日常安装。
+`npm run test:e2e` 运行 46 项端到端回归；首次运行需 `npx playwright install chromium`。安装升级验证由 `.github/workflows/installer-smoke.yml` 在一次性 Windows runner 中执行，执行 v0.1.1-beta7 安装与 rc1 覆盖升级，并通过真实 WebView2 → IPC → SQLite 验证数据保留。不得将此脚本用于用户的日常安装。
 
 用于隔离调试时，编译后的程序支持 `--validation-root <绝对目录>`，目录必须预先含 `.orvia-validation` 文件；同时将进程环境 `WEBVIEW2_USER_DATA_FOLDER` 指向该目录下的独立 WebView2 文件夹。该模式使用独立数据库且不加入日常实例锁，普通启动行为不变。测试需要调试端口时仅在该测试进程设置 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9226`；正式启动不配置调试端口。
 
@@ -112,3 +112,6 @@ Tauri updater 校验 Ed25519 签名后才运行安装包。更新签名不等同
 ## RC3 右键单篇移动
 
 右键菜单“移动到”复用知识库选择和 rc2 二次确认，但维护独立单篇目标 ID，避免误用多选集合。取消保持笔记不变；确认仅修改目标笔记的知识库，正文、标签、收藏和置顶保留。批量胶囊按钮改为“导出”，格式选择及独立 Markdown / ZIP 内容不变。详见 [RC3 验证记录](RC3-VALIDATION.md)。
+
+
+设置页面使用 `src/components/settings-group.tsx` 统一分组，样式集中在 `src/settings.css`，控制在设置区域内。常规行、两列表单、调用参数、操作区及状态提示复用相同间距与尺寸；窄窗口按可用宽度堆叠。`APP_VERSION` 统一读取 package.json，安装验收检查 WebView2 标题与侧栏版本。
