@@ -236,6 +236,8 @@ if (phase === "seed") {
   evidence.crashRecovery = true;
   await writeFile("native-validation.json", JSON.stringify(evidence, null, 2));
 } else {
+  await expect(page).toHaveTitle("Orvia v0.1.1-rc1");
+  await expect(page.locator(".sidebar-foot")).toContainText("v0.1.1-rc1");
   const loaded = await invoke("load_workspace");
   const doc = loaded.data.documents.find(
     (d) => d.title === "Upgrade preservation",
@@ -1002,6 +1004,7 @@ if (phase === "seed") {
       {
         previous: "0.1.1-beta7",
         current: "0.1.1-rc1",
+        uiVersionMatchesInstaller: true,
         installerUpgrade: true,
         signedGithubUpdater: process.env.USE_UPDATER === "true",
         sqlitePreserved: true,
