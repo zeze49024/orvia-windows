@@ -89,7 +89,7 @@ Tauri updater 校验 Ed25519 签名后才运行安装包。更新签名不等同
 
 ## 当前质量与验收
 
-`npm run test:e2e` 运行 49 项端到端回归；首次运行需 `npx playwright install chromium`。安装升级验证由 `.github/workflows/installer-smoke.yml` 在一次性 Windows runner 中执行，执行 v0.1.1-rc2 安装与 v0.1.1 覆盖升级，并通过真实 WebView2 → IPC → SQLite 验证数据保留。不得将此脚本用于用户的日常安装。
+`npm run test:e2e` 运行 51 项端到端回归；首次运行需 `npx playwright install chromium`。安装升级验证由 `.github/workflows/installer-smoke.yml` 在一次性 Windows runner 中执行，执行 v0.1.1 安装与 v0.1.2-beta1 覆盖升级，并通过真实 WebView2 → IPC → SQLite 验证数据保留。不得将此脚本用于用户的日常安装。
 
 用于隔离调试时，编译后的程序支持 `--validation-root <绝对目录>`，目录必须预先含 `.orvia-validation` 文件；同时将进程环境 `WEBVIEW2_USER_DATA_FOLDER` 指向该目录下的独立 WebView2 文件夹。该模式使用独立数据库且不加入日常实例锁，普通启动行为不变。测试需要调试端口时仅在该测试进程设置 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9226`；正式启动不配置调试端口。
 
@@ -120,3 +120,8 @@ Tauri updater 校验 Ed25519 签名后才运行安装包。更新签名不等同
 
 
 当前发布为 v0.1.1 正式版，新增入口与导出保存边界说明及本轮验证范围见 [正式版验收](V0.1.1-VALIDATION.md)。用户要求直接发布，额外的公开包跨版本验收取消；已通过源码构建的原生 rc2 升级验收。
+
+
+## 笔记星图（v0.1.2-beta1）
+
+入口与页面协调位于 src/components/note-star-map.tsx，关系解析和确定性布局位于 src/core/note-graph.ts。Markdown 解析在独立本地 worker 中完成；Vite 为命名实体解析器选择不依赖 DOM 的纯查表入口。画布采用 SVG，不加载远程绘图库；坐标仅保留在当前组件，切换空间时重新挂载，退出时终止 worker。交互与显示限制见 [使用说明](NOTE-STAR-MAP.md)，发布验证见 [beta1 验收](V0.1.2-BETA1-VALIDATION.md)。
