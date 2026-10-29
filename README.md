@@ -40,6 +40,24 @@ v0.1.1 预览版另提供独立加密知识库、自动备份、存储管理、�
 | 主题与语言 | 内置浅色、深色主题，提供简体中文、繁体中文和英文，并预留主题与语言资源扩展方式。 |
 | 应用更新 | 默认在启动后 10 秒及运行期间每 6 小时检查更新；发现新版本后显示带下载图标的蓝色徽章，点击后保存、下载、校验并安装。 |
 
+## v0.1.2-beta1 预览版
+
+[下载预览版](https://github.com/zeze49024/orvia-windows/releases/tag/v0.1.2-beta1) · [更新日志](docs/RELEASE-v0.1.2-beta1.md) · [星图使用说明](docs/NOTE-STAR-MAP.md)
+
+- 左侧预留入口升级为“笔记星图”，从当前本地空间展示笔记与知识库关系。
+- 支持力导向、环形、径向与网格布局，分类/知识库/标题标签筛选、拖拽缩放、详情及双击打开。
+- 虚线表示归属，实线来自明确的笔记链接；后台线程本地计算，布局不会修改笔记。
+
+以下为合成演示数据的浏览器界面预览，非用户私人笔记：
+
+![笔记星图浅色主题预览](docs/images/screenshots/v0.1.2-beta1-star-map-light.png)
+
+<details><summary>深色主题预览</summary>
+
+![笔记星图深色主题预览](docs/images/screenshots/v0.1.2-beta1-star-map-dark.png)
+
+</details>
+
 ## v0.1.1 正式版
 
 [下载正式版](https://github.com/zeze49024/orvia-windows/releases/tag/v0.1.1) · [更新日志](docs/RELEASE-v0.1.1.md)

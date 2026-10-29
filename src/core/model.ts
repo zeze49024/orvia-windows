@@ -6,7 +6,7 @@ import { localeCodes } from "../i18n/registry";
 import appPackage from "../../package.json";
 export const APP_VERSION = appPackage.version;
 export const RELEASE_NOTE =
-  "1、新增 “AI写作帮手”功能，目前仅支持用户自己导入API Key使用；2、优化 写作时的操作体验；3、新增 PDF导出格式；4、修复 在导出时退出应用导致文档消失的问题；5、优化 部分写作时的UI/UX体验";
+  "新增笔记星图，支持笔记与知识库关系可视化、多种布局及交互浏览";
 export const colors = ["blue", "orange", "green", "purple", "rose"] as const;
 export const librarySchema = z.object({
   id: z.string().uuid(),

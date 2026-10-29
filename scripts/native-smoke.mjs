@@ -5,7 +5,7 @@ import { chromium, expect } from "@playwright/test";
 import path from "node:path";
 import { readFile, writeFile, mkdir, readdir } from "node:fs/promises";
 const phase = process.argv[2];
-const previousVersion = (process.env.PREVIOUS_TAG || "v0.1.1-rc2").replace(
+const previousVersion = (process.env.PREVIOUS_TAG || "v0.1.1").replace(
   /^v/,
   "",
 );
@@ -150,7 +150,7 @@ if (phase === "seed") {
     .click();
   await page
     .getByRole("dialog")
-    .getByText(/→ v0\.1\.1$/)
+    .getByText(/→ v0\.1\.2-beta1$/)
     .waitFor({ timeout: 60000 });
   const closed = page.waitForEvent("close", { timeout: 120000 });
   await page
@@ -247,8 +247,8 @@ if (phase === "seed") {
   evidence.crashRecovery = true;
   await writeFile("native-validation.json", JSON.stringify(evidence, null, 2));
 } else {
-  await expect(page).toHaveTitle("Orvia v0.1.1");
-  await expect(page.locator(".sidebar-foot")).toContainText("v0.1.1");
+  await expect(page).toHaveTitle("Orvia v0.1.2-beta1");
+  await expect(page.locator(".sidebar-foot")).toContainText("v0.1.2-beta1");
   const loaded = await invoke("load_workspace");
   const doc = loaded.data.documents.find(
     (d) => d.title === "Upgrade preservation",
@@ -268,7 +268,7 @@ if (phase === "seed") {
     )
   )
     throw new Error("Upgrade lost AI history");
-  const changed = { ...doc, body: doc.body + "\n\nSaved by v0.1.1" };
+  const changed = { ...doc, body: doc.body + "\n\nSaved by v0.1.2-beta1" };
   const delta = {
     libraries: { upsert: [], remove: [] },
     documents: { upsert: [changed], remove: [] },
@@ -296,13 +296,28 @@ if (phase === "seed") {
   );
   if (phase === "verify") {
     await page
-      .getByRole("button", { name: strings.featureInDevelopment, exact: true })
+      .getByRole("button", { name: strings.noteStarMap, exact: true })
       .click();
-    await expect(page.locator(".toast span")).toHaveText(
-      strings.featureInDevelopmentHint,
+    await expect(page.locator(".star-map-stage")).toHaveAttribute(
+      "aria-busy",
+      "false",
     );
-    await expect(page.locator(".page-content")).toBeVisible();
-    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(
+      page
+        .locator(".star-map-node")
+        .filter({ hasText: "Upgrade preservation" }),
+    ).toHaveCount(1);
+    await page
+      .locator(".star-map-node")
+      .filter({ hasText: "Upgrade preservation" })
+      .dblclick();
+    await expect(page.locator(".document-title")).toHaveValue(
+      "Upgrade preservation",
+    );
+    await page
+      .getByRole("button", { name: strings.all, exact: false })
+      .first()
+      .click();
   }
   await page
     .locator(".document-card")
@@ -384,7 +399,7 @@ if (phase === "seed") {
     .click();
   if (
     !(await page.locator(".live-editor").innerText()).includes(
-      "Saved by v0.1.1",
+      "Saved by v0.1.2-beta1",
     )
   )
     throw new Error("Native editor reload failed");
@@ -1087,9 +1102,9 @@ if (phase === "seed") {
     JSON.stringify(
       {
         previous: previousVersion,
-        current: "0.1.1",
+        current: "0.1.2-beta1",
         uiVersionMatchesInstaller: true,
-        featurePreviewDoesNotNavigate: true,
+        noteStarMap: true,
         exportCloseBlockedAndNotePreserved: true,
         installerUpgrade: true,
         signedGithubUpdater: process.env.USE_UPDATER === "true",

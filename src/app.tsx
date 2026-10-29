@@ -58,7 +58,7 @@ import {
   FileText,
   Files,
   Folder,
-  FlaskConical,
+  Orbit,
   HardDrive,
   Minus,
   MoreHorizontal,
@@ -82,6 +82,7 @@ import {
 
 import { EditorWorkspace } from "./components/editor-workspace";
 import { LibraryHome } from "./components/library-home";
+import { NoteStarMap } from "./components/note-star-map";
 import { SettingsPanel } from "./components/settings-panel";
 export function App() {
   const [, redraw] = useReducer((n) => n + 1, 0),
@@ -169,8 +170,13 @@ export function App() {
   useLayoutEffect(() => {
     if (store.ready) applyTheme(data.settings.theme);
   }, [data.settings.theme, store.ready]);
-  useLayoutEffect(()=>{applyMotion(data.settings.motion);},[data.settings.motion]);
-  useViewMotion(`${store.ready}:${store.vaultMode}:${settingsOpen}:${page}:${selected||''}`,settingsOpen?'.settings-page':'#main-content');
+  useLayoutEffect(() => {
+    applyMotion(data.settings.motion);
+  }, [data.settings.motion]);
+  useViewMotion(
+    `${store.ready}:${store.vaultMode}:${settingsOpen}:${page}:${selected || ""}`,
+    settingsOpen ? ".settings-page" : "#main-content",
+  );
   useEffect(() => {
     document.documentElement.lang = locale;
     document.title = "Orvia v" + APP_VERSION;
@@ -367,7 +373,7 @@ export function App() {
     pageName =
       data.libraries.find((l) => l.id === page)?.name ??
       t(
-        (["all", "recent", "starred", "trash"].includes(page)
+        (["all", "recent", "starred", "trash", "noteStarMap"].includes(page)
           ? page
           : "all") as MessageKey,
       ),
@@ -807,11 +813,11 @@ export function App() {
                 </button>
               ))}
               <button
-                className="nav-row feature-preview-entry"
-                onClick={() => notify(t("featureInDevelopmentHint"), 2500)}
+                className={`nav-row star-map-entry ${page === "noteStarMap" && !active ? "active" : ""}`}
+                onClick={() => navigate("noteStarMap")}
               >
-                <FlaskConical size={17} />
-                <span>{t("featureInDevelopment")}</span>
+                <Orbit size={17} />
+                <span>{t("noteStarMap")}</span>
               </button>
             </div>
             <div className="group-heading">
@@ -1001,7 +1007,7 @@ export function App() {
                 key={active.id + store.vaultMode}
                 run={run}
                 suspended={settingsOpen}
-                configureAi={()=>setSettingsOpen(true)}
+                configureAi={() => setSettingsOpen(true)}
                 searchRequest={searchRequest}
                 confirm={confirm}
                 active={active}
@@ -1022,6 +1028,14 @@ export function App() {
                 setModal={setModal}
                 importFiles={importFiles}
                 busy={busy}
+              />
+            ) : page === "noteStarMap" ? (
+              <NoteStarMap
+                key={store.vaultMode}
+                data={data}
+                locale={locale}
+                onOpen={openDoc}
+                onLibrary={navigate}
               />
             ) : (
               <LibraryHome

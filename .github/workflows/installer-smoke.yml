@@ -23,8 +23,8 @@ on:
       previousTag:
         description: Installed baseline version
         type: choice
-        options: [v0.1.1-rc2, v0.1.0]
-        default: v0.1.1-rc2
+        options: [v0.1.1, v0.1.0]
+        default: v0.1.1
 permissions:
   contents: read
 jobs:
@@ -51,14 +51,14 @@ jobs:
       - name: Build disposable candidate installer
         if: inputs.candidateTag == ''
         run: npx tauri build --config '{"bundle":{"createUpdaterArtifacts":false}}'
-      - name: Install baseline, seed local notes, upgrade and verify v0.1.1
+      - name: Install baseline, seed local notes, upgrade and verify v0.1.2-beta1
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
           WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: --remote-debugging-port=9226
           CANDIDATE_TAG: ${{ inputs.candidateTag }}
           USE_UPDATER: ${{ inputs.useUpdater }}
-          PREVIOUS_TAG: ${{ inputs.previousTag || 'v0.1.1-rc2' }}
+          PREVIOUS_TAG: ${{ inputs.previousTag || 'v0.1.1' }}
           EXPECT_LEGACY_AI_KEY: ${{ inputs.previousTag == 'v0.1.0' && 'false' || 'true' }}
         run: |
           $previousDir = Join-Path $env:RUNNER_TEMP 'previous'
@@ -92,10 +92,10 @@ jobs:
             node scripts/native-smoke.mjs update
             if ($LASTEXITCODE -ne 0) { throw "Signed in-app updater failed" }
             for ($i=0; $i -lt 120; $i++) {
-              if ((Get-Item $executable).VersionInfo.ProductVersion -eq '0.1.1') { break }
+              if ((Get-Item $executable).VersionInfo.ProductVersion -eq '0.1.2-beta1') { break }
               Start-Sleep -Seconds 1
             }
-            if ((Get-Item $executable).VersionInfo.ProductVersion -ne '0.1.1') {
+            if ((Get-Item $executable).VersionInfo.ProductVersion -ne '0.1.2-beta1') {
               Get-Process | Where-Object { $_.MainWindowTitle -like '*Orvia*' -or $_.MainWindowTitle -like '*Installer*' } | Select-Object Id,ProcessName,MainWindowTitle
               Get-ItemProperty -LiteralPath $languageKey | Format-List
               $defaultExecutable = Join-Path $env:LOCALAPPDATA 'Orvia/orvia.exe'
