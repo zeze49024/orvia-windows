@@ -1,19 +1,15 @@
 {
-  "version": "0.1.1",
-  "notes": "# Orvia v0.1.1 正式版\n\n1、新增 “AI写作帮手”功能，目前仅支持用户自己导入API Key使用；\n\n2、优化 写作时的操作体验；\n\n3、新增 PDF导出格式；\n\n4、修复 在导出时退出应用导致文档消失的问题；\n\n5、优化 部分写作时的UI/UX体验",
-  "pub_date": "2026-10-27T08:53:24.306Z",
+  "version": "0.1.2-beta1",
+  "notes": "# Orvia v0.1.2-beta1\n\n新增笔记星图，支持笔记与知识库关系可视化、多种布局及交互浏览",
+  "pub_date": "2026-10-29T01:14:26.663Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRTWVLTkMxVzBkTlpEczh3VjFqcnZERHlOQUc1VnFnSm15cTZJTlNRdjRaYk5OblIrQW1IKytsSFFYQ2Yxd21KU2RBQWNZclRLbW5OazdHU2ltQmRENkY2a0w1UjV4UEFVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMDkxMTI0CWZpbGU6T3J2aWFfMC4xLjFfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMS4xCldabzk5VW5PbXh5TEpWWUJ1ZUprYzZrZGZ1b0pxS2FJeVFVZy8vUUVjK3h5QndPcWwyUml2a0lCblhqNUNWRUxPbVd6Z2NtMXd3U1VLUHN6N21zSURnPT0K",
-      "url": "https://github.com/zeze49024/orvia-windows/releases/download/v0.1.1/Orvia_0.1.1_x64-setup.exe"
-    },
-    "stable": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRTWVLTkMxVzBkTlpEczh3VjFqcnZERHlOQUc1VnFnSm15cTZJTlNRdjRaYk5OblIrQW1IKytsSFFYQ2Yxd21KU2RBQWNZclRLbW5OazdHU2ltQmRENkY2a0w1UjV4UEFVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMDkxMTI0CWZpbGU6T3J2aWFfMC4xLjFfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMS4xCldabzk5VW5PbXh5TEpWWUJ1ZUprYzZrZGZ1b0pxS2FJeVFVZy8vUUVjK3h5QndPcWwyUml2a0lCblhqNUNWRUxPbVd6Z2NtMXd3U1VLUHN6N21zSURnPT0K",
-      "url": "https://github.com/zeze49024/orvia-windows/releases/download/v0.1.1/Orvia_0.1.1_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRTWVLTkMxVzBkTlc2M1VYeS9id1FlVTl6OUV2aUdmdVJQa3cwQ3E3ZmRXRWFmS3J2dGlzLzFTUVZhQ1NWVzdNdjBwd0JpdmppWDhycHVvMURMaDIveDRGa2dxVXZXbndRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMjM2NDUxCWZpbGU6T3J2aWFfMC4xLjItYmV0YTFfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMS4yLWJldGExClpuQk9RVm96RDlKRnhDdkNyMEtZNVZIM0NubFQ0TzFMeHdZZ0tqcmhiZXlVL3RxSTIzMnBYK3NodmtEMzFQd3p5MzI3UkpFRDV4VkdIRHRQVWcxR0NBPT0K",
+      "url": "https://github.com/zeze49024/orvia-windows/releases/download/v0.1.2-beta1/Orvia_0.1.2-beta1_x64-setup.exe"
     },
     "preview": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRTWVLTkMxVzBkTlpEczh3VjFqcnZERHlOQUc1VnFnSm15cTZJTlNRdjRaYk5OblIrQW1IKytsSFFYQ2Yxd21KU2RBQWNZclRLbW5OazdHU2ltQmRENkY2a0w1UjV4UEFVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMDkxMTI0CWZpbGU6T3J2aWFfMC4xLjFfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMS4xCldabzk5VW5PbXh5TEpWWUJ1ZUprYzZrZGZ1b0pxS2FJeVFVZy8vUUVjK3h5QndPcWwyUml2a0lCblhqNUNWRUxPbVd6Z2NtMXd3U1VLUHN6N21zSURnPT0K",
-      "url": "https://github.com/zeze49024/orvia-windows/releases/download/v0.1.1/Orvia_0.1.1_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRTWVLTkMxVzBkTlc2M1VYeS9id1FlVTl6OUV2aUdmdVJQa3cwQ3E3ZmRXRWFmS3J2dGlzLzFTUVZhQ1NWVzdNdjBwd0JpdmppWDhycHVvMURMaDIveDRGa2dxVXZXbndRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMjM2NDUxCWZpbGU6T3J2aWFfMC4xLjItYmV0YTFfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMS4yLWJldGExClpuQk9RVm96RDlKRnhDdkNyMEtZNVZIM0NubFQ0TzFMeHdZZ0tqcmhiZXlVL3RxSTIzMnBYK3NodmtEMzFQd3p5MzI3UkpFRDV4VkdIRHRQVWcxR0NBPT0K",
+      "url": "https://github.com/zeze49024/orvia-windows/releases/download/v0.1.2-beta1/Orvia_0.1.2-beta1_x64-setup.exe"
     }
   }
 }
