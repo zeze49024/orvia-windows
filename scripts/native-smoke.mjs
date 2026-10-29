@@ -307,10 +307,13 @@ if (phase === "seed") {
         .locator(".star-map-node")
         .filter({ hasText: "Upgrade preservation" }),
     ).toHaveCount(1);
-    await page
-      .locator(".star-map-node")
-      .filter({ hasText: "Upgrade preservation" })
-      .dblclick();
+    const starNode = page.locator(".star-map-node").filter({hasText:"Upgrade preservation"});
+    await starNode.evaluate((element) => {
+      window.__graphClickEvents = [];
+      for (const type of ["pointerdown", "pointerup", "click", "dblclick"]) element.addEventListener(type, (event) => window.__graphClickEvents.push({type,detail:event.detail,x:event.clientX,y:event.clientY}));
+    });
+    await starNode.dblclick({delay:100});
+    console.log("Native graph pointer events:", await page.evaluate(()=>window.__graphClickEvents));
     await expect(page.locator(".document-title")).toHaveValue(
       "Upgrade preservation",
     );
