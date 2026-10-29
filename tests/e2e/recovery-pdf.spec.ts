@@ -13,6 +13,13 @@ async function create(page: Page, title: string, body: string) {
     .click();
   await page.locator(".live-editor").fill(body);
   await page.keyboard.press("Control+s");
+  // Finish the baseline transaction before injecting a disk failure. The UI
+  // may still briefly show the preceding saved state on a busy CI runner.
+  await page.evaluate(async () => {
+    const p = "/src/core/storage.ts";
+    const { store } = await import(p);
+    await store.flush();
+  });
   await expect(page.locator(".editor-save")).toContainText("已保存");
 }
 async function failWrites(page: Page) {

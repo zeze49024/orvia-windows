@@ -558,3 +558,7 @@
     transition: none;
   }
 }
+.star-map-detail.is-left {
+  left: 16px;
+  right: auto;
+}

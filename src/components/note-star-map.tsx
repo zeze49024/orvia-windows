@@ -592,7 +592,9 @@ export function NoteStarMap({
           </div>
         )}
         {selected && (
-          <aside className="star-map-detail">
+          <aside
+            className={`star-map-detail ${position(selected.id).x * camera.k + camera.x > 0 ? "is-left" : ""}`}
+          >
             <div className="star-map-detail-label">
               <span className={`star-map-dot graph-${selected.kind}`} />
               {t(`graphKind_${selected.kind}`)}

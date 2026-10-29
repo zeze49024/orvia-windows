@@ -177,3 +177,33 @@ test("graph supports dark theme, keyboard access, empty results and library navi
   await expect(page.locator(".star-map")).toHaveCount(0);
   await expect(page.locator(".page-intro h1")).toContainText("产品与设计");
 });
+
+test("short desktop detail card never intercepts the second click on a solitary note", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 900, height: 680 });
+  await seed(page);
+  await page.evaluate(async () => {
+    const p = "/src/core/storage.ts";
+    const { store } = await import(p);
+    store.change((s) => ({
+      ...s,
+      libraries: [s.libraries[0]],
+      documents: [s.documents[0]],
+    }));
+    await store.flush();
+  });
+  await expect(page.locator(".star-map-node")).toHaveCount(2);
+  const note = page.locator(".star-map-node").filter({ hasText: "知识的连接" });
+  await note.click();
+  const a = await note.boundingBox(),
+    b = await page.locator(".star-map-detail").boundingBox();
+  expect(
+    a!.x > b!.x + b!.width ||
+      a!.x + a!.width < b!.x ||
+      a!.y > b!.y + b!.height ||
+      a!.y + a!.height < b!.y,
+  ).toBe(true);
+  await note.dblclick({ delay: 100 });
+  await expect(page.locator(".document-title")).toHaveValue("知识的连接");
+});
