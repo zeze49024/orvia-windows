@@ -421,7 +421,7 @@
   "graphInstructions": "拖動空白處平移，滾輪縮放，拖動節點調整位置；單擊查看詳情，雙擊或聚焦後按 Enter 開啟。Esc 關閉詳情或退出展開檢視。",
   "graphRelationHelp": "虛線表示知識庫歸屬；實線表示明確的筆記連結。支援 [[筆記標題]]、[[知識庫/標題]]、[文字](標題.md) 和 orvia://note/筆記ID；重名、外部連結及程式碼區塊不產生關聯。",
   "graphClassification": "置頂優先，其次日記、熱門、普通筆記。日記由日記標籤或日期標題識別；熱門指至少連結 3 篇不同筆記；金色小圓點表示收藏。",
-  "graphLimitHelp": "為保持流暢，每個檢視最多顯示 500 篇筆記（置頂優先，其次最近更新），每篇解析前 100,000 字元；可按知識庫篩選更多內容。佈局位置僅在目前檢視有效，不修改筆記。",
+  "graphLimitHelp": "每個檢視最多顯示 500 篇符合的筆記，置頂優先，其次最近更新。搜尋按標題和標籤查找目前空間，選取知識庫時縮小範圍。每篇解析前 100,000 字元；佈局位置僅在目前檢視有效。",
   "graphLegend": "節點分類篩選",
   "graphKind_note": "普通筆記",
   "graphKind_popular": "熱門筆記",
@@ -449,9 +449,12 @@
   "graphCollapse": "收起星圖",
   "graphLocal": "本地關聯 · 即時呈現",
   "graphHint": "連按兩下節點開啟 · 拖動探索關聯",
-  "graphLimited": "已顯示最近 500 篇 / 總計",
+  "graphLimited": "已顯示最多 500 篇 / 符合",
   "graphFooter": "所有關聯均在本機計算",
   "graphLoading": "正在整理筆記關聯…",
   "graphFailed": "暫時無法產生星圖",
-  "graphRetryHint": "筆記內容未變更，可以重試。"
+  "graphRetryHint": "筆記內容未變更，可以重試。",
+  "graphFocus": "聚焦關聯",
+  "graphExitFocus": "退出關聯聚焦",
+  "graphNeighbors": "直接關聯"
 }

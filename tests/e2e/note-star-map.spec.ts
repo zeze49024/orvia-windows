@@ -102,7 +102,7 @@ test("star map uses local graph, filters, layouts, pan/zoom, details and opens a
     steps: 8,
   });
   await page.mouse.up();
-  expect(await note.getAttribute("transform")).not.toBe(initialTransform);
+  await expect(note).not.toHaveAttribute("transform", initialTransform!);
   await page.getByRole("button", { name: "适应画布", exact: true }).click();
   const canvasTransform = await page
     .locator(".star-map-canvas > g")
@@ -112,12 +112,23 @@ test("star map uses local graph, filters, layouts, pan/zoom, details and opens a
   await page.mouse.down();
   await page.mouse.move(canvasBox!.x + 60, canvasBox!.y + 45, { steps: 8 });
   await page.mouse.up();
-  expect(
-    await page.locator(".star-map-canvas > g").getAttribute("transform"),
-  ).not.toBe(canvasTransform);
+  await expect(page.locator(".star-map-canvas > g")).not.toHaveAttribute(
+    "transform",
+    canvasTransform!,
+  );
   await page.getByRole("button", { name: "适应画布", exact: true }).click();
   await note.click();
   await expect(page.locator(".star-map-detail h2")).toHaveText("知识的连接");
+  await page.getByRole("button", { name: "聚焦关联", exact: true }).click();
+  await expect(page.locator(".star-map-node")).toHaveCount(6);
+  await page
+    .locator(".star-map-related")
+    .getByRole("button", { name: "产品思考" })
+    .click();
+  await expect(page.locator(".star-map-detail h2")).toHaveText("产品思考");
+  await expect(page.locator(".star-map-node")).toHaveCount(4);
+  await page.getByRole("button", { name: "退出关联聚焦", exact: true }).click();
+  await expect(page.locator(".star-map-node")).toHaveCount(14);
   await page.getByRole("button", { name: "日记", exact: true }).click();
   await expect(page.locator(".star-map-node.graph-diary")).toHaveCount(0);
   await page.getByRole("button", { name: "日记", exact: true }).click();
@@ -206,4 +217,49 @@ test("short desktop detail card never intercepts the second click on a solitary 
   ).toBe(true);
   await note.dblclick({ delay: 100 });
   await expect(page.locator(".document-title")).toHaveValue("知识的连接");
+});
+
+test("dense maps group SVG links and search finds notes outside the initial 500", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.locator(".app-shell").waitFor();
+  await page.evaluate(async () => {
+    const modelPath = "/src/core/model.ts",
+      storagePath = "/src/core/storage.ts";
+    const { newDocument } = await import(modelPath);
+    const { store } = await import(storagePath);
+    store.change((s) => {
+      const id = s.libraries[0].id;
+      const references = Array.from(
+        { length: 50 },
+        (_, i) => "[[近期 " + i + "]]",
+      ).join(" ");
+      const documents = Array.from({ length: 500 }, (_, i) =>
+        newDocument(id, "近期 " + i, i < 50 ? references : ""),
+      );
+      const archived = newDocument(id, "早期归档");
+      archived.tags = ["独有归档标签"];
+      archived.updatedAt = "2000-01-01T00:00:00.000Z";
+      return { ...s, documents: [...documents, archived] };
+    });
+    await store.flush();
+  });
+  await page.getByRole("button", { name: "笔记星图", exact: true }).click();
+  await expect(page.locator(".star-map-node")).toHaveCount(501);
+  await expect(page.locator("path.star-map-edge")).toHaveCount(2);
+  await expect(page.locator("line.star-map-edge")).toHaveCount(0);
+  expect(await page.locator(".star-map-node text").count()).toBeLessThan(501);
+  await expect(
+    page.locator(".star-map-node").filter({ hasText: "早期归档" }),
+  ).toHaveCount(0);
+  await page
+    .getByRole("textbox", { name: "查找笔记、标签…" })
+    .fill("独有归档标签");
+  await expect(page.locator(".star-map-node")).toHaveCount(2);
+  await page
+    .locator(".star-map-node")
+    .filter({ hasText: "早期归档" })
+    .dblclick();
+  await expect(page.locator(".document-title")).toHaveValue("早期归档");
 });

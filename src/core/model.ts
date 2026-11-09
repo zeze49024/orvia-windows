@@ -6,7 +6,7 @@ import { localeCodes } from "../i18n/registry";
 import appPackage from "../../package.json";
 export const APP_VERSION = appPackage.version;
 export const RELEASE_NOTE =
-  "新增笔记星图，支持笔记与知识库关系可视化、多种布局及交互浏览";
+  "优化笔记星图的画布与节点展示，新增关联聚焦和全库搜索，提升大型星图的布局与浏览流畅度";
 export const colors = ["blue", "orange", "green", "purple", "rose"] as const;
 export const librarySchema = z.object({
   id: z.string().uuid(),

@@ -49,6 +49,36 @@ describe("local note constellation", () => {
     expect(g.nodes.find((n) => n.id === pinned.id)?.kind).toBe("pinned");
     expect(JSON.stringify([a, ...rest, diary, pinned])).toBe(before);
   });
+  it("finds older notes beyond the display cap and preserves ambiguous title checks across scopes", () => {
+    const l = emptyWorkspace().libraries[0];
+    const other = { ...l, id: crypto.randomUUID(), name: "其他知识库" };
+    const older = newDocument(l.id, "归档资料", "[[归档同名]]");
+    older.updatedAt = "2000-01-01T00:00:00.000Z";
+    older.tags = ["旧项目"];
+    const namesake = newDocument(l.id, "归档同名");
+    const outside = newDocument(other.id, "归档同名");
+    const recent = Array.from({ length: 500 }, (_, i) =>
+      newDocument(l.id, "近期" + i),
+    );
+    const docs = [older, namesake, outside, ...recent];
+    expect(
+      buildNoteGraph(docs, [l, other]).nodes.some((n) => n.id === older.id),
+    ).toBe(false);
+    const byTag = buildNoteGraph(docs, [l, other], 500, {
+      library: "all",
+      query: "旧项目",
+    });
+    expect(byTag.nodes.filter((n) => n.doc).map((n) => n.id)).toEqual([
+      older.id,
+    ]);
+    const scoped = buildNoteGraph(docs, [l, other], 500, {
+      library: l.id,
+      query: "归档",
+    });
+    expect(scoped.matching).toBe(2);
+    expect(scoped.nodes.some((n) => n.id === older.id)).toBe(true);
+    expect(scoped.edges.some((e) => e.kind === "link")).toBe(false);
+  });
   it("bounds visible notes with pinned priority and produces finite reproducible coordinates in all layouts", () => {
     const w = emptyWorkspace(),
       l = w.libraries[0],

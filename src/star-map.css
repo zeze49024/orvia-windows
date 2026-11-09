@@ -51,6 +51,10 @@
 .star-map-metrics {
   display: flex;
   gap: 26px;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: var(--surface-alt);
+  padding: 9px 16px;
 }
 .star-map-metrics span {
   display: flex;
@@ -157,6 +161,10 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: var(--surface);
 }
 .star-map-legend button[aria-pressed="false"] {
   opacity: 0.4;
@@ -211,14 +219,19 @@
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 20px;
+  isolation: isolate;
   background:
     radial-gradient(
-      ellipse at 40% 30%,
-      color-mix(in srgb, var(--purple, #8b77c7) 4%, transparent),
-      transparent 65%
+      ellipse at 24% 20%,
+      color-mix(in srgb, var(--blue) 7%, transparent),
+      transparent 62%
+    ),
+    radial-gradient(
+      ellipse at 80% 70%,
+      color-mix(in srgb, var(--purple, #8462c4) 9%, transparent),
+      transparent 61%
     ),
     var(--surface-alt);
-  isolation: isolate;
 }
 .star-map-canvas {
   position: absolute;
@@ -418,6 +431,9 @@
   border-radius: 15px;
   padding: 16px;
   box-shadow: 0 8px 28px #00000008;
+  max-height: calc(100% - 76px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .star-map-detail-label {
   display: flex;
@@ -561,4 +577,53 @@
 .star-map-detail.is-left {
   left: 16px;
   right: auto;
+}
+.star-map-legend button:hover {
+  background: var(--surface-hover);
+}
+.star-map-focus-banner {
+  position: absolute;
+  top: 15px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface);
+  border-radius: 999px;
+  color: var(--blue);
+}
+.star-map-related {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.star-map-related-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text-muted);
+  font-size: 11px;
+  margin-bottom: 5px;
+}
+.star-map-related ul {
+  max-height: 104px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.star-map-related button {
+  width: 100%;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  border-radius: 6px;
+  color: var(--text-secondary);
+}
+.star-map-related button:hover {
+  background: var(--surface-hover);
+}
+.star-map-related button span {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

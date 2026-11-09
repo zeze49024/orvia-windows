@@ -27,7 +27,9 @@ import {
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import {
-  layoutNoteGraph,
+  graphLayouts,
+  graphNoteLimit,
+  pickGraphDocuments,
   type NoteGraph,
   type GraphKind,
   type GraphLayout,
@@ -37,7 +39,8 @@ import type { Locale, Workspace } from "@/core/model";
 import { translator } from "@/i18n";
 
 const kinds: GraphKind[] = ["note", "popular", "diary", "pinned", "library"];
-const layouts: GraphLayout[] = ["force", "circle", "radial", "grid"];
+const emptyGraph: NoteGraph = { nodes: [], edges: [], total: 0, matching: 0 };
+const emptyPoints = new Map<string, Point>();
 export function NoteStarMap({
   data,
   locale,
@@ -64,6 +67,7 @@ export function NoteStarMap({
     [moved, setMoved] = useState<Map<string, Point>>(new Map());
   const stage = useRef<HTMLDivElement>(null),
     svg = useRef<SVGSVGElement>(null),
+    dragFrame = useRef(0),
     drag = useRef<{
       id: string;
       x: number;
@@ -72,42 +76,40 @@ export function NoteStarMap({
       moved: boolean;
     } | null>(null),
     dragged = useRef(false);
-  const [graph, setGraph] = useState<NoteGraph>({
-      nodes: [],
-      edges: [],
-      total: 0,
-    }),
-    [loading, setLoading] = useState(true),
-    [failed, setFailed] = useState(false),
-    [retry, setRetry] = useState(0);
+  const [result, setResult] = useState<{
+    graph: NoteGraph;
+    layouts: Record<GraphLayout, Map<string, Point>>;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [retry, setRetry] = useState(0);
+  const [settledQuery, setSettledQuery] = useState("");
+  const [focusMode, setFocusMode] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSettledQuery(query.trim()), 160);
+    return () => window.clearTimeout(timer);
+  }, [query]);
+
   useEffect(() => {
     setLoading(true);
-    setGraph({ nodes: [], edges: [], total: 0 });
+    setResult(null);
     setFailed(false);
     setSelectedId("");
+    setFocusMode(false);
     const worker = new Worker(
       new URL("../core/note-graph.worker.ts", import.meta.url),
       { type: "module" },
     );
-    const documents = data.documents.filter(
-      (d) => !d.deletedAt && (library === "all" || d.libraryId === library),
-    );
-    const picked = new Set(
-      [...documents]
-        .sort(
-          (a, b) =>
-            Number(b.pinned) - Number(a.pinned) ||
-            b.updatedAt.localeCompare(a.updatedAt) ||
-            a.id.localeCompare(b.id),
-        )
-        .slice(0, 500)
-        .map((d) => d.id),
-    );
+    const scope = { library, query: settledQuery };
+    const documents = data.documents.filter((d) => !d.deletedAt);
+    const { picked } = pickGraphDocuments(documents, scope);
+    const bodyIds = new Set(picked.map((d) => d.id));
     worker.onmessage = (
-      event: MessageEvent<{ graph?: NoteGraph; error?: boolean }>,
+      event: MessageEvent<NonNullable<typeof result> | { error: true }>,
     ) => {
-      if (event.data.graph) setGraph(event.data.graph);
-      setFailed(!!event.data.error);
+      if ("error" in event.data) setFailed(true);
+      else setResult(event.data);
       setLoading(false);
     };
     worker.onerror = () => {
@@ -117,58 +119,122 @@ export function NoteStarMap({
     worker.postMessage({
       documents: documents.map((d) => ({
         ...d,
-        body: picked.has(d.id) ? d.body.slice(0, 100_000) : "",
+        body: bodyIds.has(d.id) ? d.body.slice(0, 100_000) : "",
       })),
-      libraries: data.libraries.filter(
-        (l) => library === "all" || l.id === library,
-      ),
+      libraries: data.libraries,
+      scope,
     });
     return () => worker.terminate();
-  }, [data.documents, data.libraries, library, retry]);
+  }, [data.documents, data.libraries, library, settledQuery, retry]);
+
+  const graph = result?.graph ?? emptyGraph;
+  const base = useMemo(() => {
+    const nodes = new Map(
+      graph.nodes.filter((n) => !hidden.includes(n.kind)).map((n) => [n.id, n]),
+    );
+    const edges = graph.edges.filter(
+      (e) => nodes.has(e.source) && nodes.has(e.target),
+    );
+    const adjacent = new Map<string, Set<string>>();
+    for (const { source, target } of edges) {
+      for (const [id, other] of [
+        [source, target],
+        [target, source],
+      ]) {
+        const neighbors = adjacent.get(id) ?? new Set<string>();
+        neighbors.add(other);
+        adjacent.set(id, neighbors);
+      }
+    }
+    return { nodes, edges, adjacent };
+  }, [graph, hidden]);
+  const selected = base.nodes.get(selectedId);
+  const related = useMemo(
+    () =>
+      Array.from(base.adjacent.get(selectedId) ?? [], (id) =>
+        base.nodes.get(id)!,
+      ),
+    [base, selectedId],
+  );
+  const focusId = focusMode ? selected?.id : undefined;
   const filtered = useMemo(() => {
-    const q = query.trim().toLocaleLowerCase();
-    const matches = graph.nodes.filter(
-      (n) =>
-        !hidden.includes(n.kind) &&
-        (!q ||
-          (n.title + " " + (n.doc?.tags.join(" ") ?? ""))
-            .toLocaleLowerCase()
-            .includes(q)),
-    );
-    const parents = new Set(
-      matches
-        .filter((n) => n.kind !== "library")
-        .map((n) => `library:${n.libraryId}`),
-    );
-    const nodes = graph.nodes.filter(
-      (n) =>
-        matches.includes(n) ||
-        (n.kind === "library" &&
-          !hidden.includes("library") &&
-          parents.has(n.id)),
-    );
-    const ids = new Set(nodes.map((n) => n.id));
+    const ids = focusId
+      ? new Set([focusId, ...(base.adjacent.get(focusId) ?? [])])
+      : null;
+    const nodes = [...base.nodes.values()].filter((n) => !ids || ids.has(n.id));
+    const edges = ids
+      ? base.edges.filter((e) => ids.has(e.source) && ids.has(e.target))
+      : base.edges;
     return {
       nodes,
-      edges: graph.edges.filter((e) => ids.has(e.source) && ids.has(e.target)),
+      edges,
+      notes: nodes.filter((n) => n.kind !== "library").length,
+      links: edges.filter((e) => e.kind === "link").length,
     };
-  }, [graph, hidden, query]);
-  const points = useMemo(
-    () => layoutNoteGraph(filtered.nodes, filtered.edges, layout),
-    [filtered, layout],
+  }, [base, focusId]);
+  const points = result?.layouts[layout] ?? emptyPoints;
+  const viewPoints = useMemo(
+    () => filtered.nodes.map((n) => points.get(n.id)!),
+    [filtered, points],
   );
   const position = (nodeId: string) => moved.get(nodeId) ?? points.get(nodeId)!;
-  const selected = filtered.nodes.find((n) => n.id === selectedId),
-    focused =
-      (filtered.nodes.some((n) => n.id === hover) ? hover : "") || selected?.id;
-  const connected = new Set([
-    focused,
-    ...filtered.edges
-      .filter((e) => e.source === focused || e.target === focused)
-      .flatMap((e) => [e.source, e.target]),
-  ]);
+  const focused =
+    (filtered.nodes.some((n) => n.id === hover) ? hover : "") || selected?.id;
+  const neighbors = focused ? base.adjacent.get(focused) : undefined;
+  const connected = (id: string) => id === focused || !!neighbors?.has(id);
+  const dense = filtered.nodes.length > 60;
+  const nodeScale = dense ? Math.min(1, Math.max(0.38, camera.k * 1.5)) : 1;
+  const labels = useMemo(() => {
+    if (!dense) return null;
+    const occupied = new Set<string>();
+    const ordered = [...filtered.nodes].sort(
+      (a, b) =>
+        Number(b.kind === "library") - Number(a.kind === "library") ||
+        Number(b.kind === "pinned") - Number(a.kind === "pinned") ||
+        b.degree - a.degree,
+    );
+    return new Set(
+      ordered
+        .filter((n) => {
+          const p = moved.get(n.id) ?? points.get(n.id)!;
+          const cell =
+            Math.floor((p.x * camera.k) / 138) +
+            ":" +
+            Math.floor((p.y * camera.k) / 46);
+          if (occupied.has(cell)) return false;
+          occupied.add(cell);
+          return true;
+        })
+        .map((n) => n.id),
+    );
+  }, [dense, filtered, points, moved, camera.k]);
+  const packedEdges = useMemo(() => {
+    if (filtered.edges.length <= 1000) return null;
+    const paths = { link: "", membership: "" };
+    for (const { source, target, kind } of filtered.edges) {
+      const a = moved.get(source) ?? points.get(source)!;
+      const b = moved.get(target) ?? points.get(target)!;
+      paths[kind] +=
+        "M" +
+        Math.round(a.x) +
+        "," +
+        Math.round(a.y) +
+        "L" +
+        Math.round(b.x) +
+        "," +
+        Math.round(b.y);
+    }
+    return paths;
+  }, [filtered.edges, moved, points]);
+  const visibleEdges = packedEdges
+    ? focused
+      ? filtered.edges.filter(
+          (e) => e.source === focused || e.target === focused,
+        )
+      : []
+    : filtered.edges;
   const fit = useCallback(() => {
-    const p = [...points.values()];
+    const p = viewPoints;
     if (!p.length) {
       setCamera({ x: 0, y: 0, k: 1 });
       return;
@@ -180,7 +246,7 @@ export function NoteStarMap({
     const k = Math.min(
       1.5,
       Math.max(
-        0.12,
+        0.025,
         Math.min(
           (size.width - 70) / (maxX - minX),
           (size.height - 120) / (maxY - minY),
@@ -189,7 +255,7 @@ export function NoteStarMap({
     );
     setCamera({ x: (-(minX + maxX) / 2) * k, y: (-(minY + maxY) / 2) * k, k });
     setMoved(new Map());
-  }, [points, size]);
+  }, [viewPoints, size]);
   useEffect(() => {
     fit();
   }, [fit]);
@@ -209,14 +275,14 @@ export function NoteStarMap({
   const zoom = useCallback(
     (factor: number, px = 0, py = 0) =>
       setCamera((c) => {
-        const k = Math.max(0.12, Math.min(3, c.k * factor)),
+        const k = Math.max(0.025, Math.min(3, c.k * factor)),
           r = k / c.k;
         return { x: px - (px - c.x) * r, y: py - (py - c.y) * r, k };
       }),
     [],
   );
   useEffect(() => {
-    const element = stage.current;
+    const element = svg.current;
     if (!element) return;
     const wheel = (event: WheelEvent) => {
       event.preventDefault();
@@ -236,6 +302,7 @@ export function NoteStarMap({
         setExpanded(false);
         setHelp(false);
         setSelectedId("");
+        setFocusMode(false);
       }
     };
     window.addEventListener("keydown", escape);
@@ -254,6 +321,7 @@ export function NoteStarMap({
       moved: false,
     };
   };
+  useEffect(() => () => cancelAnimationFrame(dragFrame.current), []);
   const move = (event: React.PointerEvent<SVGSVGElement>) => {
     const d = drag.current;
     if (!d) return;
@@ -262,26 +330,28 @@ export function NoteStarMap({
     if (Math.hypot(dx, dy) > 4) d.moved = true;
     if (!d.moved) return;
     dragged.current = true;
-    if (d.id)
-      setMoved((old) =>
-        new Map(old).set(d.id, {
-          x: d.point.x + dx / camera.k,
-          y: d.point.y + dy / camera.k,
-        }),
-      );
-    else setCamera((c) => ({ ...c, x: d.point.x + dx, y: d.point.y + dy }));
+    cancelAnimationFrame(dragFrame.current);
+    dragFrame.current = requestAnimationFrame(() => {
+      if (d.id)
+        setMoved((old) =>
+          new Map(old).set(d.id, {
+            x: d.point.x + dx / camera.k,
+            y: d.point.y + dy / camera.k,
+          }),
+        );
+      else setCamera((c) => ({ ...c, x: d.point.x + dx, y: d.point.y + dy }));
+    });
   };
   const stop = () => {
     drag.current = null;
   };
   const open = (nodeId: string) => {
-    const node = filtered.nodes.find((n) => n.id === nodeId);
+    const node = base.nodes.get(nodeId);
     if (!node) return;
     if (node.kind === "library") onLibrary(node.libraryId);
     else onOpen(node.id);
   };
-  const notes = filtered.nodes.filter((n) => n.kind !== "library").length,
-    links = filtered.edges.filter((e) => e.kind === "link").length;
+  const { notes, links } = filtered;
   return (
     <section
       className={`star-map ${expanded ? "star-map-expanded" : ""}`}
@@ -309,7 +379,7 @@ export function NoteStarMap({
           </span>
           <span>
             <b>{filtered.nodes.length - notes}</b>
-            {t("libraries")}
+            {t("graphKind_library")}
           </span>
         </div>
       </header>
@@ -351,7 +421,7 @@ export function NoteStarMap({
           role="group"
           aria-label={t("graphLayout")}
         >
-          {layouts.map((value) => (
+          {graphLayouts.map((value) => (
             <button
               key={value}
               aria-pressed={layout === value}
@@ -404,7 +474,11 @@ export function NoteStarMap({
           {t("graphReference")}
         </span>
       </div>
-      <div className="star-map-stage" ref={stage} aria-busy={loading}>
+      <div
+        className="star-map-stage"
+        ref={stage}
+        aria-busy={loading || query.trim() !== settledQuery}
+      >
         <svg
           ref={svg}
           className="star-map-canvas"
@@ -417,7 +491,7 @@ export function NoteStarMap({
           onPointerCancel={stop}
           onLostPointerCapture={stop}
           onClick={() => {
-            if (!dragged.current) setSelectedId("");
+            if (!dragged.current && !focusMode) setSelectedId("");
           }}
         >
           <defs>
@@ -446,13 +520,24 @@ export function NoteStarMap({
             }
             transform={`translate(${size.width / 2 + camera.x},${size.height / 2 + camera.y}) scale(${camera.k})`}
           >
-            {filtered.edges.map((e) => {
+            {packedEdges &&
+              (["membership", "link"] as const).map((kind) => (
+                <path
+                  key={kind}
+                  className={
+                    "star-map-edge " + kind + (focused ? " is-dimmed" : "")
+                  }
+                  d={packedEdges[kind]}
+                  fill="none"
+                />
+              ))}
+            {visibleEdges.map((e) => {
               const a = position(e.source),
                 b = position(e.target);
               return (
                 <line
                   key={`${e.source}-${e.target}-${e.kind}`}
-                  className={`star-map-edge ${e.kind} ${focused ? (connected.has(e.source) && connected.has(e.target) ? "is-connected" : "is-dimmed") : ""}`}
+                  className={`star-map-edge ${e.kind} ${focused ? (e.source === focused || e.target === focused ? "is-connected" : "is-dimmed") : ""}`}
                   x1={a.x}
                   y1={a.y}
                   x2={b.x}
@@ -466,8 +551,8 @@ export function NoteStarMap({
               return (
                 <g
                   key={n.id}
-                  transform={`translate(${p.x},${p.y}) scale(${1 / camera.k})`}
-                  className={`star-map-node graph-${n.kind} ${n.id === selected?.id ? "is-selected" : ""} ${focused && !connected.has(n.id) ? "is-dimmed" : ""}`}
+                  transform={`translate(${p.x},${p.y}) scale(${nodeScale / camera.k})`}
+                  className={`star-map-node graph-${n.kind} ${n.id === selected?.id ? "is-selected" : ""} ${focused && !connected(n.id) ? "is-dimmed" : ""}`}
                   role="button"
                   tabIndex={0}
                   aria-label={`${n.title || t("untitled")} · ${t(`graphKind_${n.kind}`)}`}
@@ -509,7 +594,7 @@ export function NoteStarMap({
                         width="38"
                         height="38"
                         rx="12"
-                        filter={`url(#shadow-${id})`}
+                        filter={dense ? undefined : `url(#shadow-${id})`}
                       />
                       <Folder size={17} x={-8.5} y={-8.5} />
                     </>
@@ -531,11 +616,20 @@ export function NoteStarMap({
                       r="4"
                     />
                   )}
-                  <text y={r + 22} textAnchor="middle">
-                    {n.title.length > 17
-                      ? n.title.slice(0, 16) + "…"
-                      : n.title || t("untitled")}
-                  </text>
+                  {(!labels ||
+                    labels.has(n.id) ||
+                    n.id === focused ||
+                    n.id === selectedId) && (
+                    <text
+                      y={r * nodeScale + 18}
+                      textAnchor="middle"
+                      transform={"scale(" + 1 / nodeScale + ")"}
+                    >
+                      {[...n.title].length > 17
+                        ? [...n.title].slice(0, 16).join("") + "…"
+                        : n.title || t("untitled")}
+                    </text>
+                  )}
                 </g>
               );
             })}
@@ -591,6 +685,17 @@ export function NoteStarMap({
             )}
           </div>
         )}
+        {focusMode && selected && (
+          <Button
+            className="star-map-focus-banner"
+            size="sm"
+            variant="outline"
+            onClick={() => setFocusMode(false)}
+          >
+            <Focus size={14} />
+            {t("graphExitFocus")}
+          </Button>
+        )}
         {selected && (
           <aside
             className={`star-map-detail ${position(selected.id).x * camera.k + camera.x > 0 ? "is-left" : ""}`}
@@ -598,7 +703,13 @@ export function NoteStarMap({
             <div className="star-map-detail-label">
               <span className={`star-map-dot graph-${selected.kind}`} />
               {t(`graphKind_${selected.kind}`)}
-              <button aria-label={t("close")} onClick={() => setSelectedId("")}>
+              <button
+                aria-label={t("close")}
+                onClick={() => {
+                  setSelectedId("");
+                  setFocusMode(false);
+                }}
+              >
                 <X size={15} />
               </button>
             </div>
@@ -609,9 +720,39 @@ export function NoteStarMap({
                 : selected.doc?.body.replace(/[#*>`\[\]]/g, "").slice(0, 120) ||
                   t("graphBlankNote")}
             </p>
+            {related.length > 0 && (
+              <div className="star-map-related">
+                <div className="star-map-related-heading">
+                  <b>{t("graphNeighbors")}</b>
+                  <span>{related.length}</span>
+                </div>
+                <ul>
+                  {related.map((node) => (
+                    <li key={node.id}>
+                      <button
+                        onClick={() => setSelectedId(node.id)}
+                        title={node.title}
+                      >
+                        <i className={"star-map-dot graph-" + node.kind} />
+                        <span>{node.title || t("untitled")}</span>
+                        <ArrowUpRight size={12} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <div className="star-map-detail-footer">
               <span>
-                {selected.degree} {t("graphLinks")}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  aria-pressed={focusMode}
+                  onClick={() => setFocusMode(!focusMode)}
+                >
+                  <Focus size={14} />
+                  {t("graphFocus")}
+                </Button>
               </span>
               <Button
                 size="sm"
@@ -669,6 +810,7 @@ export function NoteStarMap({
               setLibrary("all");
               setHidden([]);
               setSelectedId("");
+              setFocusMode(false);
               fit();
             }}
           >
@@ -695,8 +837,8 @@ export function NoteStarMap({
           {t("graphHint")}
         </span>
         <span>
-          {graph.total > 500
-            ? `${t("graphLimited")} · ${graph.total}`
+          {graph.matching > graphNoteLimit
+            ? `${t("graphLimited")} · ${graph.matching}`
             : t("graphFooter")}
         </span>
       </footer>

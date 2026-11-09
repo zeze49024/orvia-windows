@@ -4,6 +4,14 @@ import type { Document, Library } from "./model";
 
 export type GraphKind = "note" | "popular" | "diary" | "pinned" | "library";
 export type GraphLayout = "force" | "circle" | "radial" | "grid";
+export const graphLayouts: GraphLayout[] = [
+  "force",
+  "circle",
+  "radial",
+  "grid",
+];
+export const graphNoteLimit = 500;
+export type GraphScope = { library: string; query: string };
 export interface GraphNode {
   id: string;
   title: string;
@@ -21,6 +29,7 @@ export interface NoteGraph {
   nodes: GraphNode[];
   edges: GraphEdge[];
   total: number;
+  matching: number;
 }
 export interface Point {
   x: number;
@@ -36,11 +45,37 @@ type Ast = {
 };
 const normalized = (s: string) => s.normalize("NFC").trim().toLocaleLowerCase();
 
+export function pickGraphDocuments(
+  documents: Document[],
+  { library, query }: GraphScope,
+  limit = graphNoteLimit,
+) {
+  const keyword = normalized(query);
+  const scoped = documents.filter(
+    (d) => !d.deletedAt && (library === "all" || d.libraryId === library),
+  );
+  const matches = keyword
+    ? scoped.filter((d) =>
+        normalized([d.title, ...d.tags].join(" ")).includes(keyword),
+      )
+    : scoped;
+  const picked = matches
+    .sort(
+      (a, b) =>
+        Number(b.pinned) - Number(a.pinned) ||
+        b.updatedAt.localeCompare(a.updatedAt) ||
+        a.id.localeCompare(b.id),
+    )
+    .slice(0, Math.max(0, limit));
+  return { picked, total: scoped.length, matching: matches.length };
+}
+
 /** Resolve only explicit local references. Ambiguous titles and external URLs never form edges. */
 export function buildNoteGraph(
   documents: Document[],
   libraries: Library[],
-  limit = 500,
+  limit = graphNoteLimit,
+  scope: GraphScope = { library: "all", query: "" },
 ): NoteGraph {
   const alive = documents.filter((d) => !d.deletedAt);
   const byId = new Map(alive.map((d) => [d.id, d]));
@@ -54,14 +89,7 @@ export function buildNoteGraph(
       aliases.get(key)!.add(d.id);
     }
   }
-  const picked = [...alive]
-    .sort(
-      (a, b) =>
-        Number(b.pinned) - Number(a.pinned) ||
-        b.updatedAt.localeCompare(a.updatedAt) ||
-        a.id.localeCompare(b.id),
-    )
-    .slice(0, Math.max(0, limit));
+  const { picked, total, matching } = pickGraphDocuments(alive, scope, limit);
   const shown = new Set(picked.map((d) => d.id));
   const edges: GraphEdge[] = [],
     seen = new Set<string>(),
@@ -94,7 +122,9 @@ export function buildNoteGraph(
     });
     const targets = new Set<string>();
     // Bound work for multi-megabyte notes; parser never evaluates HTML or requests a URL.
-    const tree = parser.parse(d.body.slice(0, 100_000)) as Ast;
+    const body = d.body.slice(0, 100_000);
+    if (!body.includes("[") && !body.includes("<")) continue;
+    const tree = parser.parse(body) as Ast;
     const definitions = new Map<string, string>();
     const walk = (node: Ast, visit: (n: Ast) => void) => {
       visit(node);
@@ -134,13 +164,23 @@ export function buildNoteGraph(
       }
     }
   }
-  const nodes: GraphNode[] = libraries.map((l) => ({
-    id: `library:${l.id}`,
-    title: l.name,
-    kind: "library",
-    libraryId: l.id,
-    degree: 0,
-  }));
+  const parentIds = new Set(picked.map((d) => d.libraryId));
+  const keyword = normalized(scope.query);
+  const nodes: GraphNode[] = libraries
+    .filter(
+      (l) =>
+        (scope.library === "all" || l.id === scope.library) &&
+        (!keyword ||
+          parentIds.has(l.id) ||
+          normalized(l.name).includes(keyword)),
+    )
+    .map((l) => ({
+      id: `library:${l.id}`,
+      title: l.name,
+      kind: "library",
+      libraryId: l.id,
+      degree: 0,
+    }));
   for (const d of picked) {
     const count = degree.get(d.id)?.size ?? 0;
     const diary =
@@ -161,7 +201,7 @@ export function buildNoteGraph(
       doc: d,
     });
   }
-  return { nodes, edges, total: alive.length };
+  return { nodes, edges, total, matching };
 }
 
 /** Deterministic, bounded layouts; force uses a spatial grid rather than all-pairs repulsion. */
@@ -173,7 +213,7 @@ export function layoutNoteGraph(
   const points = new Map<string, Point>();
   const libs = nodes.filter((n) => n.kind === "library"),
     count = nodes.length;
-  const radius = Math.max(240, Math.sqrt(count) * 38);
+  const radius = Math.max(240, count * 11);
   nodes.forEach((n, i) => {
     const a = (i / Math.max(1, count)) * Math.PI * 2 - Math.PI / 2;
     points.set(n.id, { x: Math.cos(a) * radius, y: Math.sin(a) * radius });
@@ -188,19 +228,32 @@ export function layoutNoteGraph(
     );
   }
   if (layout === "radial" || layout === "force") {
+    const groups = new Map<string, GraphNode[]>();
+    for (const node of nodes) {
+      if (node.kind === "library") continue;
+      const group = groups.get(node.libraryId) ?? [];
+      group.push(node);
+      groups.set(node.libraryId, group);
+    }
+    const clusterRadius = Math.max(
+      240,
+      Math.sqrt(count) * 38,
+      libs.length * 32,
+    );
     libs.forEach((l, i) => {
       const a = (i / Math.max(1, libs.length)) * Math.PI * 2;
       const center = {
-        x: libs.length === 1 ? 0 : Math.cos(a) * radius,
-        y: libs.length === 1 ? 0 : Math.sin(a) * radius,
+        x: libs.length === 1 ? 0 : Math.cos(a) * clusterRadius,
+        y: libs.length === 1 ? 0 : Math.sin(a) * clusterRadius,
       };
       points.set(l.id, center);
-      const children = nodes.filter(
-        (n) => n.kind !== "library" && n.libraryId === l.libraryId,
-      );
+      const children = groups.get(l.libraryId) ?? [];
       children.forEach((n, j) => {
-        const angle = (j / Math.max(1, children.length)) * Math.PI * 2;
-        const r = 110 + Math.floor(j / 12) * 65;
+        const angle =
+          children.length <= 12
+            ? (j / Math.max(1, children.length)) * Math.PI * 2
+            : j * Math.PI * (3 - Math.sqrt(5));
+        const r = children.length <= 12 ? 110 : 68 + 42 * Math.sqrt(j);
         points.set(n.id, {
           x: center.x + Math.cos(angle) * r,
           y: center.y + Math.sin(angle) * r,
@@ -209,7 +262,8 @@ export function layoutNoteGraph(
     });
   }
   if (layout === "force") {
-    for (let iteration = 0; iteration < 90; iteration++) {
+    const iterations = count > 200 ? 55 : 90;
+    for (let iteration = 0; iteration < iterations; iteration++) {
       const cells = new Map<string, GraphNode[]>(),
         forces = new Map(nodes.map((n) => [n.id, { x: 0, y: 0 }]));
       for (const n of nodes) {
@@ -255,7 +309,7 @@ export function layoutNoteGraph(
         forces.get(e.target)!.x -= (x / d) * k;
         forces.get(e.target)!.y -= (y / d) * k;
       }
-      const step = 1 - iteration / 110;
+      const step = 1 - iteration / (iterations + 20);
       for (const n of nodes) {
         const p = points.get(n.id)!,
           f = forces.get(n.id)!;

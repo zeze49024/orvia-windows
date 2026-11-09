@@ -421,7 +421,7 @@
   "graphInstructions": "拖动空白处平移，滚轮缩放，拖动节点调整位置；单击查看详情，双击或聚焦后按 Enter 打开。Esc 关闭详情或退出展开视图。",
   "graphRelationHelp": "虚线表示知识库归属；实线表示明确的笔记链接。支持 [[笔记标题]]、[[知识库/标题]]、[文字](标题.md) 和 orvia://note/笔记ID；重名、外部链接及代码块不产生关联。",
   "graphClassification": "置顶优先，其次日记、热门、普通笔记。日记由日记标签或日期标题识别；热门指至少连接 3 篇不同笔记；金色小圆点表示收藏。",
-  "graphLimitHelp": "为保持流畅，每个视图最多显示 500 篇笔记（置顶优先，其次最近更新），每篇解析前 100,000 字符；可按知识库筛选更多内容。布局位置仅在当前视图有效，不修改笔记。",
+  "graphLimitHelp": "每个视图最多显示 500 篇匹配的笔记，置顶优先，其次最近更新。搜索按标题和标签检索当前空间，选中知识库时缩小范围。每篇解析前 100,000 字符；布局位置仅在当前视图有效。",
   "graphLegend": "节点分类筛选",
   "graphKind_note": "普通笔记",
   "graphKind_popular": "热门笔记",
@@ -449,9 +449,12 @@
   "graphCollapse": "收起星图",
   "graphLocal": "本地关联 · 实时呈现",
   "graphHint": "双击节点打开 · 拖动探索关联",
-  "graphLimited": "已显示最近 500 篇 / 总计",
+  "graphLimited": "已显示最多 500 篇 / 匹配",
   "graphFooter": "所有关联均在本机计算",
   "graphLoading": "正在整理笔记关联…",
   "graphFailed": "暂时无法生成星图",
-  "graphRetryHint": "笔记内容未改动，可以重试。"
+  "graphRetryHint": "笔记内容未改动，可以重试。",
+  "graphFocus": "聚焦关联",
+  "graphExitFocus": "退出关联聚焦",
+  "graphNeighbors": "直接关联"
 }

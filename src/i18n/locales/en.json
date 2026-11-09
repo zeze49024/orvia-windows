@@ -421,7 +421,7 @@
   "graphInstructions": "Drag the canvas to pan, scroll to zoom, drag nodes to reposition. Click for details; double-click or press Enter to open. Escape closes details or the expanded view.",
   "graphRelationHelp": "Dashed lines show library membership. Solid lines show explicit note links: [[title]], [[library/title]], [text](title.md), or orvia://note/noteID. Ambiguous titles, external URLs and code blocks do not create links.",
   "graphClassification": "Categories: pinned, then diary, popular, ordinary. Diaries use diary/journal tags or date titles. Popular notes link to at least 3 distinct notes. Gold dots mark favorites.",
-  "graphLimitHelp": "Each view shows up to 500 notes, pinned first then recently updated; links use the first 100,000 characters per note. Filter by library for more. Layout changes are temporary and never modify notes.",
+  "graphLimitHelp": "Each view shows up to 500 matching notes, pinned first then recently updated. Search scans titles and tags in the current space or selected library. Links use the first 100,000 characters per note. Layout changes are temporary.",
   "graphLegend": "Node category filters",
   "graphKind_note": "Ordinary",
   "graphKind_popular": "Popular",
@@ -449,9 +449,12 @@
   "graphCollapse": "Collapse map",
   "graphLocal": "LOCAL CONNECTIONS",
   "graphHint": "Double-click to open · drag to explore",
-  "graphLimited": "Showing up to 500 recent notes / total",
+  "graphLimited": "Showing up to 500 notes / matches",
   "graphFooter": "All connections are computed locally",
   "graphLoading": "Mapping your notes…",
   "graphFailed": "Could not build this map",
-  "graphRetryHint": "Your notes are unchanged. Please try again."
+  "graphRetryHint": "Your notes are unchanged. Please try again.",
+  "graphFocus": "Focus",
+  "graphExitFocus": "Exit focus",
+  "graphNeighbors": "Connections"
 }
